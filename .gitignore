@@ -4,8 +4,11 @@ __pycache__/
 dist/
 build/
 .env
-data/*.db
+*.db
+*.db-shm
+*.db-wal
 data/models/
 data/cache/
 .venv/
 *.joblib
+.pytest_cache/

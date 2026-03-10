@@ -7,7 +7,7 @@ from sba.config import get_settings
 from sba.data.clients.odds_api import OddsAPIClient
 from sba.data.db import get_connection, init_db
 from sba.data.db.repository import Repository
-from sba.models.domain import EventOdds, EdgeOpportunity, OddsSnapshot
+from sba.models.domain import EventOdds, EdgeOpportunity
 from sba.models.statistical.implied_prob import consensus_probability, sharp_probability
 from sba.models.statistical.ev import find_ev_opportunities
 from sba.models.statistical.poisson import over_under_prob
@@ -87,19 +87,7 @@ class EdgeFinder:
 
     def _store_snapshots(self, events_odds: list[EventOdds]):
         with get_connection() as conn:
-            for eo in events_odds:
-                self.repo.upsert_event(conn, eo.event)
-                for bm in eo.bookmakers:
-                    for outcome in bm.outcomes:
-                        self.repo.insert_odds_snapshot(conn, OddsSnapshot(
-                            event_id=eo.event.id,
-                            bookmaker=bm.bookmaker,
-                            market=bm.market,
-                            outcome_name=outcome.name,
-                            outcome_point=outcome.point,
-                            price_american=outcome.price_american,
-                            price_decimal=outcome.price_decimal,
-                        ))
+            self.repo.store_event_odds(conn, events_odds)
 
     def _group_by_market(self, event_odds: EventOdds) -> dict:
         markets = {}

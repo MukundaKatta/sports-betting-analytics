@@ -1,7 +1,10 @@
 """Main CLI application."""
 
+import logging
+
 import typer
 from rich.console import Console
+from rich.logging import RichHandler
 
 from sba.cli.commands.edge import edge_app
 from sba.cli.commands.props import props_app
@@ -24,17 +27,31 @@ app.command("monitor")(monitor_command)
 console = Console()
 
 
+def _setup_logging(level: str = "INFO"):
+    """Configure structured logging with Rich output."""
+    logging.basicConfig(
+        level=getattr(logging, level.upper(), logging.INFO),
+        format="%(message)s",
+        datefmt="[%X]",
+        handlers=[RichHandler(console=console, rich_tracebacks=True, show_path=False)],
+    )
+
+
 @app.command("version")
 def version():
     """Show version."""
     from sba import __version__
+
     console.print(f"sba v{__version__}")
 
 
 @app.callback()
 def callback():
     """Sports Betting Analytics — Find +EV opportunities and analyze player props."""
-    pass
+    from sba.config import get_settings
+
+    settings = get_settings()
+    _setup_logging(settings.LOG_LEVEL)
 
 
 def main():

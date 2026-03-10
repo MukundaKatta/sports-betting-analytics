@@ -26,6 +26,7 @@ dev = [
     "pytest>=7.0",
     "pytest-asyncio>=0.21",
     "respx>=0.21",
+    "ruff>=0.4",
 ]
 
 [project.scripts]
@@ -33,3 +34,32 @@ sba = "sba.cli.app:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/sba"]
+
+[tool.ruff]
+target-version = "py39"
+line-length = 100
+
+[tool.ruff.lint]
+select = [
+    "E",     # pycodestyle errors
+    "W",     # pycodestyle warnings
+    "F",     # pyflakes
+    "I",     # isort
+    "B",     # flake8-bugbear
+    "S",     # flake8-bandit (security)
+    "UP",    # pyupgrade
+    "SIM",   # flake8-simplify
+    "RUF",   # ruff-specific rules
+]
+ignore = [
+    "S101",  # assert used (fine in tests)
+    "S608",  # SQL injection (we use parameterized queries)
+    "E501",  # line too long (handled by line-length)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "S106"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v --tb=short"

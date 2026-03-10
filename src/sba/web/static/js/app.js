@@ -17,7 +17,9 @@ const SBA = {
         this.setupKeyboardShortcuts();
         this.updateStatus();
         this.highlightActiveNav();
+        this.checkAlerts();
         setInterval(() => this.updateStatus(), 60000);
+        setInterval(() => this.checkAlerts(), 30000);
     },
 
     // ── Clock ─────────────────────────────────────────────────────────
@@ -660,6 +662,20 @@ const SBA = {
             </div>`;
         }).join('');
 
+        // Parlay calculation
+        const parlay = this.calcParlayOdds();
+        const parlayHtml = parlay ? `
+            <div class="slip-parlay">
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-top:1px solid var(--border-light);margin-top:4px">
+                    <span style="font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-tertiary)">Parlay Odds</span>
+                    <span class="font-mono font-bold" style="color:var(--accent-purple)">${parlay.american > 0 ? '+' : ''}${parlay.american}</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0">
+                    <span style="font-size:11px;color:var(--text-tertiary)">Parlay Multiplier</span>
+                    <span class="font-mono" style="font-size:12px">${parlay.decimal.toFixed(2)}x</span>
+                </div>
+            </div>` : '';
+
         // Update footer with totals
         footer.innerHTML = `
             <div class="slip-total">
@@ -670,6 +686,7 @@ const SBA = {
                 <span>Total Payout</span>
                 <span class="slip-total-value">$${totalPayout.toFixed(2)}</span>
             </div>
+            ${parlayHtml}
             <button class="btn btn-primary btn-block" onclick="SBA.placeBets()" style="margin-top:8px">Track All Bets</button>
             <button class="btn btn-outline btn-block" onclick="SBA.clearSlip()">Clear Slip</button>
         `;
@@ -891,26 +908,38 @@ const SBA = {
             const health = await healthResp.json();
             const status = await statusResp.json();
 
-            // Bankroll settings
+            // Bankroll settings (editable)
             const bankrollEl = document.getElementById('bankroll-settings');
             if (bankrollEl) {
                 bankrollEl.innerHTML = `
                     <div style="display:grid;gap:16px">
-                        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--border-light)">
+                        <div class="settings-row">
                             <div><div class="font-bold">Bankroll</div><div class="text-dim" style="font-size:12px">Total bankroll for Kelly criterion sizing</div></div>
-                            <div class="font-mono font-bold text-green" style="font-size:18px">$${settings.bankroll.toLocaleString()}</div>
+                            <div style="display:flex;align-items:center;gap:8px">
+                                <span class="font-mono font-bold text-green" style="font-size:18px">$${settings.bankroll.toLocaleString()}</span>
+                                <button class="btn btn-outline btn-sm" onclick="const v=prompt('New bankroll:','${settings.bankroll}');if(v)SBA.updateSetting('bankroll',parseFloat(v))">Edit</button>
+                            </div>
                         </div>
-                        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--border-light)">
+                        <div class="settings-row">
                             <div><div class="font-bold">Kelly Fraction</div><div class="text-dim" style="font-size:12px">Fractional Kelly multiplier (1.0 = full Kelly)</div></div>
-                            <div class="font-mono font-bold" style="font-size:18px">${settings.kelly_fraction}</div>
+                            <div style="display:flex;align-items:center;gap:8px">
+                                <span class="font-mono font-bold" style="font-size:18px">${settings.kelly_fraction}</span>
+                                <button class="btn btn-outline btn-sm" onclick="const v=prompt('New Kelly fraction:','${settings.kelly_fraction}');if(v)SBA.updateSetting('kelly_fraction',parseFloat(v))">Edit</button>
+                            </div>
                         </div>
-                        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--border-light)">
+                        <div class="settings-row">
                             <div><div class="font-bold">EV Threshold</div><div class="text-dim" style="font-size:12px">Minimum expected value to flag as +EV</div></div>
-                            <div class="font-mono font-bold" style="font-size:18px">${(settings.ev_threshold * 100).toFixed(1)}%</div>
+                            <div style="display:flex;align-items:center;gap:8px">
+                                <span class="font-mono font-bold" style="font-size:18px">${(settings.ev_threshold * 100).toFixed(1)}%</span>
+                                <button class="btn btn-outline btn-sm" onclick="const v=prompt('New EV threshold (decimal, e.g. 0.03):','${settings.ev_threshold}');if(v)SBA.updateSetting('ev_threshold',parseFloat(v))">Edit</button>
+                            </div>
                         </div>
-                        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0">
+                        <div class="settings-row" style="border-bottom:none">
                             <div><div class="font-bold">Default Sport</div><div class="text-dim" style="font-size:12px">Primary sport for scanning</div></div>
-                            <span class="market-tag">${settings.default_sport}</span>
+                            <div style="display:flex;align-items:center;gap:8px">
+                                <span class="market-tag">${settings.default_sport}</span>
+                                <button class="btn btn-outline btn-sm" onclick="const v=prompt('Default sport key:','${settings.default_sport}');if(v)SBA.updateSetting('default_sport',v)">Edit</button>
+                            </div>
                         </div>
                     </div>
                     <p class="text-dim" style="font-size:11px;margin-top:16px">Settings are configured via environment variables or .env file</p>
@@ -1103,6 +1132,162 @@ const SBA = {
     loadTheme() {
         const saved = localStorage.getItem('sba-theme');
         if (saved) document.documentElement.setAttribute('data-theme', saved);
+    },
+
+    // ── Odds Comparison ──────────────────────────────────────────────
+    async loadOddsComparisonEvents() {
+        const select = document.getElementById('oc-event-select');
+        if (!select) return;
+        try {
+            const resp = await fetch('/api/events');
+            const events = await resp.json();
+            events.forEach(e => {
+                const opt = document.createElement('option');
+                opt.value = e.id;
+                opt.textContent = `${e.away_team} @ ${e.home_team}`;
+                select.appendChild(opt);
+            });
+        } catch {}
+    },
+
+    async loadOddsComparison(eventId) {
+        const matrixEl = document.getElementById('oc-matrix');
+        const bestEl = document.getElementById('oc-best-odds');
+        const timeEl = document.getElementById('oc-snapshot-time');
+        if (!eventId || !matrixEl) return;
+
+        const market = document.getElementById('oc-market-select')?.value || 'h2h';
+        matrixEl.innerHTML = '<div class="loading-spinner"><div class="spinner"></div> Loading odds matrix...</div>';
+
+        try {
+            const resp = await fetch(`/api/odds-comparison/${eventId}?market=${market}`);
+            const data = await resp.json();
+
+            if (data.bookmakers.length === 0) {
+                matrixEl.innerHTML = '<div class="empty-state" style="padding:40px"><p>No odds data for this event. Run <code class="step-code" style="display:inline">sba data sync</code> first.</p></div>';
+                return;
+            }
+
+            if (timeEl) timeEl.textContent = `${data.total_snapshots} snapshots`;
+
+            // Find best odds per outcome
+            const bestOdds = {};
+            Object.entries(data.outcomes).forEach(([outcome, entries]) => {
+                bestOdds[outcome] = entries.reduce((best, e) =>
+                    e.odds_american > (best?.odds_american ?? -9999) ? e : best, null);
+            });
+
+            // Best odds cards
+            if (bestEl) {
+                bestEl.innerHTML = Object.entries(bestOdds).map(([outcome, best]) => `
+                    <div class="stat-card green">
+                        <div class="stat-label">${outcome}</div>
+                        <div class="stat-value">${best.odds_american > 0 ? '+' : ''}${best.odds_american}</div>
+                        <div class="stat-sub">Best at <span class="font-bold">${best.bookmaker}</span></div>
+                    </div>
+                `).join('');
+            }
+
+            // Build matrix table
+            const outcomes = Object.keys(data.outcomes);
+            matrixEl.innerHTML = `
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Bookmaker</th>
+                            ${outcomes.map(o => `<th class="right">${o}</th>`).join('')}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${data.bookmakers.map((bk, i) => {
+                            return `<tr class="new-row" style="animation-delay:${i * 0.03}s">
+                                <td class="font-bold">${bk}</td>
+                                ${outcomes.map(o => {
+                                    const entry = data.outcomes[o]?.find(e => e.bookmaker === bk);
+                                    if (!entry) return '<td class="right text-dim">—</td>';
+                                    const isBest = bestOdds[o]?.bookmaker === bk;
+                                    return `<td class="right">
+                                        <span class="odds-badge ${entry.odds_american > 0 ? 'positive' : 'negative'} ${isBest ? 'selected' : ''}"
+                                              onclick="SBA.addToSlip('${eventId}', '${o}', ${entry.odds_american}, '${market}', '${bk}', '${o}', 0)"
+                                              data-tooltip="Click to add to slip">
+                                            ${entry.odds_american > 0 ? '+' : ''}${entry.odds_american}
+                                        </span>
+                                    </td>`;
+                                }).join('')}
+                            </tr>`;
+                        }).join('')}
+                    </tbody>
+                </table>
+            `;
+        } catch (err) {
+            matrixEl.innerHTML = `<div class="empty-state text-red">Error: ${err.message}</div>`;
+        }
+    },
+
+    // ── Notifications / Alerts ───────────────────────────────────────
+    async checkAlerts() {
+        try {
+            const resp = await fetch('/api/alerts');
+            const data = await resp.json();
+            const countEl = document.getElementById('notification-count');
+            const bellEl = document.getElementById('notification-bell');
+            if (countEl && data.count > 0) {
+                countEl.textContent = data.count;
+                countEl.style.display = 'flex';
+                bellEl?.classList.add('has-alerts');
+            } else if (countEl) {
+                countEl.style.display = 'none';
+                bellEl?.classList.remove('has-alerts');
+            }
+        } catch {}
+    },
+
+    toggleNotifications() {
+        const panel = document.getElementById('notification-panel');
+        if (panel) {
+            panel.classList.toggle('open');
+        } else {
+            this.toast('No new edge alerts', 'info');
+        }
+    },
+
+    // ── Parlay Calculator ────────────────────────────────────────────
+    calcParlayOdds() {
+        if (this.betSlip.length < 2) return null;
+        let parlayDecimal = 1;
+        this.betSlip.forEach(b => {
+            const dec = b.odds > 0 ? (b.odds / 100) + 1 : (100 / Math.abs(b.odds)) + 1;
+            parlayDecimal *= dec;
+        });
+        // Convert back to American
+        let parlayAmerican;
+        if (parlayDecimal >= 2) {
+            parlayAmerican = Math.round((parlayDecimal - 1) * 100);
+        } else {
+            parlayAmerican = Math.round(-100 / (parlayDecimal - 1));
+        }
+        return { decimal: parlayDecimal, american: parlayAmerican };
+    },
+
+    // ── Editable Settings ────────────────────────────────────────────
+    async updateSetting(field, value) {
+        try {
+            const body = {};
+            body[field] = value;
+            const resp = await fetch('/api/settings', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+            });
+            if (resp.ok) {
+                this.toast(`${field} updated`, 'success');
+                this.loadSettings();
+            } else {
+                this.toast('Failed to update setting', 'error');
+            }
+        } catch {
+            this.toast('Failed to update setting', 'error');
+        }
     },
 };
 

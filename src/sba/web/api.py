@@ -158,6 +158,14 @@ class SettleBetRequest(BaseModel):
     profit_loss: float
 
 
+class UpdateSettingsRequest(BaseModel):
+    bankroll: float | None = None
+    kelly_fraction: float | None = None
+    ev_threshold: float | None = None
+    default_sport: str | None = None
+    refresh_interval: int | None = None
+
+
 # ── Health & Status ─────────────────────────────────────────────
 
 _start_time = datetime.now()
@@ -602,3 +610,87 @@ def get_settings_endpoint():
         default_sport=settings.DEFAULT_SPORT,
         refresh_interval=settings.REFRESH_INTERVAL_SECONDS,
     )
+
+
+@router.put("/settings")
+def update_settings_endpoint(req: UpdateSettingsRequest):
+    """Update app settings (runtime only, not persisted to .env)."""
+    import os
+
+    updates = {}
+    if req.bankroll is not None:
+        os.environ["BANKROLL"] = str(req.bankroll)
+        updates["bankroll"] = req.bankroll
+    if req.kelly_fraction is not None:
+        os.environ["KELLY_FRACTION"] = str(req.kelly_fraction)
+        updates["kelly_fraction"] = req.kelly_fraction
+    if req.ev_threshold is not None:
+        os.environ["EV_THRESHOLD"] = str(req.ev_threshold)
+        updates["ev_threshold"] = req.ev_threshold
+    if req.default_sport is not None:
+        os.environ["DEFAULT_SPORT"] = req.default_sport
+        updates["default_sport"] = req.default_sport
+    if req.refresh_interval is not None:
+        os.environ["REFRESH_INTERVAL_SECONDS"] = str(req.refresh_interval)
+        updates["refresh_interval"] = req.refresh_interval
+
+    # Clear settings cache so next get_settings() picks up changes
+    get_settings.cache_clear()
+    return {"updated": updates}
+
+
+# ── Odds Comparison ─────────────────────────────────────────────────
+
+@router.get("/odds-comparison/{event_id}")
+def get_odds_comparison(event_id: str, market: str = Query("h2h")):
+    """Get latest odds from all bookmakers for an event, grouped by outcome."""
+    with get_connection() as conn:
+        snapshots = repo.get_odds_history(conn, event_id, market)
+
+    # Group by bookmaker+outcome, keep only latest snapshot per group
+    latest: dict[str, dict] = {}
+    for s in snapshots:
+        key = f"{s.bookmaker}|{s.outcome_name}"
+        latest[key] = {
+            "bookmaker": s.bookmaker,
+            "outcome": s.outcome_name,
+            "line": s.outcome_point,
+            "odds_american": s.price_american,
+            "odds_decimal": s.price_decimal,
+            "time": str(s.snapshot_time)[:19] if s.snapshot_time else "",
+        }
+
+    # Organize into matrix: outcomes as rows, bookmakers as columns
+    outcomes: dict[str, list] = {}
+    bookmakers = set()
+    for entry in latest.values():
+        outcome = entry["outcome"]
+        bk = entry["bookmaker"]
+        bookmakers.add(bk)
+        if outcome not in outcomes:
+            outcomes[outcome] = []
+        outcomes[outcome].append(entry)
+
+    return {
+        "bookmakers": sorted(bookmakers),
+        "outcomes": outcomes,
+        "total_snapshots": len(snapshots),
+    }
+
+
+# ── Notifications / Alerts ──────────────────────────────────────────
+
+_alerts: list[dict] = []
+
+
+@router.get("/alerts")
+def get_alerts():
+    """Get pending edge alerts."""
+    return {"alerts": _alerts, "count": len(_alerts)}
+
+
+@router.delete("/alerts")
+def clear_alerts():
+    """Clear all alerts."""
+    _alerts.clear()
+    return {"cleared": True}

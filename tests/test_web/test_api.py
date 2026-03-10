@@ -258,3 +258,65 @@ class TestSearchPlayers:
     def test_search_requires_min_length(self, client):
         resp = client.get("/api/search/players?q=a")
         assert resp.status_code == 422
+
+
+class TestUpdateSettings:
+    def test_update_bankroll(self, client):
+        resp = client.put("/api/settings", json={"bankroll": 5000.0})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["updated"]["bankroll"] == 5000.0
+
+    def test_update_multiple_fields(self, client):
+        resp = client.put("/api/settings", json={
+            "kelly_fraction": 0.3,
+            "ev_threshold": 4.0,
+        })
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "kelly_fraction" in data["updated"]
+        assert "ev_threshold" in data["updated"]
+
+    def test_update_empty_body(self, client):
+        resp = client.put("/api/settings", json={})
+        assert resp.status_code == 200
+        assert resp.json()["updated"] == {}
+
+
+class TestAlertsEndpoint:
+    def test_get_alerts(self, client):
+        resp = client.get("/api/alerts")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "alerts" in data
+        assert "count" in data
+        assert isinstance(data["alerts"], list)
+
+    def test_clear_alerts(self, client):
+        resp = client.delete("/api/alerts")
+        assert resp.status_code == 200
+        assert resp.json()["cleared"] is True
+
+
+class TestOddsComparisonEndpoint:
+    def test_odds_comparison_no_data(self, client):
+        _create_test_event("test_odds_cmp")
+        resp = client.get("/api/odds-comparison/test_odds_cmp")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "bookmakers" in data
+        assert "outcomes" in data
+        assert "total_snapshots" in data
+
+    def test_odds_comparison_with_market(self, client):
+        _create_test_event("test_odds_cmp2")
+        resp = client.get("/api/odds-comparison/test_odds_cmp2?market=spreads")
+        assert resp.status_code == 200
+        assert isinstance(resp.json()["bookmakers"], list)
+
+
+class TestOddsComparisonPage:
+    def test_odds_comparison_page_loads(self, client):
+        resp = client.get("/odds-comparison")
+        assert resp.status_code == 200
+        assert "Odds Comparison" in resp.text

@@ -1,0 +1,232 @@
+{% extends "base.html" %}
+{% block title %}CLV Dashboard{% endblock %}
+
+{% block content %}
+<!-- Hero -->
+<div class="frosted-panel reveal-up" style="padding:32px;margin-bottom:28px;position:relative;overflow:hidden">
+    <div style="position:absolute;top:0;right:0;width:300px;height:100%;opacity:0.07;background:linear-gradient(135deg,var(--accent-green),var(--accent-blue));border-radius:50%;filter:blur(60px);transform:translate(30%,-30%)"></div>
+    <h1 class="page-title" style="margin:0 0 8px">
+        <span class="gradient-text animated-gradient-text">CLV Dashboard</span>
+        <span class="tag-elite" style="margin-left:12px">Sharp</span>
+    </h1>
+    <p class="text-dim" style="margin:0;font-size:13px;max-width:560px">
+        Closing Line Value is the #1 predictor of long-term betting profitability.
+        Track whether you consistently beat closing lines — the mark of a sharp bettor.
+    </p>
+</div>
+
+<!-- Summary Cards -->
+<div class="stat-grid-4 reveal-up" id="clv-summary" style="margin-bottom:24px">
+    <div class="frosted-panel" style="padding:20px;text-align:center">
+        <div class="stat-label">Avg CLV %</div>
+        <div class="stat-value" id="avg-clv" style="font-size:28px">—</div>
+    </div>
+    <div class="frosted-panel" style="padding:20px;text-align:center">
+        <div class="stat-label">Beat Close Rate</div>
+        <div class="stat-value" id="beat-rate" style="font-size:28px">—</div>
+    </div>
+    <div class="frosted-panel" style="padding:20px;text-align:center">
+        <div class="stat-label">Total Tracked</div>
+        <div class="stat-value" id="total-tracked" style="font-size:28px">—</div>
+    </div>
+    <div class="frosted-panel" style="padding:20px;text-align:center">
+        <div class="stat-label">Assessment</div>
+        <div class="stat-value" id="assessment" style="font-size:14px;line-height:1.3">—</div>
+    </div>
+</div>
+
+<!-- Rolling CLV Chart -->
+<div class="card frosted-panel reveal-up" style="margin-bottom:24px;animation-delay:0.1s">
+    <div class="card-header">
+        <h3>
+            <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            Rolling 20-Bet CLV Average
+        </h3>
+    </div>
+    <div class="card-body padded" id="rolling-chart" style="min-height:200px">
+        <div class="loading-spinner"><div class="spinner"></div> Loading CLV data...</div>
+    </div>
+</div>
+
+<!-- Market & Bookmaker Breakdown -->
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:24px" class="reveal-up" id="breakdowns">
+    <div class="card frosted-panel" style="animation-delay:0.2s">
+        <div class="card-header"><h3>CLV by Market</h3></div>
+        <div class="card-body padded" id="market-breakdown">
+            <div class="text-dim" style="text-align:center;padding:20px">No data yet</div>
+        </div>
+    </div>
+    <div class="card frosted-panel" style="animation-delay:0.25s">
+        <div class="card-header"><h3>CLV by Bookmaker</h3></div>
+        <div class="card-body padded" id="book-breakdown">
+            <div class="text-dim" style="text-align:center;padding:20px">No data yet</div>
+        </div>
+    </div>
+</div>
+
+<!-- CLV Calculator -->
+<div class="card frosted-panel reveal-up" style="margin-bottom:24px;animation-delay:0.3s">
+    <div class="card-header">
+        <h3>
+            <svg class="header-icon icon-bounce" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="10" x2="10" y2="10"/><line x1="12" y1="10" x2="14" y2="10"/><line x1="8" y1="14" x2="10" y2="14"/><line x1="12" y1="14" x2="14" y2="14"/></svg>
+            CLV Calculator
+            <span class="tag-live" style="margin-left:8px">Quick</span>
+        </h3>
+    </div>
+    <div class="card-body padded">
+        <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:12px;align-items:end">
+            <div>
+                <label class="stat-label" style="margin-bottom:4px;display:block">Opening Odds (American)</label>
+                <input type="number" id="calc-open" value="-110" class="premium-input" style="width:100%">
+            </div>
+            <div>
+                <label class="stat-label" style="margin-bottom:4px;display:block">Closing Odds (American)</label>
+                <input type="number" id="calc-close" value="-120" class="premium-input" style="width:100%">
+            </div>
+            <div>
+                <button class="btn btn-primary" onclick="calcCLV()">Calculate</button>
+            </div>
+        </div>
+        <div id="calc-result" style="display:none;margin-top:16px">
+            <div class="frosted-panel" style="padding:20px">
+                <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:16px;text-align:center">
+                    <div><div class="stat-label">Opening Implied</div><div class="stat-value" id="cr-open-imp">—</div></div>
+                    <div><div class="stat-label">Closing Implied</div><div class="stat-value" id="cr-close-imp">—</div></div>
+                    <div><div class="stat-label">CLV %</div><div class="stat-value" id="cr-clv-pct" style="font-size:24px">—</div></div>
+                    <div><div class="stat-label">Beat Close?</div><div class="stat-value" id="cr-beat">—</div></div>
+                    <div><div class="stat-label">Assessment</div><div class="stat-value" id="cr-assess" style="font-size:13px">—</div></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent CLV Records -->
+<div class="card frosted-panel reveal-up" style="animation-delay:0.35s">
+    <div class="card-header"><h3>Recent CLV Records</h3></div>
+    <div class="card-body" id="clv-records-table">
+        <div class="text-dim" style="text-align:center;padding:20px">Loading...</div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', loadCLVDashboard);
+
+async function loadCLVDashboard() {
+    try {
+        const res = await fetch('/api/clv/dashboard');
+        const data = await res.json();
+        renderCLVSummary(data);
+        renderRollingChart(data.rolling_clv || []);
+        renderBreakdowns(data.by_market || {}, data.by_bookmaker || {});
+        renderRecords(data.records || []);
+    } catch(e) {
+        document.getElementById('rolling-chart').innerHTML =
+            '<div class="text-dim" style="text-align:center;padding:20px">No CLV data recorded yet. Track bets with closing lines to see your CLV performance.</div>';
+    }
+}
+
+function renderCLVSummary(d) {
+    const avgEl = document.getElementById('avg-clv');
+    avgEl.textContent = d.avg_clv_pct ? d.avg_clv_pct.toFixed(2) + '%' : '0%';
+    avgEl.style.color = d.avg_clv_pct > 0 ? 'var(--accent-green)' : d.avg_clv_pct < 0 ? 'var(--accent-red)' : '';
+
+    const beatEl = document.getElementById('beat-rate');
+    beatEl.textContent = d.beat_close_rate ? d.beat_close_rate.toFixed(1) + '%' : '0%';
+    beatEl.style.color = d.beat_close_rate > 55 ? 'var(--accent-green)' : d.beat_close_rate < 45 ? 'var(--accent-red)' : '';
+
+    document.getElementById('total-tracked').textContent = d.total_bets_tracked || 0;
+    document.getElementById('assessment').textContent = d.assessment || 'No data';
+}
+
+function renderRollingChart(rolling) {
+    const el = document.getElementById('rolling-chart');
+    if (!rolling.length) {
+        el.innerHTML = '<div class="text-dim" style="text-align:center;padding:20px">No rolling CLV data available yet.</div>';
+        return;
+    }
+    const w = el.clientWidth - 40, h = 180;
+    const maxV = Math.max(...rolling.map(r => Math.abs(r.rolling_avg)), 5);
+    const scaleY = v => h/2 - (v / maxV) * (h/2 - 10);
+    const scaleX = (i) => 20 + (i / (rolling.length - 1 || 1)) * (w - 40);
+
+    let path = rolling.map((r, i) => `${i === 0 ? 'M' : 'L'}${scaleX(i).toFixed(1)},${scaleY(r.rolling_avg).toFixed(1)}`).join(' ');
+    let dots = rolling.map((r, i) =>
+        `<circle cx="${scaleX(i).toFixed(1)}" cy="${scaleY(r.clv).toFixed(1)}" r="3" fill="${r.clv > 0 ? 'var(--accent-green)' : 'var(--accent-red)'}" opacity="0.5"/>`
+    ).join('');
+
+    el.innerHTML = `<svg width="100%" height="${h}" viewBox="0 0 ${w + 40} ${h}">
+        <line x1="20" y1="${h/2}" x2="${w+20}" y2="${h/2}" stroke="var(--border)" stroke-dasharray="4"/>
+        <text x="4" y="${h/2 + 4}" fill="var(--text-dim)" font-size="10">0%</text>
+        ${dots}
+        <path d="${path}" fill="none" stroke="var(--accent-blue)" stroke-width="2"/>
+    </svg>`;
+}
+
+function renderBreakdowns(markets, books) {
+    const renderTable = (data, elId) => {
+        const el = document.getElementById(elId);
+        if (!Object.keys(data).length) return;
+        let html = '<table class="data-table" style="width:100%"><thead><tr><th>Name</th><th>Avg CLV</th><th>Beat%</th><th>#</th></tr></thead><tbody>';
+        for (const [name, stats] of Object.entries(data)) {
+            const color = stats.avg_clv > 0 ? 'var(--accent-green)' : stats.avg_clv < 0 ? 'var(--accent-red)' : '';
+            html += `<tr><td>${name}</td><td style="color:${color}">${stats.avg_clv.toFixed(2)}%</td><td>${stats.beat_rate.toFixed(1)}%</td><td>${stats.count}</td></tr>`;
+        }
+        html += '</tbody></table>';
+        el.innerHTML = html;
+    };
+    renderTable(markets, 'market-breakdown');
+    renderTable(books, 'book-breakdown');
+}
+
+function renderRecords(records) {
+    const el = document.getElementById('clv-records-table');
+    if (!records.length) {
+        el.innerHTML = '<div class="text-dim" style="text-align:center;padding:20px">No CLV records yet</div>';
+        return;
+    }
+    let html = '<table class="data-table" style="width:100%"><thead><tr><th>Bet</th><th>Open</th><th>Close</th><th>CLV%</th><th>Beat?</th><th>Assessment</th></tr></thead><tbody>';
+    records.reverse().forEach(r => {
+        const color = r.clv_percentage > 0 ? 'var(--accent-green)' : 'var(--accent-red)';
+        html += `<tr>
+            <td>#${r.bet_id}</td>
+            <td>${r.opening_odds > 0 ? '+' : ''}${r.opening_odds}</td>
+            <td>${r.closing_odds > 0 ? '+' : ''}${r.closing_odds}</td>
+            <td style="color:${color};font-weight:600">${r.clv_percentage > 0 ? '+' : ''}${r.clv_percentage.toFixed(2)}%</td>
+            <td>${r.beat_close ? '✓' : '✗'}</td>
+            <td class="text-dim">${r.edge_assessment}</td>
+        </tr>`;
+    });
+    html += '</tbody></table>';
+    el.innerHTML = html;
+}
+
+async function calcCLV() {
+    const open = parseInt(document.getElementById('calc-open').value);
+    const close = parseInt(document.getElementById('calc-close').value);
+    if (!open || !close) return;
+    try {
+        const res = await fetch('/api/clv/calculate', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({opening_odds: open, closing_odds: close})
+        });
+        const d = await res.json();
+        document.getElementById('calc-result').style.display = 'block';
+        document.getElementById('cr-open-imp').textContent = d.opening_implied + '%';
+        document.getElementById('cr-close-imp').textContent = d.closing_implied + '%';
+        const pctEl = document.getElementById('cr-clv-pct');
+        pctEl.textContent = (d.clv_percentage > 0 ? '+' : '') + d.clv_percentage.toFixed(2) + '%';
+        pctEl.style.color = d.clv_percentage > 0 ? 'var(--accent-green)' : 'var(--accent-red)';
+        document.getElementById('cr-beat').innerHTML = d.beat_close
+            ? '<span style="color:var(--accent-green)">Yes ✓</span>'
+            : '<span style="color:var(--accent-red)">No ✗</span>';
+        document.getElementById('cr-assess').textContent = d.edge_assessment;
+    } catch(e) {
+        SBA.toast('Error calculating CLV', 'error');
+    }
+}
+</script>
+{% endblock %}

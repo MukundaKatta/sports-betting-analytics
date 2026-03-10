@@ -18,8 +18,9 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 </head>
 <body>
+    <a href="#main-content" class="skip-link">Skip to main content</a>
     <!-- Sidebar Navigation -->
-    <nav class="sidebar" id="sidebar">
+    <nav class="sidebar" id="sidebar" aria-label="Main navigation">
         <div class="sidebar-brand">
             <div class="brand-icon">SBA</div>
             <span class="brand-text">Sports Betting<br>Analytics<small>Premium Edge Finder</small></span>
@@ -66,10 +67,14 @@
             </a>
 
             <div class="nav-label">Tools</div>
+            <a href="/calculator" class="nav-link" data-page="calculator">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg>
+                <span>Calculator</span>
+                <span class="nav-badge">Pro</span>
+            </a>
             <a href="/simulator" class="nav-link" data-page="simulator">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
                 <span>Simulator</span>
-                <span class="nav-badge">New</span>
             </a>
 
             <div class="nav-label">System</div>
@@ -84,14 +89,14 @@
                 <span class="status-dot"></span>
                 <span class="status-text">Loading...</span>
             </div>
-            <div class="version-badge" style="margin-top:10px">v0.4.0 Premium</div>
+            <div class="version-badge" style="margin-top:10px">v0.5.0 Premium</div>
         </div>
     </nav>
 
     <div class="sidebar-overlay" onclick="document.getElementById('sidebar').classList.remove('open')"></div>
 
     <!-- Main Content -->
-    <main class="main-content">
+    <main class="main-content" id="main-content" role="main">
         <header class="top-bar">
             <div class="top-bar-left">
                 <button class="menu-toggle" onclick="document.getElementById('sidebar').classList.toggle('open')">
@@ -101,7 +106,7 @@
             <div class="top-bar-right">
                 <div class="search-box">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                    <input type="text" placeholder="Search players..." id="player-search" autocomplete="off">
+                    <input type="text" placeholder="Search players..." id="player-search" autocomplete="off" aria-label="Search players" role="searchbox">
                     <span class="search-kbd">/</span>
                     <div class="search-results" id="search-results"></div>
                 </div>

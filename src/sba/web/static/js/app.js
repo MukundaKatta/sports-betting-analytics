@@ -90,7 +90,7 @@ const SBA = {
             // G-key prefix navigation (g then d/e/p/b/a/l/o/s)
             if (this._gKeyPending) {
                 this._gKeyPending = false;
-                const navMap = {d:'/',e:'/edges',p:'/props',b:'/my-bets',a:'/analytics',l:'/line-movement',o:'/odds-comparison',s:'/settings'};
+                const navMap = {d:'/',e:'/edges',p:'/props',b:'/my-bets',a:'/analytics',l:'/line-movement',o:'/odds-comparison',s:'/settings',c:'/calculator',f:'/live-feed',m:'/simulator'};
                 if (navMap[e.key]) { location.href = navMap[e.key]; return; }
             }
 
@@ -1405,7 +1405,10 @@ const SBA = {
         { name: 'Go to Odds Comparison', icon: 'grid', action: () => location.href = '/odds-comparison', keys: 'G O' },
         { name: 'Go to Settings', icon: 'settings', action: () => location.href = '/settings', keys: 'G S' },
         { name: 'Go to Live Feed', icon: 'activity', action: () => location.href = '/live-feed', keys: 'G F' },
+        { name: 'Go to Calculator', icon: 'chart', action: () => location.href = '/calculator', keys: 'G C' },
         { name: 'Go to Simulator', icon: 'trending', action: () => location.href = '/simulator', keys: 'G M' },
+        { name: 'Export Bets (CSV)', icon: 'table', action: () => window.open('/api/bets/export', '_blank'), keys: '' },
+        { name: 'Export Bets (JSON)', icon: 'table', action: () => window.open('/api/bets/export/json', '_blank'), keys: '' },
         { name: 'Toggle Dark/Light Theme', icon: 'theme', action: () => SBA.toggleTheme(), keys: 'T' },
         { name: 'Toggle Bet Slip', icon: 'slip', action: () => SBA.toggleSlip(), keys: 'B' },
         { name: 'Focus Search', icon: 'search', action: () => document.getElementById('player-search')?.focus(), keys: '/' },
@@ -1632,6 +1635,164 @@ const SBA = {
         if (ev >= 0.04) return 'ev-heat-2';
         if (ev > 0) return 'ev-heat-1';
         return '';
+    },
+
+    // ── SVG Line Chart ──────────────────────────────────────────────
+    createSVGLineChart(data, {width = 600, height = 200, color = 'var(--accent-green)', showArea = true, labels = []} = {}) {
+        if (!data || data.length < 2) return '<div class="empty-state" style="padding:20px"><p>Not enough data for chart</p></div>';
+        const min = Math.min(...data);
+        const max = Math.max(...data);
+        const range = max - min || 1;
+        const padding = {top: 20, right: 20, bottom: 30, left: 60};
+        const w = width - padding.left - padding.right;
+        const h = height - padding.top - padding.bottom;
+
+        const points = data.map((v, i) => ({
+            x: padding.left + (i / (data.length - 1)) * w,
+            y: padding.top + h - ((v - min) / range) * h,
+        }));
+
+        const pathD = points.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+        const areaD = `${pathD} L${points[points.length-1].x.toFixed(1)},${padding.top + h} L${padding.left},${padding.top + h} Z`;
+
+        // Y-axis labels (5 ticks)
+        const yTicks = Array.from({length: 5}, (_, i) => {
+            const val = min + (range * i / 4);
+            const y = padding.top + h - (i / 4) * h;
+            return `<text x="${padding.left - 8}" y="${y + 4}" text-anchor="end" fill="var(--text-tertiary)" font-size="10" font-family="var(--font)">$${val >= 0 ? '+' : ''}${val.toFixed(0)}</text>
+                    <line x1="${padding.left}" y1="${y}" x2="${padding.left + w}" y2="${y}" stroke="var(--border-light)" stroke-dasharray="4"/>`;
+        }).join('');
+
+        // Zero line if applicable
+        let zeroLine = '';
+        if (min < 0 && max > 0) {
+            const zeroY = padding.top + h - ((0 - min) / range) * h;
+            zeroLine = `<line x1="${padding.left}" y1="${zeroY}" x2="${padding.left + w}" y2="${zeroY}" stroke="var(--text-tertiary)" stroke-width="1" stroke-dasharray="6,3"/>`;
+        }
+
+        // Hover dots
+        const dots = points.map((p, i) => {
+            const val = data[i];
+            return `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="3" fill="${val >= 0 ? 'var(--accent-green)' : 'var(--accent-red)'}" opacity="0" class="chart-dot">
+                <title>${labels[i] || `#${i+1}`}: $${val >= 0 ? '+' : ''}${val.toFixed(2)}</title>
+            </circle>`;
+        }).join('');
+
+        const finalColor = data[data.length - 1] >= data[0] ? 'var(--accent-green)' : 'var(--accent-red)';
+
+        return `<svg viewBox="0 0 ${width} ${height}" class="svg-line-chart" style="width:100%;height:auto;max-height:${height}px">
+            <defs>
+                <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="${finalColor}" stop-opacity="0.3"/>
+                    <stop offset="100%" stop-color="${finalColor}" stop-opacity="0"/>
+                </linearGradient>
+            </defs>
+            ${yTicks}
+            ${zeroLine}
+            ${showArea ? `<path d="${areaD}" fill="url(#chartGrad)"/>` : ''}
+            <path d="${pathD}" fill="none" stroke="${finalColor}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            ${dots}
+            <circle cx="${points[points.length-1].x.toFixed(1)}" cy="${points[points.length-1].y.toFixed(1)}" r="5" fill="${finalColor}" class="chart-endpoint"/>
+        </svg>`;
+    },
+
+    // ── Advanced Analytics ────────────────────────────────────────────
+    async loadAdvancedAnalytics() {
+        const container = document.getElementById('advanced-metrics');
+        const chartEl = document.getElementById('advanced-pnl-chart');
+        const ddChartEl = document.getElementById('drawdown-chart');
+        const monthlyEl = document.getElementById('monthly-breakdown');
+        if (!container) return;
+
+        try {
+            const resp = await fetch('/api/analytics/advanced');
+            const d = await resp.json();
+
+            // Metrics cards
+            container.innerHTML = `
+                <div class="stat-card green">
+                    <div class="stat-label">Sharpe Ratio</div>
+                    <div class="stat-value ${d.sharpe_ratio >= 0 ? 'text-green' : 'text-red'}">${d.sharpe_ratio.toFixed(2)}</div>
+                    <div class="stat-sub">Risk-adjusted return</div>
+                </div>
+                <div class="stat-card blue">
+                    <div class="stat-label">Max Drawdown</div>
+                    <div class="stat-value text-red">$${d.max_drawdown.toFixed(2)}</div>
+                    <div class="stat-sub">${d.max_drawdown_pct}% of total staked</div>
+                </div>
+                <div class="stat-card yellow">
+                    <div class="stat-label">Profit Factor</div>
+                    <div class="stat-value ${d.profit_factor >= 1 ? 'text-green' : 'text-red'}">${d.profit_factor}x</div>
+                    <div class="stat-sub">Gross profit / loss</div>
+                </div>
+                <div class="stat-card purple">
+                    <div class="stat-label">Win Streaks</div>
+                    <div class="stat-value">${d.longest_win_streak}W / ${d.longest_loss_streak}L</div>
+                    <div class="stat-sub">Best / worst streak</div>
+                </div>
+            `;
+
+            // P/L SVG chart
+            if (chartEl && d.cumulative_pnl.length >= 2) {
+                chartEl.innerHTML = this.createSVGLineChart(d.cumulative_pnl, {
+                    width: 700, height: 220, showArea: true,
+                    labels: d.cumulative_pnl.map((_, i) => `Bet ${i + 1}`),
+                });
+            } else if (chartEl) {
+                chartEl.innerHTML = '<div class="empty-state" style="padding:40px"><p>No P/L data yet</p></div>';
+            }
+
+            // Drawdown chart
+            if (ddChartEl && d.drawdown_series.length >= 2) {
+                const negDD = d.drawdown_series.map(v => -v);
+                ddChartEl.innerHTML = this.createSVGLineChart(negDD, {
+                    width: 700, height: 160, color: 'var(--accent-red)', showArea: true,
+                    labels: negDD.map((_, i) => `Bet ${i + 1}`),
+                });
+            } else if (ddChartEl) {
+                ddChartEl.innerHTML = '<div class="empty-state" style="padding:30px"><p>No drawdown data</p></div>';
+            }
+
+            // Monthly breakdown
+            if (monthlyEl && d.monthly_breakdown.length > 0) {
+                monthlyEl.innerHTML = `
+                    <table class="data-table">
+                        <thead><tr><th>Month</th><th class="right">Bets</th><th class="right">P/L</th><th class="right">ROI</th></tr></thead>
+                        <tbody>
+                            ${d.monthly_breakdown.map(m => `
+                            <tr class="new-row">
+                                <td class="font-bold">${m.month}</td>
+                                <td class="right font-mono">${m.bets}</td>
+                                <td class="right font-mono font-bold ${m.profit >= 0 ? 'text-green' : 'text-red'}">$${m.profit >= 0 ? '+' : ''}${m.profit.toFixed(2)}</td>
+                                <td class="right"><span class="ev-badge ${m.roi >= 0 ? 'high' : 'negative'}">${m.roi >= 0 ? '+' : ''}${m.roi}%</span></td>
+                            </tr>`).join('')}
+                        </tbody>
+                    </table>`;
+            } else if (monthlyEl) {
+                monthlyEl.innerHTML = '<div class="empty-state" style="padding:30px"><p>No monthly data</p></div>';
+            }
+        } catch (err) {
+            container.innerHTML = `<div class="stat-card red"><div class="stat-value text-red">Error: ${err.message}</div></div>`;
+        }
+    },
+
+    // ── Watchlist ────────────────────────────────────────────────────
+    async toggleWatchlist(eventId, label) {
+        try {
+            const resp = await fetch('/api/watchlist');
+            const data = await resp.json();
+            const exists = data.items.some(w => w.event_id === eventId);
+
+            if (exists) {
+                await fetch(`/api/watchlist/${eventId}`, { method: 'DELETE' });
+                this.toast('Removed from watchlist', 'info');
+            } else {
+                await fetch(`/api/watchlist?event_id=${encodeURIComponent(eventId)}&label=${encodeURIComponent(label)}`, { method: 'POST' });
+                this.toast('Added to watchlist', 'success');
+            }
+        } catch {
+            this.toast('Watchlist error', 'error');
+        }
     },
 };
 

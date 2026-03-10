@@ -188,7 +188,7 @@ def health_check():
 
     return HealthResponse(
         status="ok",
-        version="0.4.0",
+        version="0.5.0",
         uptime=f"{hours}h {minutes}m {seconds}s",
         database=db_status,
     )
@@ -800,4 +800,295 @@ def get_live_odds(limit: int = Query(20)):
             "market": r["market"],
         }
         for r in rows
+    ]
+
+
+# ── Advanced Analytics / Performance Metrics ──────────────────────
+
+@router.get("/analytics/advanced")
+def get_advanced_analytics():
+    """Get advanced performance metrics: Sharpe, max drawdown, CLV, streaks."""
+    import math
+
+    init_db()
+    with get_connection() as conn:
+        bets = repo.get_bet_history(conn)
+
+    settled = sorted(
+        [b for b in bets if b.status in ("won", "lost", "push")],
+        key=lambda x: x.placed_at or datetime.min,
+    )
+
+    if not settled:
+        return {
+            "sharpe_ratio": 0, "max_drawdown": 0, "max_drawdown_pct": 0,
+            "avg_odds": 0, "avg_ev": 0, "clv_avg": 0,
+            "longest_win_streak": 0, "longest_loss_streak": 0,
+            "profit_factor": 0, "avg_stake": 0,
+            "cumulative_pnl": [], "drawdown_series": [],
+            "monthly_breakdown": [], "hourly_distribution": [],
+            "unit_size_analysis": {},
+        }
+
+    # Cumulative P/L series
+    pnl_list = [b.profit_loss for b in settled]
+    cumulative = []
+    running = 0
+    for p in pnl_list:
+        running += p
+        cumulative.append(round(running, 2))
+
+    # Max drawdown
+    peak = 0
+    max_dd = 0
+    dd_series = []
+    for val in cumulative:
+        peak = max(peak, val)
+        dd = peak - val
+        max_dd = max(max_dd, dd)
+        dd_series.append(round(dd, 2))
+
+    # Sharpe ratio (annualized assuming ~1 bet/day)
+    if len(pnl_list) >= 2:
+        mean_pnl = sum(pnl_list) / len(pnl_list)
+        variance = sum((x - mean_pnl) ** 2 for x in pnl_list) / (len(pnl_list) - 1)
+        std_pnl = math.sqrt(variance) if variance > 0 else 1
+        sharpe = (mean_pnl / std_pnl) * math.sqrt(365)
+    else:
+        sharpe = 0
+
+    # Streaks
+    longest_win = longest_loss = current_streak = 0
+    current_type = ""
+    for b in settled:
+        if b.status == current_type:
+            current_streak += 1
+        else:
+            current_type = b.status
+            current_streak = 1
+        if current_type == "won":
+            longest_win = max(longest_win, current_streak)
+        elif current_type == "lost":
+            longest_loss = max(longest_loss, current_streak)
+
+    # Profit factor
+    gross_profit = sum(b.profit_loss for b in settled if b.profit_loss > 0)
+    gross_loss = abs(sum(b.profit_loss for b in settled if b.profit_loss < 0))
+    profit_factor = round(gross_profit / max(gross_loss, 0.01), 2)
+
+    # Average CLV (closing line value) approximation
+    avg_ev = round(
+        sum(b.expected_value for b in settled) / max(len(settled), 1) * 100, 2
+    )
+
+    # Monthly breakdown
+    monthly: dict[str, dict] = {}
+    for b in settled:
+        if b.placed_at:
+            month = b.placed_at.strftime("%Y-%m")
+            if month not in monthly:
+                monthly[month] = {"bets": 0, "profit": 0, "staked": 0}
+            monthly[month]["bets"] += 1
+            monthly[month]["profit"] = round(monthly[month]["profit"] + b.profit_loss, 2)
+            monthly[month]["staked"] = round(monthly[month]["staked"] + b.recommended_stake, 2)
+    monthly_list = [
+        {
+            "month": m,
+            "bets": d["bets"],
+            "profit": d["profit"],
+            "roi": round(d["profit"] / max(d["staked"], 0.01) * 100, 1),
+        }
+        for m, d in sorted(monthly.items())
+    ]
+
+    # Avg stake and odds
+    avg_stake = round(
+        sum(b.recommended_stake for b in settled) / max(len(settled), 1), 2
+    )
+    avg_odds = round(
+        sum(b.odds_american for b in settled) / max(len(settled), 1)
+    )
+
+    total_staked = sum(b.recommended_stake for b in settled)
+    max_dd_pct = round(max_dd / max(total_staked, 0.01) * 100, 1)
+
+    return {
+        "sharpe_ratio": round(sharpe, 2),
+        "max_drawdown": round(max_dd, 2),
+        "max_drawdown_pct": max_dd_pct,
+        "avg_odds": avg_odds,
+        "avg_ev": avg_ev,
+        "clv_avg": avg_ev,
+        "longest_win_streak": longest_win,
+        "longest_loss_streak": longest_loss,
+        "profit_factor": profit_factor,
+        "avg_stake": avg_stake,
+        "cumulative_pnl": cumulative,
+        "drawdown_series": dd_series,
+        "monthly_breakdown": monthly_list,
+    }
+
+
+# ── Favorites / Watchlist ─────────────────────────────────────────
+
+_watchlist: list[dict] = []
+
+
+@router.get("/watchlist")
+def get_watchlist():
+    """Get user's watchlisted events."""
+    return {"items": _watchlist, "count": len(_watchlist)}
+
+
+@router.post("/watchlist")
+def add_to_watchlist(event_id: str = Query(...), label: str = Query("")):
+    """Add an event to watchlist."""
+    if any(w["event_id"] == event_id for w in _watchlist):
+        return {"status": "already_exists"}
+    _watchlist.append({
+        "event_id": event_id,
+        "label": label,
+        "added_at": datetime.now().isoformat(),
+    })
+    return {"status": "added", "count": len(_watchlist)}
+
+
+@router.delete("/watchlist/{event_id}")
+def remove_from_watchlist(event_id: str):
+    """Remove event from watchlist."""
+    global _watchlist
+    _watchlist = [w for w in _watchlist if w["event_id"] != event_id]
+    return {"status": "removed", "count": len(_watchlist)}
+
+
+# ── Bet Calculator ────────────────────────────────────────────────
+
+class CalcRequest(BaseModel):
+    odds_american: int | None = None
+    odds_decimal: float | None = None
+    odds_fractional: str | None = None
+    stake: float = 100
+    win_probability: float | None = None
+
+
+@router.post("/calculator")
+def bet_calculator(req: CalcRequest):
+    """Convert odds formats, calculate payouts, EV, and Kelly."""
+    from sba.utils.odds_math import american_to_decimal
+
+    # Determine base decimal odds
+    if req.odds_decimal and req.odds_decimal > 1:
+        dec = req.odds_decimal
+    elif req.odds_american is not None:
+        dec = american_to_decimal(req.odds_american)
+    elif req.odds_fractional:
+        parts = req.odds_fractional.replace(" ", "").split("/")
+        if len(parts) == 2 and float(parts[1]) > 0:
+            dec = float(parts[0]) / float(parts[1]) + 1
+        else:
+            dec = 2.0
+    else:
+        dec = 2.0
+
+    # Convert to all formats
+    if dec >= 2:
+        american = round((dec - 1) * 100)
+    else:
+        american = round(-100 / (dec - 1))
+
+    # Fractional
+    from fractions import Fraction
+    frac = Fraction(dec - 1).limit_denominator(100)
+    fractional = f"{frac.numerator}/{frac.denominator}"
+
+    implied_prob = 1 / dec
+    payout = req.stake * (dec - 1)
+    total_return = req.stake + payout
+
+    # EV and Kelly if win probability given
+    ev = None
+    kelly = None
+    if req.win_probability and 0 < req.win_probability < 1:
+        ev = round(
+            (req.win_probability * payout - (1 - req.win_probability) * req.stake)
+            / req.stake * 100, 2
+        )
+        b = dec - 1
+        kelly = round(
+            max(0, (req.win_probability * b - (1 - req.win_probability)) / b) * 100, 2
+        )
+
+    return {
+        "odds_american": american,
+        "odds_decimal": round(dec, 4),
+        "odds_fractional": fractional,
+        "implied_probability": round(implied_prob * 100, 2),
+        "stake": req.stake,
+        "payout": round(payout, 2),
+        "total_return": round(total_return, 2),
+        "ev_pct": ev,
+        "kelly_pct": kelly,
+    }
+
+
+class HedgeRequest(BaseModel):
+    original_odds: int
+    original_stake: float
+    hedge_odds: int
+
+
+@router.post("/calculator/hedge")
+def hedge_calculator(req: HedgeRequest):
+    """Calculate optimal hedge stake for guaranteed profit."""
+    from sba.utils.odds_math import american_to_decimal
+
+    orig_dec = american_to_decimal(req.original_odds)
+    hedge_dec = american_to_decimal(req.hedge_odds)
+
+    orig_return = req.original_stake * orig_dec
+    # For equal profit on both sides: hedge_stake = orig_return / hedge_dec
+    hedge_stake = round(orig_return / hedge_dec, 2)
+    total_invested = req.original_stake + hedge_stake
+
+    profit_if_original_wins = round(orig_return - total_invested, 2)
+    profit_if_hedge_wins = round(hedge_stake * hedge_dec - total_invested, 2)
+    guaranteed = round(min(profit_if_original_wins, profit_if_hedge_wins), 2)
+
+    return {
+        "hedge_stake": hedge_stake,
+        "total_invested": round(total_invested, 2),
+        "profit_if_original_wins": profit_if_original_wins,
+        "profit_if_hedge_wins": profit_if_hedge_wins,
+        "guaranteed_profit": guaranteed,
+    }
+
+
+# ── Data Export (JSON) ────────────────────────────────────────────
+
+@router.get("/bets/export/json")
+def export_bets_json():
+    """Export bet history as JSON."""
+    init_db()
+    with get_connection() as conn:
+        bets = repo.get_bet_history(conn)
+
+    return [
+        {
+            "id": b.id,
+            "date": b.placed_at.isoformat() if b.placed_at else None,
+            "event_id": b.event_id,
+            "market": b.market,
+            "selection": b.selection,
+            "line": b.line,
+            "odds_american": b.odds_american,
+            "odds_decimal": round(b.odds_decimal, 3),
+            "stake": round(b.recommended_stake, 2),
+            "bookmaker": b.bookmaker,
+            "status": b.status,
+            "profit_loss": round(b.profit_loss, 2),
+            "model_probability": round(b.model_probability, 4),
+            "expected_value": round(b.expected_value, 4),
+            "kelly_fraction": round(b.kelly_fraction, 4),
+        }
+        for b in bets
     ]

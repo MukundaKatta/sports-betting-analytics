@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% block title %}Public Money{% endblock %}
+
+{% block content %}
+<h1 class="page-title reveal-up">
+    <span class="gradient-text animated-gradient-text">Public vs Sharp Money</span>
+    <span class="tag-elite">Pro</span>
+</h1>
+
+<div class="dashboard-grid">
+    <!-- Event Lookup -->
+    <div class="card full-width frosted-panel reveal-up" style="animation-delay:0.1s">
+        <div class="card-header">
+            <h3>
+                <svg class="header-icon icon-bounce" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                Money Flow Analysis
+            </h3>
+        </div>
+        <div class="card-body padded">
+            <div style="display:flex;gap:8px;margin-bottom:16px">
+                <input type="text" id="pm-event-id" placeholder="Enter event ID" class="premium-input" style="flex:1">
+                <select class="filter-select" id="pm-market" style="width:120px">
+                    <option value="h2h">Moneyline</option>
+                    <option value="spreads">Spreads</option>
+                    <option value="totals">Totals</option>
+                </select>
+                <button class="btn btn-primary" onclick="loadPublicMoney()">Analyze</button>
+            </div>
+            <div id="pm-result">
+                <div class="empty-state" style="padding:30px">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                    <p>Enter an event ID to see public vs sharp money flow</p>
+                    <p class="text-dim" style="font-size:12px">Divergence between bet count and dollar amount reveals where sharp money is</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- How It Works -->
+    <div class="card full-width reveal-up" style="animation-delay:0.15s">
+        <div class="card-header">
+            <h3>
+                <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                Understanding Sharp vs Public Money
+            </h3>
+        </div>
+        <div class="card-body padded">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px">
+                <div style="padding:12px;background:var(--bg-secondary);border-radius:8px;border-left:3px solid var(--accent-green)">
+                    <div class="font-bold" style="margin-bottom:4px">Bet % (Public)</div>
+                    <p class="text-dim" style="font-size:12px;margin:0">Percentage of total bets placed on each side. Dominated by recreational bettors who tend to bet favorites, overs, and popular teams.</p>
+                </div>
+                <div style="padding:12px;background:var(--bg-secondary);border-radius:8px;border-left:3px solid var(--accent-blue)">
+                    <div class="font-bold" style="margin-bottom:4px">Money % (Sharp)</div>
+                    <p class="text-dim" style="font-size:12px;margin:0">Percentage of total dollars wagered on each side. Sharp bettors place fewer but larger bets, making the money % more indicative of informed opinion.</p>
+                </div>
+                <div style="padding:12px;background:var(--bg-secondary);border-radius:8px;border-left:3px solid var(--accent-red)">
+                    <div class="font-bold" style="margin-bottom:4px">Divergence Signal</div>
+                    <p class="text-dim" style="font-size:12px;margin:0">When 70% of bets are on Team A but 60% of money is on Team B, sharps are likely on Team B. This divergence is the strongest indicator of sharp action.</p>
+                </div>
+                <div style="padding:12px;background:var(--bg-secondary);border-radius:8px;border-left:3px solid var(--accent-yellow)">
+                    <div class="font-bold" style="margin-bottom:4px">Reverse Line Movement</div>
+                    <p class="text-dim" style="font-size:12px;margin:0">When the line moves toward the side getting fewer bets, it confirms that the money (sharp action) is driving the move, not the public.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function loadPublicMoney() {
+    const eventId = document.getElementById('pm-event-id').value.trim();
+    if (!eventId) { SBA.toast('Enter an event ID', 'error'); return; }
+    const market = document.getElementById('pm-market').value;
+
+    try {
+        const resp = await fetch(`/api/public-money/${encodeURIComponent(eventId)}?market=${market}`);
+        const d = await resp.json();
+        if (resp.status !== 200) { SBA.toast(d.detail || 'Error', 'error'); return; }
+
+        const el = document.getElementById('pm-result');
+        const signalColors = { strong: 'var(--accent-red)', moderate: 'var(--accent-yellow)', weak: 'var(--accent-blue)', none: 'var(--text-dim)' };
+
+        el.innerHTML = `
+            ${d.sharp_signal ? `
+            <div style="padding:12px;background:var(--bg-secondary);border-radius:8px;border-left:3px solid ${signalColors[d.signal_strength]};margin-bottom:16px">
+                <div style="display:flex;justify-content:space-between;align-items:center">
+                    <span class="font-bold">${d.description}</span>
+                    <span class="tag ${d.signal_strength === 'strong' ? 'tag-red' : d.signal_strength === 'moderate' ? 'tag-yellow' : ''}">${d.signal_strength}</span>
+                </div>
+            </div>` : ''}
+
+            <div style="display:grid;gap:16px">
+                ${d.outcomes.map(o => `
+                    <div style="padding:16px;background:var(--bg-secondary);border-radius:8px">
+                        <div class="font-bold" style="margin-bottom:12px;font-size:16px">${o.name} ${o.sharp_side ? '<span class="tag tag-green" style="font-size:10px">SHARP SIDE</span>' : ''}</div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                            <div>
+                                <div class="stat-label" style="margin-bottom:4px">Bet %</div>
+                                <div style="background:var(--bg-tertiary, #1a1f2e);border-radius:6px;overflow:hidden;height:28px;position:relative">
+                                    <div style="width:${o.bet_pct}%;height:100%;background:var(--accent-blue);border-radius:6px;transition:width 0.5s"></div>
+                                    <span style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:12px;font-weight:700">${o.bet_pct}%</span>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="stat-label" style="margin-bottom:4px">Money %</div>
+                                <div style="background:var(--bg-tertiary, #1a1f2e);border-radius:6px;overflow:hidden;height:28px;position:relative">
+                                    <div style="width:${o.money_pct}%;height:100%;background:var(--accent-green);border-radius:6px;transition:width 0.5s"></div>
+                                    <span style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:12px;font-weight:700">${o.money_pct}%</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div style="margin-top:8px;font-size:12px;text-align:center" class="${o.divergence > 0 ? 'text-green' : o.divergence < 0 ? 'text-red' : 'text-dim'}">
+                            Divergence: ${o.divergence > 0 ? '+' : ''}${o.divergence}%
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+        SBA.toast(`${d.signal_strength} signal detected`, 'success');
+    } catch (err) {
+        SBA.toast('Error: ' + err.message, 'error');
+    }
+}
+</script>
+{% endblock %}

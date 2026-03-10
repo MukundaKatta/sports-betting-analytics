@@ -9,7 +9,7 @@ from pathlib import Path
 from sba.config import get_settings
 from sba.data.db import get_connection
 from sba.data.db.repository import Repository
-from sba.models.domain import Player, PlayerGameLog, PropPrediction, Outcome
+from sba.models.domain import Player, PlayerGameLog, PropPrediction
 from sba.models.ml.features import build_prop_features, build_prop_training_data
 from sba.models.ml.xgboost_props import PropPredictionModel
 

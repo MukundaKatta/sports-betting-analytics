@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 
 from sba.data.clients.base import BaseAPIClient
-from sba.models.domain import Sport, Event, Outcome, BookmakerOdds, EventOdds
+from sba.models.domain import BookmakerOdds, Event, EventOdds, Outcome, Sport
 from sba.utils.odds_math import american_to_decimal, decimal_to_american
 
 

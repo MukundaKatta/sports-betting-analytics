@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-import httpx
-import time
 import logging
+import time
+
+import httpx
 
 from sba.utils.rate_limiter import RateLimiter
 

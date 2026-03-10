@@ -2,6 +2,7 @@
 
 import pytest
 from pydantic import ValidationError
+
 from sba.config.settings import Settings
 
 

@@ -1,11 +1,10 @@
 """Extended Poisson model tests."""
 
-import pytest
 from sba.models.statistical.poisson import (
-    poisson_prob,
-    over_under_prob,
-    moneyline_from_poisson,
     _normal_cdf,
+    moneyline_from_poisson,
+    over_under_prob,
+    poisson_prob,
 )
 
 

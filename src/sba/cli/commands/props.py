@@ -3,9 +3,9 @@
 import typer
 from rich.console import Console
 
+from sba.cli.display import render_player_profile, render_prop_table
 from sba.config import get_settings
 from sba.services.prop_analyzer import PropAnalyzer
-from sba.cli.display import render_prop_table, render_player_profile
 
 console = Console()
 props_app = typer.Typer(help="Player prop analyzer - ML-powered prop predictions")

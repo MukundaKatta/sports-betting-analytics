@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
+from rich.console import Group
+from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
-from rich.panel import Panel
-from rich.console import Group
 
-from sba.models.domain import EdgeOpportunity, PropPrediction, TrackedBet, PlayerGameLog
+from sba.models.domain import EdgeOpportunity, PropPrediction, TrackedBet
 
 
 def format_odds(american: int) -> Text:

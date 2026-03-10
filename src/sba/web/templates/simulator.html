@@ -3,7 +3,7 @@
 
 {% block content %}
 <h1 class="page-title">
-    Bankroll Simulator
+    <span class="gradient-text">Bankroll Simulator</span>
     <span class="badge">Pro</span>
 </h1>
 
@@ -182,6 +182,12 @@ async function runSimulation() {
                 <span>Bet ${data.num_bets}</span>
             </div>
         `;
+
+        // Animate summary cards
+        document.querySelectorAll('#sim-summary .stat-card').forEach((el, i) => {
+            el.style.animation = `stagger-in 0.4s ease ${i * 0.08}s forwards`;
+            el.style.opacity = '0';
+        });
 
         SBA.toast('Simulation complete', 'success');
     } catch (err) {

@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 import logging
-import numpy as np
-import pandas as pd
 from pathlib import Path
 
 import joblib
+import numpy as np
+import pandas as pd
+from sklearn.metrics import accuracy_score, mean_absolute_error, mean_squared_error
 from sklearn.model_selection import TimeSeriesSplit
-from sklearn.metrics import mean_absolute_error, mean_squared_error, accuracy_score
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +31,7 @@ class PropPredictionModel:
             y: Target stat values (continuous)
             line: If provided, trains classifier on over/under this line
         """
-        from xgboost import XGBRegressor, XGBClassifier
+        from xgboost import XGBClassifier, XGBRegressor
 
         self.feature_names = list(X.columns)
 

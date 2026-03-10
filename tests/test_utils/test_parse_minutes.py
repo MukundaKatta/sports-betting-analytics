@@ -1,6 +1,5 @@
 """Tests for the BallDontLie _parse_minutes helper."""
 
-import pytest
 from sba.data.clients.balldontlie import _parse_minutes
 
 

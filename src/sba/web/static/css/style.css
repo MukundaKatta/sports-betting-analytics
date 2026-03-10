@@ -2671,3 +2671,2561 @@ input:focus-visible, select:focus-visible, button:focus-visible {
     background: var(--accent-green-dim);
     margin-top: 8px;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   World-Class Premium Upgrades v2.0
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── Animated Mesh Gradient Background ────────────────────────────────── */
+
+body::after {
+    content: '';
+    position: fixed;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: conic-gradient(
+        from 0deg at 50% 50%,
+        rgba(0, 230, 138, 0.03) 0deg,
+        transparent 60deg,
+        rgba(91, 154, 255, 0.03) 120deg,
+        transparent 180deg,
+        rgba(168, 85, 247, 0.03) 240deg,
+        transparent 300deg,
+        rgba(0, 230, 138, 0.03) 360deg
+    );
+    animation: mesh-rotate 60s linear infinite;
+    pointer-events: none;
+    z-index: 0;
+}
+
+@keyframes mesh-rotate {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* ── Stagger Fade-In for Cards ────────────────────────────────────────── */
+
+.stats-grid > *,
+.dashboard-grid > *,
+.steps-grid > *,
+.quick-actions-grid > * {
+    opacity: 0;
+    animation: stagger-in 0.5s cubic-bezier(0.2, 0, 0, 1) forwards;
+}
+
+.stats-grid > *:nth-child(1),
+.dashboard-grid > *:nth-child(1),
+.steps-grid > *:nth-child(1),
+.quick-actions-grid > *:nth-child(1) { animation-delay: 0.05s; }
+.stats-grid > *:nth-child(2),
+.dashboard-grid > *:nth-child(2),
+.steps-grid > *:nth-child(2),
+.quick-actions-grid > *:nth-child(2) { animation-delay: 0.1s; }
+.stats-grid > *:nth-child(3),
+.dashboard-grid > *:nth-child(3),
+.steps-grid > *:nth-child(3),
+.quick-actions-grid > *:nth-child(3) { animation-delay: 0.15s; }
+.stats-grid > *:nth-child(4),
+.dashboard-grid > *:nth-child(4),
+.steps-grid > *:nth-child(4),
+.quick-actions-grid > *:nth-child(4) { animation-delay: 0.2s; }
+.stats-grid > *:nth-child(n+5),
+.dashboard-grid > *:nth-child(n+5) { animation-delay: 0.25s; }
+
+@keyframes stagger-in {
+    from { opacity: 0; transform: translateY(16px) scale(0.97); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* ── Glassmorphism Depth Layers ───────────────────────────────────────── */
+
+.stat-card {
+    background: linear-gradient(
+        135deg,
+        rgba(20, 28, 47, 0.85) 0%,
+        rgba(26, 32, 53, 0.65) 100%
+    );
+    border: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.card {
+    background: linear-gradient(
+        180deg,
+        rgba(20, 28, 47, 0.8) 0%,
+        rgba(17, 24, 39, 0.9) 100%
+    );
+}
+
+/* ── Floating Action Button ───────────────────────────────────────────── */
+
+.fab {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: var(--gradient-premium);
+    color: var(--text-inverse);
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 24px rgba(0, 230, 138, 0.35), 0 0 0 0 rgba(0, 230, 138, 0.3);
+    transition: all var(--transition-normal);
+    z-index: 80;
+    animation: fab-pulse 3s ease-in-out infinite;
+}
+
+.fab:hover {
+    transform: scale(1.1) translateY(-2px);
+    box-shadow: 0 8px 32px rgba(0, 230, 138, 0.45);
+}
+
+.fab svg { width: 24px; height: 24px; }
+
+@keyframes fab-pulse {
+    0%, 100% { box-shadow: 0 4px 24px rgba(0, 230, 138, 0.35), 0 0 0 0 rgba(0, 230, 138, 0.3); }
+    50% { box-shadow: 0 4px 24px rgba(0, 230, 138, 0.35), 0 0 0 12px rgba(0, 230, 138, 0); }
+}
+
+@media (max-width: 1024px) {
+    .fab { bottom: 80px; }
+}
+
+/* ── Notification Panel ───────────────────────────────────────────────── */
+
+.notification-panel {
+    position: fixed;
+    top: var(--topbar-height);
+    right: 0;
+    width: 380px;
+    max-height: calc(100vh - var(--topbar-height));
+    background: var(--glass-bg);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border-left: 1px solid var(--glass-border);
+    border-bottom: 1px solid var(--glass-border);
+    border-radius: 0 0 0 var(--radius-lg);
+    box-shadow: var(--shadow-xl);
+    z-index: 90;
+    transform: translateX(100%);
+    transition: transform var(--transition-normal);
+    display: flex;
+    flex-direction: column;
+}
+
+.notification-panel.open { transform: translateX(0); }
+
+.notification-panel-header {
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--glass-border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.notification-panel-header h3 {
+    font-size: 15px;
+    font-weight: 700;
+}
+
+.notification-panel-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px;
+}
+
+.notification-item {
+    padding: 14px 16px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-light);
+    margin-bottom: 8px;
+    transition: all var(--transition-fast);
+    cursor: pointer;
+    animation: notif-in 0.3s ease-out;
+}
+
+.notification-item:hover {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: var(--accent-blue);
+}
+
+.notification-item .notif-title {
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.notification-item .notif-body {
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.4;
+}
+
+.notification-item .notif-time {
+    font-size: 10px;
+    color: var(--text-tertiary);
+    margin-top: 6px;
+}
+
+.notification-item.edge { border-left: 3px solid var(--accent-green); }
+.notification-item.alert { border-left: 3px solid var(--accent-yellow); }
+.notification-item.win { border-left: 3px solid var(--accent-blue); }
+
+@keyframes notif-in {
+    from { opacity: 0; transform: translateX(20px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+
+/* ── Donut Chart ──────────────────────────────────────────────────────── */
+
+.donut-chart {
+    position: relative;
+    width: 140px;
+    height: 140px;
+    margin: 0 auto;
+}
+
+.donut-chart svg {
+    width: 100%;
+    height: 100%;
+    transform: rotate(-90deg);
+}
+
+.donut-chart circle {
+    fill: none;
+    stroke-width: 8;
+    stroke-linecap: round;
+    cx: 70;
+    cy: 70;
+    r: 58;
+}
+
+.donut-chart .donut-bg {
+    stroke: rgba(255, 255, 255, 0.05);
+}
+
+.donut-chart .donut-segment {
+    transition: stroke-dashoffset 1.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.donut-chart-center {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+}
+
+.donut-chart-center .donut-value {
+    font-size: 24px;
+    font-weight: 800;
+    line-height: 1;
+}
+
+.donut-chart-center .donut-label {
+    font-size: 10px;
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-top: 4px;
+}
+
+/* ── Watchlist Page ───────────────────────────────────────────────────── */
+
+.watchlist-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 16px;
+}
+
+.watchlist-card {
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-lg);
+    padding: 20px;
+    transition: all var(--transition-normal);
+    position: relative;
+    overflow: hidden;
+}
+
+.watchlist-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: var(--gradient-premium);
+    opacity: 0;
+    transition: opacity var(--transition-fast);
+}
+
+.watchlist-card:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-lg);
+}
+
+.watchlist-card:hover::before { opacity: 1; }
+
+.watchlist-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: start;
+    margin-bottom: 12px;
+}
+
+.watchlist-card-teams {
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.watchlist-card-time {
+    font-size: 11px;
+    color: var(--text-tertiary);
+    margin-top: 4px;
+}
+
+.watchlist-card-remove {
+    background: none;
+    border: none;
+    color: var(--text-tertiary);
+    cursor: pointer;
+    font-size: 18px;
+    padding: 4px;
+    border-radius: 4px;
+    transition: all var(--transition-fast);
+}
+
+.watchlist-card-remove:hover {
+    color: var(--accent-red);
+    background: var(--accent-red-dim);
+}
+
+.watchlist-card-odds {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+/* ── Confetti Animation ───────────────────────────────────────────────── */
+
+.confetti-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 9999;
+    overflow: hidden;
+}
+
+.confetti-piece {
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    border-radius: 2px;
+    animation: confetti-fall 2s cubic-bezier(0.2, 0, 0.3, 1) forwards;
+    opacity: 0;
+}
+
+@keyframes confetti-fall {
+    0% { opacity: 1; transform: translateY(-10px) rotate(0deg) scale(1); }
+    80% { opacity: 1; }
+    100% { opacity: 0; transform: translateY(100vh) rotate(720deg) scale(0.5); }
+}
+
+/* ── Intersection Observer Reveal ─────────────────────────────────────── */
+
+.reveal {
+    opacity: 0;
+    transform: translateY(20px);
+    transition: all 0.6s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.reveal.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* ── Premium Gradient Text ────────────────────────────────────────────── */
+
+.gradient-text {
+    background: var(--gradient-premium);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+/* ── Sparkline Area Chart (inline SVG) ────────────────────────────────── */
+
+.mini-chart {
+    display: block;
+    width: 100%;
+    height: 48px;
+    margin-top: 8px;
+}
+
+.mini-chart .area-fill { opacity: 0.15; }
+.mini-chart .line-stroke { fill: none; stroke-width: 1.5; stroke-linecap: round; }
+
+/* ── Stat Card Micro-Chart Container ──────────────────────────────────── */
+
+.stat-micro-chart {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 40px;
+    opacity: 0.4;
+    pointer-events: none;
+}
+
+/* ── Premium Data Table Row States ────────────────────────────────────── */
+
+.data-table tbody tr.highlight-best {
+    border-left: 3px solid var(--accent-green);
+}
+
+.data-table tbody tr.highlight-worst {
+    border-left: 3px solid var(--accent-red);
+}
+
+/* ── Stat Card Shimmer on Hover ───────────────────────────────────────── */
+
+.stat-card::before {
+    transition: opacity var(--transition-normal);
+}
+
+.stat-card:hover::before {
+    opacity: 0.8;
+    filter: brightness(1.3);
+}
+
+/* ── Scroll Progress Indicator ────────────────────────────────────────── */
+
+.scroll-progress {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 2px;
+    background: var(--gradient-premium);
+    z-index: 9999;
+    transition: width 0.1s linear;
+    border-radius: 0 1px 1px 0;
+}
+
+/* ── Rich Tooltip ─────────────────────────────────────────────────────── */
+
+.rich-tooltip {
+    position: fixed;
+    z-index: 10000;
+    background: var(--bg-card);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-md);
+    padding: 12px 16px;
+    box-shadow: var(--shadow-xl);
+    font-size: 12px;
+    pointer-events: none;
+    max-width: 280px;
+    opacity: 0;
+    transform: translateY(4px);
+    transition: opacity 0.15s, transform 0.15s;
+}
+
+.rich-tooltip.show {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.rich-tooltip .tip-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-tertiary);
+    margin-bottom: 4px;
+}
+
+.rich-tooltip .tip-value {
+    font-size: 16px;
+    font-weight: 700;
+}
+
+/* ── Tab Indicator Animation ──────────────────────────────────────────── */
+
+.tabs {
+    position: relative;
+}
+
+.tab.active {
+    color: var(--accent-blue);
+    background: var(--accent-blue-dim);
+}
+
+/* ── Enhanced Filter Bar ──────────────────────────────────────────────── */
+
+.filters-bar {
+    background: var(--glass-bg);
+    backdrop-filter: blur(var(--glass-blur));
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-md);
+    padding: 12px 16px;
+}
+
+/* ── Animated Number Counter ──────────────────────────────────────────── */
+
+.counter-animate {
+    display: inline-block;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.counter-animate.bump {
+    animation: counter-bump 0.3s ease-out;
+}
+
+@keyframes counter-bump {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.2); }
+    100% { transform: scale(1); }
+}
+
+/* ── Premium Sidebar Logo Glow ────────────────────────────────────────── */
+
+.brand-icon {
+    position: relative;
+}
+
+.brand-icon::after {
+    content: '';
+    position: absolute;
+    inset: -4px;
+    background: var(--gradient-premium);
+    border-radius: inherit;
+    opacity: 0;
+    filter: blur(12px);
+    z-index: -1;
+    transition: opacity var(--transition-normal);
+}
+
+.sidebar:hover .brand-icon::after {
+    opacity: 0.4;
+}
+
+/* ── Table Cell Trend Micro-Bars ──────────────────────────────────────── */
+
+.trend-micro {
+    display: inline-flex;
+    align-items: flex-end;
+    gap: 1px;
+    height: 14px;
+    vertical-align: middle;
+    margin-left: 6px;
+}
+
+.trend-micro-bar {
+    width: 3px;
+    border-radius: 1px;
+    min-height: 2px;
+    transition: height var(--transition-fast);
+}
+
+/* ── Enhanced Empty States ────────────────────────────────────────────── */
+
+.empty-state svg {
+    color: var(--accent-blue);
+    opacity: 0.2;
+    animation: empty-float 3s ease-in-out infinite;
+}
+
+@keyframes empty-float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-8px); }
+}
+
+/* ── Light Theme v2 Overrides ─────────────────────────────────────────── */
+
+[data-theme="light"] .stat-card {
+    background: linear-gradient(
+        135deg,
+        rgba(255, 255, 255, 0.9) 0%,
+        rgba(245, 247, 250, 0.85) 100%
+    );
+}
+
+[data-theme="light"] .card {
+    background: linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 0.9) 0%,
+        rgba(248, 249, 252, 0.95) 100%
+    );
+}
+
+[data-theme="light"] body::after {
+    background: conic-gradient(
+        from 0deg at 50% 50%,
+        rgba(0, 179, 104, 0.04) 0deg,
+        transparent 60deg,
+        rgba(59, 125, 219, 0.04) 120deg,
+        transparent 180deg,
+        rgba(139, 63, 212, 0.03) 240deg,
+        transparent 300deg,
+        rgba(0, 179, 104, 0.04) 360deg
+    );
+}
+
+[data-theme="light"] .filters-bar {
+    background: rgba(255, 255, 255, 0.8);
+}
+
+[data-theme="light"] .notification-panel {
+    background: rgba(255, 255, 255, 0.92);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   World-Class Premium Upgrades v3.0
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Skeleton Loading Screens ─────────────────────────────────── */
+
+.skeleton {
+    background: linear-gradient(
+        90deg,
+        var(--bg-tertiary) 25%,
+        var(--bg-surface) 50%,
+        var(--bg-tertiary) 75%
+    );
+    background-size: 200% 100%;
+    animation: skeleton-shimmer 1.5s ease-in-out infinite;
+    border-radius: var(--radius-sm);
+}
+
+.skeleton-line {
+    height: 14px;
+    margin-bottom: 10px;
+    border-radius: 4px;
+}
+
+.skeleton-line.w-75 { width: 75%; }
+.skeleton-line.w-50 { width: 50%; }
+.skeleton-line.w-25 { width: 25%; }
+
+.skeleton-circle {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+}
+
+.skeleton-card {
+    padding: 20px;
+    border-radius: var(--radius-md);
+    min-height: 120px;
+}
+
+@keyframes skeleton-shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+/* ── Animated Card Borders (Glow on Hover) ────────────────────── */
+
+.card {
+    position: relative;
+    overflow: hidden;
+}
+
+.card::before {
+    content: '';
+    position: absolute;
+    top: -1px;
+    left: -1px;
+    right: -1px;
+    bottom: -1px;
+    background: linear-gradient(
+        135deg,
+        transparent 0%,
+        rgba(0, 230, 138, 0.08) 25%,
+        transparent 50%,
+        rgba(91, 154, 255, 0.08) 75%,
+        transparent 100%
+    );
+    border-radius: inherit;
+    z-index: -1;
+    opacity: 0;
+    transition: opacity 0.4s ease;
+}
+
+.card:hover::before {
+    opacity: 1;
+}
+
+/* ── Enhanced Stat Cards with Shine Effect ────────────────────── */
+
+.stat-card {
+    position: relative;
+    overflow: hidden;
+}
+
+.stat-card::after {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: linear-gradient(
+        45deg,
+        transparent 40%,
+        rgba(255, 255, 255, 0.03) 50%,
+        transparent 60%
+    );
+    transform: rotate(0deg);
+    transition: transform 0.6s ease;
+    pointer-events: none;
+}
+
+.stat-card:hover::after {
+    transform: rotate(180deg);
+}
+
+/* ── Pulse Animation for Live Indicators ──────────────────────── */
+
+.live-pulse {
+    position: relative;
+}
+
+.live-pulse::before {
+    content: '';
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent-green);
+    top: 50%;
+    left: -16px;
+    transform: translateY(-50%);
+    animation: live-pulse-ring 2s ease-in-out infinite;
+}
+
+@keyframes live-pulse-ring {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(0, 230, 138, 0.5); }
+    50% { box-shadow: 0 0 0 8px rgba(0, 230, 138, 0); }
+}
+
+/* ── Heatmap Calendar ─────────────────────────────────────────── */
+
+.heatmap-calendar {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 3px;
+    padding: 8px;
+}
+
+.heatmap-day {
+    aspect-ratio: 1;
+    border-radius: 3px;
+    position: relative;
+    cursor: default;
+    min-width: 14px;
+    min-height: 14px;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.heatmap-day:hover {
+    transform: scale(1.4);
+    z-index: 2;
+    box-shadow: 0 0 8px rgba(0, 0, 0, 0.5);
+}
+
+.heatmap-day[data-tooltip]:hover::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    white-space: nowrap;
+    z-index: 10;
+    border: 1px solid var(--border-color);
+    pointer-events: none;
+}
+
+.heatmap-legend {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    color: var(--text-tertiary);
+    padding: 8px;
+    justify-content: flex-end;
+}
+
+.heatmap-legend-block {
+    width: 12px;
+    height: 12px;
+    border-radius: 2px;
+}
+
+/* ── Bankroll Health Gauge ────────────────────────────────────── */
+
+.health-gauge {
+    position: relative;
+    width: 180px;
+    height: 100px;
+    margin: 0 auto;
+}
+
+.health-gauge svg {
+    width: 100%;
+    height: 100%;
+}
+
+.health-gauge-label {
+    position: absolute;
+    bottom: 4px;
+    left: 50%;
+    transform: translateX(-50%);
+    text-align: center;
+}
+
+.health-gauge-value {
+    font-size: 24px;
+    font-weight: 800;
+    font-family: var(--font-mono);
+}
+
+.health-gauge-text {
+    font-size: 11px;
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* ── Enhanced Badge Styles ────────────────────────────────────── */
+
+.badge-glow {
+    position: relative;
+}
+
+.badge-glow::after {
+    content: '';
+    position: absolute;
+    inset: -2px;
+    border-radius: inherit;
+    background: inherit;
+    filter: blur(6px);
+    opacity: 0.4;
+    z-index: -1;
+}
+
+/* ── Animated Progress Ring ───────────────────────────────────── */
+
+.progress-ring {
+    display: inline-block;
+    position: relative;
+}
+
+.progress-ring svg {
+    transform: rotate(-90deg);
+}
+
+.progress-ring-track {
+    fill: none;
+    stroke: var(--bg-tertiary);
+    stroke-width: 6;
+}
+
+.progress-ring-fill {
+    fill: none;
+    stroke: var(--accent-green);
+    stroke-width: 6;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.progress-ring-value {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 11px;
+    font-weight: 700;
+    font-family: var(--font-mono);
+}
+
+/* ── Data Table Enhancements ──────────────────────────────────── */
+
+.data-table tbody tr {
+    transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.data-table tbody tr:hover {
+    background: rgba(255, 255, 255, 0.03);
+    transform: translateX(2px);
+}
+
+.data-table tbody tr:active {
+    transform: translateX(0);
+}
+
+/* Row highlight for hot items */
+.data-table tr.hot-row {
+    background: rgba(0, 230, 138, 0.04);
+    border-left: 2px solid var(--accent-green);
+}
+
+.data-table tr.cold-row {
+    background: rgba(255, 77, 106, 0.04);
+    border-left: 2px solid var(--accent-red);
+}
+
+/* ── Enhanced Filter Bar ──────────────────────────────────────── */
+
+.filters-bar {
+    position: relative;
+    overflow: hidden;
+}
+
+.filters-bar::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: var(--gradient-premium);
+    opacity: 0.3;
+}
+
+/* ── Animated Number Counter ──────────────────────────────────── */
+
+.counter-animate {
+    display: inline-block;
+    transition: transform 0.2s ease;
+}
+
+.counter-animate.bump {
+    animation: counter-bump 0.3s ease;
+}
+
+/* ── Status Pill ──────────────────────────────────────────────── */
+
+.status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.status-pill.positive {
+    background: var(--accent-green-dim);
+    color: var(--accent-green);
+}
+
+.status-pill.negative {
+    background: var(--accent-red-dim);
+    color: var(--accent-red);
+}
+
+.status-pill.neutral {
+    background: var(--accent-blue-dim);
+    color: var(--accent-blue);
+}
+
+/* ── Risk Level Indicator ─────────────────────────────────────── */
+
+.risk-meter {
+    display: flex;
+    gap: 2px;
+    align-items: flex-end;
+    height: 20px;
+}
+
+.risk-bar {
+    width: 4px;
+    border-radius: 2px;
+    transition: height 0.3s ease, background 0.3s ease;
+}
+
+/* ── Enhanced Quick Action Cards ──────────────────────────────── */
+
+.quick-action-card {
+    position: relative;
+    overflow: hidden;
+}
+
+.quick-action-card::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 50%;
+    height: 100%;
+    background: linear-gradient(
+        90deg,
+        transparent 0%,
+        rgba(255, 255, 255, 0.04) 50%,
+        transparent 100%
+    );
+    transition: left 0.5s ease;
+}
+
+.quick-action-card:hover::after {
+    left: 150%;
+}
+
+/* ── Breadcrumb Trail ─────────────────────────────────────────── */
+
+.breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--text-tertiary);
+    margin-bottom: 16px;
+}
+
+.breadcrumb a {
+    color: var(--text-secondary);
+    text-decoration: none;
+    transition: color 0.15s;
+}
+
+.breadcrumb a:hover {
+    color: var(--accent-green);
+}
+
+.breadcrumb-sep {
+    opacity: 0.3;
+}
+
+/* ── Premium Gradient Borders ─────────────────────────────────── */
+
+.gradient-border {
+    position: relative;
+    background: var(--bg-card);
+    border-radius: var(--radius-md);
+}
+
+.gradient-border::before {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    background: var(--gradient-premium);
+    z-index: -1;
+    opacity: 0.5;
+}
+
+/* ── Enhanced Mobile Bottom Nav ───────────────────────────────── */
+
+.mobile-bottom-nav .mobile-nav-item.active {
+    position: relative;
+}
+
+.mobile-bottom-nav .mobile-nav-item.active::before {
+    content: '';
+    position: absolute;
+    top: -2px;
+    left: 25%;
+    right: 25%;
+    height: 2px;
+    background: var(--gradient-premium);
+    border-radius: 0 0 2px 2px;
+}
+
+/* ── Streak Badge ─────────────────────────────────────────────── */
+
+.streak-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 700;
+    font-family: var(--font-mono);
+}
+
+.streak-badge.hot {
+    background: linear-gradient(135deg, rgba(255, 77, 106, 0.15), rgba(255, 194, 52, 0.15));
+    color: var(--accent-yellow);
+}
+
+.streak-badge.cold {
+    background: linear-gradient(135deg, rgba(91, 154, 255, 0.15), rgba(168, 85, 247, 0.15));
+    color: var(--accent-blue);
+}
+
+/* ── Tooltip Enhancement ──────────────────────────────────────── */
+
+[data-tooltip] {
+    position: relative;
+    cursor: pointer;
+}
+
+[data-tooltip]:hover::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-size: 11px;
+    white-space: nowrap;
+    z-index: 100;
+    border: 1px solid var(--border-color);
+    pointer-events: none;
+    animation: tooltip-in 0.15s ease;
+    box-shadow: var(--shadow-lg);
+}
+
+@keyframes tooltip-in {
+    from { opacity: 0; transform: translateX(-50%) translateY(4px); }
+    to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+/* ── Page Transition ──────────────────────────────────────────── */
+
+.content-area {
+    animation: page-enter 0.3s cubic-bezier(0.2, 0, 0, 1);
+}
+
+@keyframes page-enter {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ── Smooth Number Transition ─────────────────────────────────── */
+
+.number-glow {
+    text-shadow: 0 0 20px currentColor;
+}
+
+/* ── Enhanced Page Title ──────────────────────────────────────── */
+
+.page-title .gradient-text {
+    position: relative;
+}
+
+.page-title .gradient-text::after {
+    content: '';
+    position: absolute;
+    bottom: -4px;
+    left: 0;
+    width: 40px;
+    height: 3px;
+    background: var(--gradient-premium);
+    border-radius: 2px;
+}
+
+/* ── Card Header Accent Line ──────────────────────────────────── */
+
+.card-header {
+    position: relative;
+}
+
+.card-header::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 20px;
+    right: 20px;
+    height: 1px;
+    background: linear-gradient(
+        90deg,
+        transparent 0%,
+        var(--border-color) 20%,
+        var(--border-color) 80%,
+        transparent 100%
+    );
+}
+
+/* ── Bet Outcome Animations ───────────────────────────────────── */
+
+@keyframes win-flash {
+    0%, 100% { background: transparent; }
+    50% { background: rgba(0, 230, 138, 0.08); }
+}
+
+@keyframes loss-flash {
+    0%, 100% { background: transparent; }
+    50% { background: rgba(255, 77, 106, 0.08); }
+}
+
+.bet-won {
+    animation: win-flash 0.6s ease 2;
+}
+
+.bet-lost {
+    animation: loss-flash 0.6s ease 2;
+}
+
+/* ── Smooth Scrollbar ─────────────────────────────────────────── */
+
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+/* ── Enhanced Live Ticker ─────────────────────────────────────── */
+
+.live-ticker {
+    position: relative;
+    overflow: hidden;
+}
+
+.live-ticker::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 60px;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, var(--bg-primary));
+    pointer-events: none;
+}
+
+/* ── Light Theme v3 Overrides ─────────────────────────────────── */
+
+[data-theme="light"] .skeleton {
+    background: linear-gradient(
+        90deg,
+        #f0f2f5 25%,
+        #e4e7ec 50%,
+        #f0f2f5 75%
+    );
+    background-size: 200% 100%;
+}
+
+[data-theme="light"] ::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.15);
+}
+
+[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 0, 0, 0.25);
+}
+
+[data-theme="light"] [data-tooltip]:hover::after {
+    background: #fff;
+    border-color: rgba(0, 0, 0, 0.1);
+    color: #1a1a1a;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .data-table tbody tr:hover {
+    background: rgba(0, 0, 0, 0.02);
+}
+
+[data-theme="light"] .live-ticker::after {
+    background: linear-gradient(90deg, transparent, #f8f9fb);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   World-Class Premium Upgrades v4.0 — Elite Edition
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Accent Theme System ──────────────────────────────────────── */
+
+[data-accent="emerald"] {
+    --accent-green: #10b981;
+    --accent-green-dim: rgba(16, 185, 129, 0.12);
+    --accent-green-glow: rgba(16, 185, 129, 0.25);
+    --gradient-premium: linear-gradient(135deg, #10b981 0%, #5b9aff 100%);
+}
+
+[data-accent="neon"] {
+    --accent-green: #39ff14;
+    --accent-green-dim: rgba(57, 255, 20, 0.12);
+    --accent-green-glow: rgba(57, 255, 20, 0.25);
+    --gradient-premium: linear-gradient(135deg, #39ff14 0%, #00e5ff 100%);
+}
+
+[data-accent="gold"] {
+    --accent-green: #f59e0b;
+    --accent-green-dim: rgba(245, 158, 11, 0.12);
+    --accent-green-glow: rgba(245, 158, 11, 0.25);
+    --gradient-premium: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%);
+}
+
+[data-accent="ocean"] {
+    --accent-green: #06b6d4;
+    --accent-green-dim: rgba(6, 182, 212, 0.12);
+    --accent-green-glow: rgba(6, 182, 212, 0.25);
+    --gradient-premium: linear-gradient(135deg, #06b6d4 0%, #8b5cf6 100%);
+}
+
+/* ── Player Profile Hero ──────────────────────────────────────── */
+
+.player-hero {
+    position: relative;
+    padding: 32px;
+    border-radius: var(--radius-lg);
+    background: linear-gradient(135deg, var(--bg-card) 0%, var(--bg-tertiary) 100%);
+    border: 1px solid var(--border-color);
+    overflow: hidden;
+    margin-bottom: 24px;
+}
+
+.player-hero::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: var(--gradient-premium);
+}
+
+.player-hero-content {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+}
+
+.player-avatar-lg {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: var(--gradient-premium);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    font-weight: 800;
+    color: var(--text-inverse);
+    flex-shrink: 0;
+    box-shadow: 0 0 24px rgba(0, 230, 138, 0.2);
+}
+
+.player-hero-info h2 {
+    font-size: 28px;
+    font-weight: 800;
+    margin: 0 0 4px 0;
+    background: var(--gradient-premium);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.player-hero-meta {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    color: var(--text-secondary);
+    font-size: 14px;
+}
+
+.player-hero-meta .sep {
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--text-tertiary);
+}
+
+.player-stat-pills {
+    display: flex;
+    gap: 8px;
+    margin-top: 16px;
+    flex-wrap: wrap;
+}
+
+.player-stat-pill {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: 20px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    font-size: 13px;
+}
+
+.player-stat-pill .pill-label {
+    color: var(--text-tertiary);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.player-stat-pill .pill-value {
+    font-weight: 700;
+    font-family: var(--font-mono);
+}
+
+/* ── Comparison Bar Charts ────────────────────────────────────── */
+
+.comparison-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 4px 0;
+}
+
+.comparison-bar-label {
+    font-size: 11px;
+    color: var(--text-tertiary);
+    min-width: 60px;
+    text-align: right;
+}
+
+.comparison-bar-track {
+    flex: 1;
+    height: 6px;
+    background: var(--bg-tertiary);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.comparison-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    background: var(--accent-green);
+}
+
+.comparison-bar-fill.blue { background: var(--accent-blue); }
+.comparison-bar-fill.yellow { background: var(--accent-yellow); }
+.comparison-bar-fill.purple { background: var(--accent-purple); }
+.comparison-bar-fill.red { background: var(--accent-red); }
+
+.comparison-bar-value {
+    font-size: 12px;
+    font-weight: 700;
+    font-family: var(--font-mono);
+    min-width: 40px;
+}
+
+/* ── Enhanced Edge Cards ──────────────────────────────────────── */
+
+.edge-summary-banner {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+    padding: 16px;
+    margin-bottom: 16px;
+    border-radius: var(--radius-md);
+    background: linear-gradient(135deg, rgba(0, 230, 138, 0.06) 0%, rgba(91, 154, 255, 0.06) 100%);
+    border: 1px solid var(--border-color);
+}
+
+.edge-summary-item {
+    text-align: center;
+}
+
+.edge-summary-item .edge-sum-value {
+    font-size: 22px;
+    font-weight: 800;
+    font-family: var(--font-mono);
+}
+
+.edge-summary-item .edge-sum-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-tertiary);
+    margin-top: 2px;
+}
+
+/* ── EV Heatmap Row Glow ──────────────────────────────────────── */
+
+.ev-heat-high {
+    background: rgba(0, 230, 138, 0.06);
+}
+
+.ev-heat-ultra {
+    background: rgba(0, 230, 138, 0.1);
+    box-shadow: inset 3px 0 0 var(--accent-green);
+}
+
+/* ── Settings Accent Picker ───────────────────────────────────── */
+
+.accent-picker {
+    display: flex;
+    gap: 10px;
+    padding: 8px 0;
+}
+
+.accent-swatch {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    cursor: pointer;
+    border: 3px solid transparent;
+    transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s;
+    position: relative;
+}
+
+.accent-swatch:hover {
+    transform: scale(1.15);
+}
+
+.accent-swatch.active {
+    border-color: var(--text-primary);
+    box-shadow: 0 0 12px rgba(255, 255, 255, 0.2);
+}
+
+.accent-swatch::after {
+    content: '';
+    position: absolute;
+    inset: -6px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    transition: border-color 0.15s;
+}
+
+.accent-swatch.active::after {
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+/* ── Line Movement SVG Chart ──────────────────────────────────── */
+
+.lm-visual-chart {
+    position: relative;
+    padding: 16px 0;
+}
+
+.lm-visual-chart svg {
+    width: 100%;
+    height: auto;
+}
+
+.lm-chart-dot {
+    transition: r 0.15s ease;
+    cursor: pointer;
+}
+
+.lm-chart-dot:hover {
+    r: 6;
+}
+
+/* ── Odds Comparison Highlights ───────────────────────────────── */
+
+.odds-badge.best-price {
+    background: var(--accent-green-dim);
+    color: var(--accent-green);
+    font-weight: 800;
+    box-shadow: 0 0 8px rgba(0, 230, 138, 0.2);
+}
+
+.odds-badge.worst-price {
+    opacity: 0.5;
+}
+
+/* ── Watchlist Card Premium ───────────────────────────────────── */
+
+.watchlist-card {
+    position: relative;
+    overflow: hidden;
+}
+
+.watchlist-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: var(--gradient-premium);
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.watchlist-card:hover::before {
+    opacity: 1;
+}
+
+/* ── Animated Number Ticker ───────────────────────────────────── */
+
+.num-ticker {
+    display: inline-flex;
+    overflow: hidden;
+    height: 1.2em;
+}
+
+.num-ticker-digit {
+    display: inline-block;
+    animation: num-tick-in 0.4s cubic-bezier(0.2, 0, 0, 1);
+}
+
+@keyframes num-tick-in {
+    from { transform: translateY(100%); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+/* ── Glassmorphism Modal ──────────────────────────────────────── */
+
+.glass-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s;
+}
+
+.glass-modal.open {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.glass-modal-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(8px);
+}
+
+.glass-modal-content {
+    position: relative;
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-lg);
+    padding: 32px;
+    max-width: 500px;
+    width: 90%;
+    box-shadow: var(--shadow-xl);
+    animation: modal-enter 0.3s cubic-bezier(0.2, 0, 0, 1);
+}
+
+@keyframes modal-enter {
+    from { transform: scale(0.95) translateY(10px); opacity: 0; }
+    to { transform: scale(1) translateY(0); opacity: 1; }
+}
+
+.glass-modal-close {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background: none;
+    border: none;
+    color: var(--text-tertiary);
+    cursor: pointer;
+    padding: 4px;
+    font-size: 18px;
+    line-height: 1;
+    transition: color 0.15s;
+}
+
+.glass-modal-close:hover {
+    color: var(--text-primary);
+}
+
+/* ── 3D Card Tilt (subtle) ────────────────────────────────────── */
+
+.tilt-card {
+    transform-style: preserve-3d;
+    perspective: 1000px;
+    transition: transform 0.3s ease;
+}
+
+.tilt-card:hover {
+    transform: rotateX(-1deg) rotateY(1deg) translateY(-2px);
+}
+
+/* ── Animated Gradient Border (premium cards) ─────────────────── */
+
+.animated-border {
+    position: relative;
+    overflow: hidden;
+}
+
+.animated-border::before {
+    content: '';
+    position: absolute;
+    inset: -2px;
+    background: conic-gradient(
+        from 0deg,
+        var(--accent-green),
+        var(--accent-blue),
+        var(--accent-purple),
+        var(--accent-yellow),
+        var(--accent-green)
+    );
+    border-radius: inherit;
+    z-index: -1;
+    opacity: 0;
+    animation: border-spin 4s linear infinite;
+    transition: opacity 0.3s;
+}
+
+.animated-border:hover::before {
+    opacity: 0.6;
+}
+
+@keyframes border-spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.animated-border::after {
+    content: '';
+    position: absolute;
+    inset: 1px;
+    background: var(--bg-card);
+    border-radius: inherit;
+    z-index: -1;
+}
+
+/* ── Enhanced Settings Rows ───────────────────────────────────── */
+
+.settings-row {
+    transition: background 0.15s;
+    padding: 12px 0;
+    border-radius: var(--radius-sm);
+}
+
+.settings-row:hover {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+/* ── Data Freshness Indicator ─────────────────────────────────── */
+
+.freshness-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 6px;
+}
+
+.freshness-dot.fresh { background: var(--accent-green); box-shadow: 0 0 6px var(--accent-green-glow); }
+.freshness-dot.stale { background: var(--accent-yellow); }
+.freshness-dot.old { background: var(--accent-red); }
+
+/* ── Premium Sidebar Active Link ──────────────────────────────── */
+
+.nav-link.active {
+    position: relative;
+}
+
+.nav-link.active::after {
+    content: '';
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 3px;
+    height: 60%;
+    background: var(--gradient-premium);
+    border-radius: 3px 0 0 3px;
+}
+
+/* ── Keyboard Shortcut Chips ──────────────────────────────────── */
+
+.kbd-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 22px;
+    height: 22px;
+    padding: 0 6px;
+    border-radius: 4px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    font-size: 10px;
+    font-family: var(--font-mono);
+    font-weight: 600;
+    color: var(--text-secondary);
+    line-height: 1;
+}
+
+/* ── Enhanced Badge Variants ──────────────────────────────────── */
+
+.badge-premium {
+    background: var(--gradient-premium);
+    color: var(--text-inverse);
+    font-weight: 700;
+    box-shadow: 0 2px 8px rgba(0, 230, 138, 0.2);
+}
+
+.badge-fire {
+    background: linear-gradient(135deg, #ff4d6a, #ff8c00);
+    color: white;
+    font-weight: 700;
+}
+
+.badge-ice {
+    background: linear-gradient(135deg, #5b9aff, #22d3ee);
+    color: white;
+    font-weight: 700;
+}
+
+/* ── Step Progress Indicator ──────────────────────────────────── */
+
+.step-progress {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    margin: 16px 0;
+}
+
+.step-progress-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+    position: relative;
+}
+
+.step-progress-dot {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 700;
+    background: var(--bg-tertiary);
+    color: var(--text-tertiary);
+    border: 2px solid var(--border-color);
+    flex-shrink: 0;
+    transition: all 0.3s;
+    z-index: 1;
+}
+
+.step-progress-item.active .step-progress-dot {
+    background: var(--accent-green);
+    color: var(--text-inverse);
+    border-color: var(--accent-green);
+    box-shadow: 0 0 12px var(--accent-green-glow);
+}
+
+.step-progress-item.done .step-progress-dot {
+    background: var(--accent-green-dim);
+    color: var(--accent-green);
+    border-color: var(--accent-green);
+}
+
+.step-progress-line {
+    flex: 1;
+    height: 2px;
+    background: var(--border-color);
+    margin: 0 -4px;
+}
+
+.step-progress-line.done {
+    background: var(--accent-green);
+}
+
+/* ── Light Theme v4 Overrides ─────────────────────────────────── */
+
+[data-theme="light"] .player-hero {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(245, 247, 250, 0.9) 100%);
+}
+
+[data-theme="light"] .edge-summary-banner {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.06) 0%, rgba(59, 130, 246, 0.06) 100%);
+}
+
+[data-theme="light"] .glass-modal-content {
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: blur(20px);
+}
+
+[data-theme="light"] .glass-modal-backdrop {
+    background: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="light"] .animated-border::after {
+    background: #fff;
+}
+
+[data-theme="light"] .accent-swatch.active {
+    border-color: #333;
+}
+
+[data-theme="light"] .nav-link.active::after {
+    display: block;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   PREMIUM ENHANCEMENTS v2.0
+   ══════════════════════════════════════════════════════════════════ */
+
+/* ── 1. NProgress-style Top Loading Bar ─────────────────────────── */
+
+#nprogress-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--accent-green), var(--accent-blue), var(--accent-green));
+    background-size: 200% 100%;
+    z-index: 10000;
+    transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 0 10px var(--accent-green-glow), 0 0 5px var(--accent-green-glow);
+    animation: nprogress-shimmer 1.5s ease-in-out infinite;
+    pointer-events: none;
+}
+
+#nprogress-bar.done {
+    width: 100% !important;
+    opacity: 0;
+    transition: width 0.2s, opacity 0.4s 0.2s;
+}
+
+#nprogress-bar::after {
+    content: '';
+    position: absolute;
+    right: 0;
+    top: 0;
+    width: 80px;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3));
+    border-radius: 0 2px 2px 0;
+}
+
+@keyframes nprogress-shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+/* ── 2. Ticker Tape / Marquee ───────────────────────────────────── */
+
+.ticker-tape {
+    width: 100%;
+    overflow: hidden;
+    background: linear-gradient(90deg, var(--bg-secondary), var(--bg-tertiary), var(--bg-secondary));
+    border-bottom: 1px solid var(--border-color);
+    padding: 8px 0;
+    position: relative;
+    white-space: nowrap;
+}
+
+.ticker-tape::before,
+.ticker-tape::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 60px;
+    z-index: 2;
+    pointer-events: none;
+}
+
+.ticker-tape::before {
+    left: 0;
+    background: linear-gradient(90deg, var(--bg-secondary), transparent);
+}
+
+.ticker-tape::after {
+    right: 0;
+    background: linear-gradient(90deg, transparent, var(--bg-secondary));
+}
+
+.ticker-track {
+    display: inline-flex;
+    gap: 32px;
+    animation: ticker-scroll 30s linear infinite;
+    align-items: center;
+}
+
+.ticker-track:hover {
+    animation-play-state: paused;
+}
+
+.ticker-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    padding: 2px 12px;
+    border-radius: var(--radius-sm);
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    cursor: default;
+    transition: all var(--transition-fast);
+}
+
+.ticker-item:hover {
+    border-color: var(--accent-green);
+    color: var(--text-primary);
+}
+
+.ticker-item .ticker-up {
+    color: var(--accent-green);
+}
+
+.ticker-item .ticker-down {
+    color: var(--accent-red);
+}
+
+.ticker-item .ticker-sep {
+    color: var(--text-tertiary);
+    font-weight: 400;
+}
+
+@keyframes ticker-scroll {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+}
+
+/* ── 3. Enhanced Live Pulse Indicators ──────────────────────────── */
+
+.live-pulse {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--accent-red);
+}
+
+.live-pulse-dot {
+    width: 8px;
+    height: 8px;
+    background: var(--accent-red);
+    border-radius: 50%;
+    animation: live-pulse-anim 1.5s ease-in-out infinite;
+    position: relative;
+}
+
+.live-pulse-dot::after {
+    content: '';
+    position: absolute;
+    inset: -4px;
+    border-radius: 50%;
+    border: 2px solid var(--accent-red);
+    animation: live-pulse-ring 1.5s ease-out infinite;
+    opacity: 0;
+}
+
+@keyframes live-pulse-anim {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.6; transform: scale(0.85); }
+}
+
+@keyframes live-pulse-ring {
+    0% { transform: scale(0.8); opacity: 0.6; }
+    100% { transform: scale(2.2); opacity: 0; }
+}
+
+/* ── 4. SVG Path Drawing Animation ──────────────────────────────── */
+
+.lm-visual-chart path.chart-line-animated {
+    stroke-dasharray: var(--path-length, 1000);
+    stroke-dashoffset: var(--path-length, 1000);
+    animation: draw-line 1.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.lm-visual-chart circle.chart-dot-animated {
+    opacity: 0;
+    transform: scale(0);
+    transform-origin: center;
+    animation: pop-dot 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes draw-line {
+    to { stroke-dashoffset: 0; }
+}
+
+@keyframes pop-dot {
+    to { opacity: 1; transform: scale(1); }
+}
+
+/* ── 5. Calculator Animated Gauge ───────────────────────────────── */
+
+.gauge-container {
+    position: relative;
+    width: 160px;
+    height: 100px;
+    margin: 0 auto;
+}
+
+.gauge-svg {
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+}
+
+.gauge-bg {
+    fill: none;
+    stroke: var(--border-color);
+    stroke-width: 10;
+    stroke-linecap: round;
+}
+
+.gauge-fill {
+    fill: none;
+    stroke-width: 10;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 1s cubic-bezier(0.4, 0, 0.2, 1),
+                stroke 0.5s;
+}
+
+.gauge-value {
+    font-size: 22px;
+    font-weight: 800;
+    fill: var(--text-primary);
+    text-anchor: middle;
+    dominant-baseline: alphabetic;
+}
+
+.gauge-label {
+    font-size: 10px;
+    fill: var(--text-tertiary);
+    text-anchor: middle;
+    dominant-baseline: hanging;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+/* ── 6. Best Price Glow for Odds Comparison ─────────────────────── */
+
+.best-price {
+    position: relative;
+    color: var(--accent-green) !important;
+    font-weight: 700 !important;
+    text-shadow: 0 0 8px var(--accent-green-glow);
+}
+
+.best-price::before {
+    content: '';
+    position: absolute;
+    inset: -4px;
+    border-radius: var(--radius-sm);
+    background: radial-gradient(ellipse, rgba(0, 230, 138, 0.12), transparent 70%);
+    pointer-events: none;
+    animation: best-price-glow 2s ease-in-out infinite alternate;
+}
+
+@keyframes best-price-glow {
+    0% { opacity: 0.5; }
+    100% { opacity: 1; }
+}
+
+.odds-diff-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: 10px;
+    background: rgba(0, 230, 138, 0.15);
+    color: var(--accent-green);
+    margin-left: 4px;
+    vertical-align: middle;
+}
+
+.odds-diff-badge.negative {
+    background: rgba(255, 77, 106, 0.15);
+    color: var(--accent-red);
+}
+
+/* ── 7. Smooth Scroll & Focus Styles ────────────────────────────── */
+
+html {
+    scroll-behavior: smooth;
+}
+
+*:focus-visible {
+    outline: 2px solid var(--accent-green);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
+}
+
+.skip-link {
+    position: fixed;
+    top: -100px;
+    left: 16px;
+    z-index: 10001;
+    background: var(--accent-green);
+    color: var(--bg-primary);
+    padding: 12px 24px;
+    border-radius: var(--radius-md);
+    font-weight: 700;
+    font-size: 14px;
+    text-decoration: none;
+    transition: top 0.2s;
+}
+
+.skip-link:focus {
+    top: 16px;
+}
+
+/* ── 8. Print Styles ────────────────────────────────────────────── */
+
+@media print {
+    .sidebar,
+    .mobile-bottom-nav,
+    .bet-slip,
+    .top-bar,
+    .fab-btn,
+    .scroll-progress,
+    .toast-container,
+    .ticker-tape,
+    #nprogress-bar,
+    #cmd-backdrop,
+    .sidebar-overlay {
+        display: none !important;
+    }
+
+    .main-content {
+        margin: 0 !important;
+        padding: 0 !important;
+        width: 100% !important;
+    }
+
+    body {
+        background: white !important;
+        color: #111 !important;
+    }
+
+    .card, .glass-card {
+        break-inside: avoid;
+        box-shadow: none !important;
+        border: 1px solid #ddd !important;
+        background: white !important;
+    }
+}
+
+/* ── 9. Enhanced Card Hover & Micro-interactions ────────────────── */
+
+.card, .glass-card {
+    transition: transform var(--transition-normal), box-shadow var(--transition-normal), border-color var(--transition-normal);
+}
+
+.card:hover, .glass-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+}
+
+.btn {
+    position: relative;
+    overflow: hidden;
+}
+
+.btn::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(120deg, transparent 30%, rgba(255, 255, 255, 0.08) 50%, transparent 70%);
+    transform: translateX(-100%);
+    transition: transform 0.5s;
+}
+
+.btn:hover::after {
+    transform: translateX(100%);
+}
+
+/* ── 10. Stat Counter Animation ─────────────────────────────────── */
+
+.stat-value[data-animate] {
+    transition: color 0.3s;
+}
+
+.stat-value[data-animate].counting {
+    color: var(--accent-green);
+}
+
+/* ── 11. Skeleton Loading Placeholders ──────────────────────────── */
+
+.skeleton {
+    background: linear-gradient(90deg,
+        var(--bg-tertiary) 25%,
+        rgba(255, 255, 255, 0.05) 50%,
+        var(--bg-tertiary) 75%
+    );
+    background-size: 200% 100%;
+    animation: skeleton-shimmer 1.5s infinite;
+    border-radius: var(--radius-sm);
+}
+
+.skeleton-text {
+    height: 14px;
+    width: 80%;
+    margin: 8px 0;
+}
+
+.skeleton-heading {
+    height: 24px;
+    width: 60%;
+    margin: 12px 0;
+}
+
+.skeleton-card {
+    height: 120px;
+    width: 100%;
+}
+
+@keyframes skeleton-shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+/* ── 12. Page Transition Animations ─────────────────────────────── */
+
+.content-area {
+    animation: page-enter 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes page-enter {
+    from {
+        opacity: 0;
+        transform: translateY(12px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ── 13. Premium Number Highlight ───────────────────────────────── */
+
+.number-positive {
+    color: var(--accent-green);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+.number-negative {
+    color: var(--accent-red);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+.number-neutral {
+    color: var(--text-secondary);
+    font-variant-numeric: tabular-nums;
+}
+
+/* ── 14. Tooltip Enhancement ────────────────────────────────────── */
+
+[data-tooltip] {
+    position: relative;
+}
+
+[data-tooltip]::before {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%) translateY(4px);
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    padding: 6px 12px;
+    border-radius: var(--radius-sm);
+    font-size: 11px;
+    font-weight: 500;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.2s, transform 0.2s;
+    z-index: 1000;
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow-lg);
+}
+
+[data-tooltip]:hover::before {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
+
+/* ── 15. Enhanced Notification Bell Animation ───────────────────── */
+
+@keyframes bell-ring {
+    0%, 100% { transform: rotate(0); }
+    10% { transform: rotate(14deg); }
+    20% { transform: rotate(-12deg); }
+    30% { transform: rotate(10deg); }
+    40% { transform: rotate(-8deg); }
+    50% { transform: rotate(0); }
+}
+
+.notification-bell.has-alerts {
+    animation: bell-ring 2s ease-in-out;
+}
+
+.notification-bell.has-alerts .notification-count {
+    animation: pop-dot 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* ── 16. Onboarding Welcome Modal ───────────────────────────────── */
+
+.onboarding-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(8px);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    animation: fade-in 0.5s ease forwards;
+}
+
+.onboarding-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-xl);
+    padding: 48px;
+    max-width: 560px;
+    width: 90%;
+    text-align: center;
+    box-shadow: var(--shadow-xl), 0 0 60px rgba(0, 230, 138, 0.1);
+    animation: scale-in 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.1s both;
+}
+
+.onboarding-card h2 {
+    font-size: 28px;
+    font-weight: 800;
+    background: var(--gradient-premium);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 12px;
+}
+
+.onboarding-card p {
+    color: var(--text-secondary);
+    line-height: 1.6;
+    margin-bottom: 24px;
+}
+
+.onboarding-features {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 32px;
+    text-align: left;
+}
+
+.onboarding-feature {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px;
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-md);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    border: 1px solid var(--border-color);
+    transition: all var(--transition-fast);
+}
+
+.onboarding-feature:hover {
+    border-color: var(--accent-green);
+    color: var(--text-primary);
+}
+
+.onboarding-feature svg {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+    color: var(--accent-green);
+}
+
+@keyframes fade-in {
+    to { opacity: 1; }
+}
+
+@keyframes scale-in {
+    from { transform: scale(0.9); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+}
+
+/* ── 17. Reduced Motion Support ─────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+
+    html {
+        scroll-behavior: auto;
+    }
+
+    .ticker-track {
+        animation: none;
+    }
+}
+
+/* ── 18. Light Theme Additions ──────────────────────────────────── */
+
+[data-theme="light"] .ticker-tape {
+    background: linear-gradient(90deg, #f9fafb, #f3f4f6, #f9fafb);
+}
+
+[data-theme="light"] .ticker-tape::before {
+    background: linear-gradient(90deg, #f9fafb, transparent);
+}
+
+[data-theme="light"] .ticker-tape::after {
+    background: linear-gradient(90deg, transparent, #f9fafb);
+}
+
+[data-theme="light"] .ticker-item {
+    background: #fff;
+    border-color: #e5e7eb;
+}
+
+[data-theme="light"] .onboarding-card {
+    background: #fff;
+}
+
+[data-theme="light"] .skeleton {
+    background: linear-gradient(90deg,
+        #e5e7eb 25%,
+        #f3f4f6 50%,
+        #e5e7eb 75%
+    );
+    background-size: 200% 100%;
+}
+
+[data-theme="light"] #nprogress-bar {
+    box-shadow: 0 0 10px rgba(16, 185, 129, 0.3);
+}

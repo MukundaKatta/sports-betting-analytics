@@ -13,10 +13,11 @@ def client():
 
 def _create_test_event(event_id="test_event"):
     """Helper to create a test event for foreign key requirements."""
+    from datetime import datetime
+
     from sba.data.db import get_connection, init_db
     from sba.data.db.repository import Repository
     from sba.models.domain import Event
-    from datetime import datetime
 
     init_db()
     repo = Repository()
@@ -50,7 +51,7 @@ class TestHealthEndpoint:
         assert resp.status_code == 200
         data = resp.json()
         assert data["status"] == "ok"
-        assert data["version"] == "0.5.0"
+        assert data["version"] == "1.2.0"
         assert data["database"] == "healthy"
         assert "uptime" in data
 

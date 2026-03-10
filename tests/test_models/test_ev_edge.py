@@ -1,9 +1,11 @@
 """Tests for EV calculations and edge finding."""
 
-import pytest
-from sba.models.domain import Outcome, EventOdds, Event, BookmakerOdds
-from sba.models.statistical.ev import calculate_ev, best_available_odds, find_ev_opportunities
 from datetime import datetime
+
+import pytest
+
+from sba.models.domain import BookmakerOdds, Event, EventOdds, Outcome
+from sba.models.statistical.ev import best_available_odds, calculate_ev, find_ev_opportunities
 
 
 @pytest.fixture

@@ -3,19 +3,19 @@
 from __future__ import annotations
 
 import logging
-import time
 import signal
+import time
 from datetime import datetime
 
-from rich.live import Live
 from rich.layout import Layout
+from rich.live import Live
 from rich.panel import Panel
 from rich.text import Text
 
+from sba.cli.display import render_edge_table, render_prop_table
 from sba.config import get_settings
 from sba.services.edge_finder import EdgeFinder
 from sba.services.prop_analyzer import PropAnalyzer
-from sba.cli.display import render_edge_table, render_prop_table
 
 logger = logging.getLogger(__name__)
 

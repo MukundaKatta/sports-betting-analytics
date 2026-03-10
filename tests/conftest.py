@@ -1,14 +1,19 @@
 """Shared test fixtures."""
 
 import sqlite3
-import pytest
-from datetime import datetime, date
+from datetime import date, datetime
 
-from sba.data.db.schema import SCHEMA_SQL
+import pytest
+
 from sba.data.db.repository import Repository
+from sba.data.db.schema import SCHEMA_SQL
 from sba.models.domain import (
-    Event, Player, PlayerGameLog, OddsSnapshot, TrackedBet,
-    Outcome, BookmakerOdds, EventOdds,
+    BookmakerOdds,
+    Event,
+    EventOdds,
+    Outcome,
+    Player,
+    PlayerGameLog,
 )
 
 

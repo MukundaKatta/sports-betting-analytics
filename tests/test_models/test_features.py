@@ -1,16 +1,14 @@
 """Tests for ML feature engineering."""
 
-import pytest
-import pandas as pd
 from datetime import date
 
 from sba.models.domain import PlayerGameLog
 from sba.models.ml.features import (
+    PROP_STAT_MAP,
+    _logs_to_df,
     build_prop_features,
     build_prop_training_data,
     get_target_stat,
-    _logs_to_df,
-    PROP_STAT_MAP,
 )
 
 

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import math
-from functools import lru_cache
 
 
 def poisson_prob(k: int, lam: float) -> float:

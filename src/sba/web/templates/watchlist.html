@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Watchlist{% endblock %}
+
+{% block content %}
+<h1 class="page-title">
+    <span class="gradient-text">Watchlist</span>
+    <span class="badge" id="watchlist-count">0</span>
+</h1>
+
+<div class="filters-bar" style="margin-bottom:24px">
+    <div style="display:flex;align-items:center;gap:12px">
+        <span class="freshness-dot fresh"></span>
+        <span style="font-size:13px">
+            <span class="font-bold" id="wl-tracked">0</span>
+            <span class="text-dim">tracked events</span>
+        </span>
+    </div>
+    <div style="margin-left:auto;display:flex;gap:8px">
+        <a href="/edges" class="btn btn-outline btn-sm">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/></svg>
+            Find Edges
+        </a>
+        <button class="btn btn-outline btn-sm" onclick="SBA.loadWatchlist()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+            Refresh
+        </button>
+    </div>
+</div>
+
+<div class="watchlist-grid" id="watchlist-grid">
+    <div class="loading-spinner" style="grid-column:1/-1"><div class="spinner"></div> Loading watchlist...</div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', () => SBA.loadWatchlist());
+</script>
+{% endblock %}

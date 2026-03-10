@@ -1,6 +1,5 @@
 """Tests for consensus and sharp probability calculations."""
 
-import pytest
 from sba.models.domain import BookmakerOdds, Outcome
 from sba.models.statistical.implied_prob import consensus_probability, sharp_probability
 

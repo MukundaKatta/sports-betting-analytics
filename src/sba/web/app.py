@@ -12,9 +12,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
+from sba.data.db import init_db
 from sba.web.api import router as api_router
 from sba.web.views import router as views_router
-from sba.data.db import init_db
 
 logger = logging.getLogger(__name__)
 STATIC_DIR = Path(__file__).parent / "static"
@@ -31,7 +31,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="SBA — Sports Betting Analytics",
     description="Professional sports betting analytics platform with ML-powered predictions",
-    version="0.5.0",
+    version="1.2.0",
     lifespan=lifespan,
     docs_url="/api/docs",
     redoc_url="/api/redoc",

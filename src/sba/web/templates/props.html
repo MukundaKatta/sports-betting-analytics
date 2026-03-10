@@ -3,7 +3,7 @@
 
 {% block content %}
 <h1 class="page-title">
-    Player Props
+    <span class="gradient-text">Player Props</span>
     <span class="badge" id="props-count">0</span>
 </h1>
 
@@ -24,7 +24,7 @@
         <option value="player_points_rebounds_assists">PRA Combined</option>
     </select>
 
-    <button class="btn btn-scan" onclick="scanProps()">
+    <button class="btn btn-scan" onclick="scanProps()" id="props-scan-btn">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
         Analyze Props
     </button>
@@ -66,7 +66,11 @@
 function scanProps() {
     const sport = document.getElementById('props-sport-filter').value;
     const markets = document.getElementById('props-market-filter').value;
-    SBA.loadProps(sport, markets);
+    const btn = document.getElementById('props-scan-btn');
+    if (btn) { btn.disabled = true; btn.innerHTML = '<div class="spinner" style="width:14px;height:14px;border-width:2px"></div> Analyzing...'; }
+    SBA.loadProps(sport, markets).finally(() => {
+        if (btn) { btn.disabled = false; btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg> Analyze Props'; }
+    });
 }
 </script>
 {% endblock %}

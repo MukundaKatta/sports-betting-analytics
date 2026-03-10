@@ -68,6 +68,11 @@ def calculator_page(request: Request):
     return templates.TemplateResponse(request, "calculator.html")
 
 
+@router.get("/watchlist")
+def watchlist_page(request: Request):
+    return templates.TemplateResponse(request, "watchlist.html")
+
+
 @router.get("/player/{name}")
 def player_page(request: Request, name: str):
     return templates.TemplateResponse(request, "player.html", {"player_name": name})

@@ -12,6 +12,7 @@ const SBA = {
     // ── Initialization ────────────────────────────────────────────────
     init() {
         this.loadTheme();
+        this.loadAccent();
         this.setupClock();
         this.setupSearch();
         this.setupKeyboardShortcuts();
@@ -90,7 +91,7 @@ const SBA = {
             // G-key prefix navigation (g then d/e/p/b/a/l/o/s)
             if (this._gKeyPending) {
                 this._gKeyPending = false;
-                const navMap = {d:'/',e:'/edges',p:'/props',b:'/my-bets',a:'/analytics',l:'/line-movement',o:'/odds-comparison',s:'/settings',c:'/calculator',f:'/live-feed',m:'/simulator'};
+                const navMap = {d:'/',e:'/edges',p:'/props',b:'/my-bets',a:'/analytics',l:'/line-movement',o:'/odds-comparison',s:'/settings',c:'/calculator',f:'/live-feed',m:'/simulator',w:'/watchlist'};
                 if (navMap[e.key]) { location.href = navMap[e.key]; return; }
             }
 
@@ -293,11 +294,18 @@ const SBA = {
                 countEl.textContent = edges.length;
             }
 
+            // Edge summary banner
+            const bannerEl = document.getElementById('edge-summary-banner');
+            if (bannerEl) {
+                bannerEl.innerHTML = this.createEdgeSummaryBanner(edges);
+            }
+
             if (edges.length === 0) {
                 container.innerHTML = `<tr><td colspan="11" class="empty-state">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
                     <p>No +EV opportunities found right now. Try adjusting filters or check back later.</p>
                 </td></tr>`;
+                if (bannerEl) bannerEl.innerHTML = '';
                 return;
             }
 
@@ -431,7 +439,7 @@ const SBA = {
                 const payout = this.calcPayout(b.odds_american, b.recommended_stake);
                 const actions = b.status === 'pending' ? `
                     <div style="display:flex;gap:4px;justify-content:center">
-                        <button class="btn btn-sm" style="background:var(--accent-green-dim);color:var(--accent-green);padding:4px 8px;font-size:10px" onclick="SBA.settleBet(${b.id}, 'won', ${payout.toFixed(2)})">Won</button>
+                        <button class="btn btn-sm" style="background:var(--accent-green-dim);color:var(--accent-green);padding:4px 8px;font-size:10px" onclick="SBA.settleBetWithEffect(${b.id}, 'won', ${payout.toFixed(2)})">Won</button>
                         <button class="btn btn-sm" style="background:var(--accent-red-dim);color:var(--accent-red);padding:4px 8px;font-size:10px" onclick="SBA.settleBet(${b.id}, 'lost', ${(-b.recommended_stake).toFixed(2)})">Lost</button>
                         <button class="btn btn-sm" style="background:var(--accent-yellow-dim);color:var(--accent-yellow);padding:4px 8px;font-size:10px" onclick="SBA.settleBet(${b.id}, 'push', 0)">Push</button>
                     </div>` : `<button class="btn btn-sm" style="color:var(--text-tertiary);padding:4px 8px;font-size:10px" onclick="SBA.deleteBet(${b.id})">Delete</button>`;
@@ -883,7 +891,22 @@ const SBA = {
                 if (markets.length === 0) {
                     marketEl.innerHTML = '<div class="empty-state" style="padding:40px"><p>No market data yet</p></div>';
                 } else {
+                    const donutColors = ['var(--accent-green)', 'var(--accent-blue)', 'var(--accent-yellow)', 'var(--accent-purple)', 'var(--accent-cyan)', 'var(--accent-red)'];
+                    const totalBets = markets.reduce((sum, [, d]) => sum + d.bets, 0);
+                    const donutSegments = markets.map(([, d], i) => ({ value: d.bets, color: donutColors[i % donutColors.length] }));
+                    const donut = this.createDonutChart(donutSegments, totalBets.toString(), 'Total Bets');
+                    const legend = markets.map(([name, d], i) => `
+                        <div style="display:flex;align-items:center;gap:8px;padding:6px 0">
+                            <span style="width:10px;height:10px;border-radius:3px;background:${donutColors[i % donutColors.length]};flex-shrink:0"></span>
+                            <span style="font-size:13px;flex:1">${name}</span>
+                            <span class="font-mono font-bold" style="font-size:12px">${d.bets}</span>
+                        </div>
+                    `).join('');
                     marketEl.innerHTML = `
+                        <div style="padding:24px;display:grid;grid-template-columns:auto 1fr;gap:24px;align-items:center">
+                            ${donut}
+                            <div>${legend}</div>
+                        </div>
                         <table class="data-table">
                             <thead><tr><th>Market</th><th class="right">Bets</th><th class="right">Win Rate</th><th class="right">P/L</th><th class="right">ROI</th></tr></thead>
                             <tbody>
@@ -923,6 +946,50 @@ const SBA = {
                             </tbody>
                         </table>
                     `;
+                }
+            }
+
+            // P/L Heatmap Calendar
+            const heatmapEl = document.getElementById('pnl-heatmap');
+            if (heatmapEl) {
+                if (analytics.daily_pnl && analytics.daily_pnl.length > 0) {
+                    heatmapEl.innerHTML = this.createHeatmapCalendar(analytics.daily_pnl);
+                } else {
+                    heatmapEl.innerHTML = '<div class="empty-state" style="padding:40px"><p>No data for heatmap yet</p></div>';
+                }
+            }
+
+            // Bankroll health gauge
+            const healthEl = document.getElementById('bankroll-health');
+            if (healthEl) {
+                try {
+                    const settingsResp2 = await fetch('/api/settings');
+                    const settings2 = await settingsResp2.json();
+                    const bankroll = settings2.bankroll || 1000;
+                    const roi = bets.roi || 0;
+                    const winRate = bets.win_rate || 0;
+                    let score = 50;
+                    score += Math.min(roi, 20);
+                    score += (winRate - 0.5) * 40;
+                    if (bets.total_profit > 0) score += 10;
+                    score = Math.max(0, Math.min(100, Math.round(score)));
+                    healthEl.innerHTML = `
+                        <div style="text-align:center">
+                            ${this.createHealthGauge(score)}
+                            <div style="margin-top:16px;display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                                <div class="step-card" style="text-align:center;padding:12px">
+                                    <div class="stat-label">Bankroll</div>
+                                    <div class="font-mono font-bold text-green" style="font-size:18px">$${bankroll.toLocaleString()}</div>
+                                </div>
+                                <div class="step-card" style="text-align:center;padding:12px">
+                                    <div class="stat-label">Net P/L</div>
+                                    <div class="font-mono font-bold ${bets.total_profit >= 0 ? 'text-green' : 'text-red'}" style="font-size:18px">$${bets.total_profit >= 0 ? '+' : ''}${bets.total_profit.toFixed(2)}</div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                } catch {
+                    healthEl.innerHTML = '<div class="empty-state"><p>Could not load health data</p></div>';
                 }
             }
 
@@ -1136,8 +1203,12 @@ const SBA = {
             const colors = ['var(--accent-green)', 'var(--accent-blue)', 'var(--accent-yellow)', 'var(--accent-purple)', 'var(--accent-cyan)', 'var(--accent-red)'];
             let colorIdx = 0;
 
+            // SVG line chart visualization
+            const svgChart = this.createLineMovementChart(groups);
+
             chartEl.innerHTML = `
-                <div style="display:flex;flex-direction:column;gap:16px">
+                ${svgChart}
+                <div style="display:flex;flex-direction:column;gap:12px;margin-top:16px">
                     ${Object.entries(groups).map(([key, snaps]) => {
                         const color = colors[colorIdx++ % colors.length];
                         const latest = snaps[snaps.length - 1];
@@ -1305,12 +1376,7 @@ const SBA = {
     },
 
     toggleNotifications() {
-        const panel = document.getElementById('notification-panel');
-        if (panel) {
-            panel.classList.toggle('open');
-        } else {
-            this.toast('No new edge alerts', 'info');
-        }
+        this.toggleNotificationPanel();
     },
 
     // ── Parlay Calculator ────────────────────────────────────────────
@@ -1407,6 +1473,7 @@ const SBA = {
         { name: 'Go to Live Feed', icon: 'activity', action: () => location.href = '/live-feed', keys: 'G F' },
         { name: 'Go to Calculator', icon: 'chart', action: () => location.href = '/calculator', keys: 'G C' },
         { name: 'Go to Simulator', icon: 'trending', action: () => location.href = '/simulator', keys: 'G M' },
+        { name: 'Go to Watchlist', icon: 'home', action: () => location.href = '/watchlist', keys: 'G W' },
         { name: 'Export Bets (CSV)', icon: 'table', action: () => window.open('/api/bets/export', '_blank'), keys: '' },
         { name: 'Export Bets (JSON)', icon: 'table', action: () => window.open('/api/bets/export/json', '_blank'), keys: '' },
         { name: 'Toggle Dark/Light Theme', icon: 'theme', action: () => SBA.toggleTheme(), keys: 'T' },
@@ -1794,10 +1861,1153 @@ const SBA = {
             this.toast('Watchlist error', 'error');
         }
     },
+
+    // ── Load Watchlist Page ────────────────────────────────────────────
+    async loadWatchlist() {
+        const grid = document.getElementById('watchlist-grid');
+        const countEl = document.getElementById('watchlist-count');
+        if (!grid) return;
+
+        grid.innerHTML = '<div class="loading-spinner"><div class="spinner"></div> Loading watchlist...</div>';
+
+        try {
+            const [wlResp, eventsResp] = await Promise.all([
+                fetch('/api/watchlist'),
+                fetch('/api/events'),
+            ]);
+            const wl = await wlResp.json();
+            const events = await eventsResp.json();
+
+            if (countEl) countEl.textContent = wl.count;
+
+            if (wl.items.length === 0) {
+                grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;padding:60px">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                    <p>No events in your watchlist</p>
+                    <p class="text-dim" style="font-size:12px">Click the star icon on any edge or event to add it here</p>
+                </div>`;
+                return;
+            }
+
+            const evtMap = {};
+            events.forEach(e => { evtMap[e.id] = e; });
+
+            grid.innerHTML = wl.items.map((item, i) => {
+                const evt = evtMap[item.event_id];
+                const teams = evt ? `${evt.away_team} @ ${evt.home_team}` : item.label || item.event_id;
+                const time = item.added_at ? new Date(item.added_at).toLocaleDateString() : '';
+                return `
+                <div class="watchlist-card" style="animation-delay:${i * 0.05}s;animation:stagger-in 0.5s cubic-bezier(0.2,0,0,1) forwards;opacity:0">
+                    <div class="watchlist-card-header">
+                        <div>
+                            <div class="watchlist-card-teams">${teams}</div>
+                            <div class="watchlist-card-time">Added ${time}</div>
+                        </div>
+                        <button class="watchlist-card-remove" onclick="SBA.removeWatchlistItem('${item.event_id}')" title="Remove">&times;</button>
+                    </div>
+                    <div class="watchlist-card-odds">
+                        ${evt ? `
+                            <a href="/line-movement?event=${item.event_id}" class="btn btn-outline btn-sm" style="font-size:11px">Line Movement</a>
+                            <a href="/odds-comparison?event=${item.event_id}" class="btn btn-outline btn-sm" style="font-size:11px">Compare Odds</a>
+                        ` : ''}
+                    </div>
+                </div>`;
+            }).join('');
+        } catch (err) {
+            grid.innerHTML = `<div class="empty-state text-red"><p>Error loading watchlist: ${err.message}</p></div>`;
+        }
+    },
+
+    async removeWatchlistItem(eventId) {
+        try {
+            await fetch(`/api/watchlist/${eventId}`, { method: 'DELETE' });
+            this.toast('Removed from watchlist', 'info');
+            this.loadWatchlist();
+        } catch {
+            this.toast('Error removing item', 'error');
+        }
+    },
+
+    // ── Confetti Effect ────────────────────────────────────────────────
+    showConfetti() {
+        const container = document.createElement('div');
+        container.className = 'confetti-container';
+        document.body.appendChild(container);
+
+        const colors = ['#00e68a', '#5b9aff', '#ffc234', '#a855f7', '#ff4d6a', '#22d3ee'];
+        for (let i = 0; i < 60; i++) {
+            const piece = document.createElement('div');
+            piece.className = 'confetti-piece';
+            piece.style.left = `${Math.random() * 100}%`;
+            piece.style.top = `${-10 + Math.random() * 20}px`;
+            piece.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+            piece.style.animationDelay = `${Math.random() * 0.5}s`;
+            piece.style.animationDuration = `${1.5 + Math.random() * 1.5}s`;
+            piece.style.width = `${4 + Math.random() * 8}px`;
+            piece.style.height = `${4 + Math.random() * 8}px`;
+            piece.style.transform = `rotate(${Math.random() * 360}deg)`;
+            container.appendChild(piece);
+        }
+
+        setTimeout(() => container.remove(), 3000);
+    },
+
+    // ── Scroll Progress Bar ────────────────────────────────────────────
+    setupScrollProgress() {
+        let bar = document.getElementById('scroll-progress');
+        if (!bar) {
+            bar = document.createElement('div');
+            bar.className = 'scroll-progress';
+            bar.id = 'scroll-progress';
+            bar.style.width = '0%';
+            document.body.appendChild(bar);
+        }
+
+        window.addEventListener('scroll', () => {
+            const winScroll = document.documentElement.scrollTop;
+            const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+            if (height > 0) {
+                bar.style.width = `${(winScroll / height) * 100}%`;
+            }
+        }, { passive: true });
+    },
+
+    // ── Intersection Observer for Reveal Animations ────────────────────
+    setupRevealAnimations() {
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                    observer.unobserve(entry.target);
+                }
+            });
+        }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+
+        document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+    },
+
+    // ── Notification Panel ─────────────────────────────────────────────
+    toggleNotificationPanel() {
+        let panel = document.getElementById('notification-panel');
+        if (!panel) {
+            panel = document.createElement('div');
+            panel.className = 'notification-panel';
+            panel.id = 'notification-panel';
+            panel.innerHTML = `
+                <div class="notification-panel-header">
+                    <h3>Edge Alerts</h3>
+                    <button onclick="document.getElementById('notification-panel').classList.remove('open')" style="background:none;border:none;color:var(--text-tertiary);font-size:20px;cursor:pointer">&times;</button>
+                </div>
+                <div class="notification-panel-body" id="notification-panel-body">
+                    <div class="empty-state" style="padding:40px">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="36" height="36"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+                        <p>No alerts right now</p>
+                        <p class="text-dim" style="font-size:11px">Alerts appear when high-EV edges are found</p>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(panel);
+        }
+        panel.classList.toggle('open');
+        if (panel.classList.contains('open')) this.loadNotifications();
+    },
+
+    async loadNotifications() {
+        const body = document.getElementById('notification-panel-body');
+        if (!body) return;
+        try {
+            const resp = await fetch('/api/alerts');
+            const data = await resp.json();
+            if (data.alerts && data.alerts.length > 0) {
+                body.innerHTML = data.alerts.map((a, i) => `
+                    <div class="notification-item ${a.type || 'edge'}" style="animation-delay:${i * 0.05}s">
+                        <div class="notif-title">${a.title || 'Edge Alert'}</div>
+                        <div class="notif-body">${a.message || a.description || 'New opportunity detected'}</div>
+                        <div class="notif-time">${a.time || 'Just now'}</div>
+                    </div>
+                `).join('');
+            } else {
+                body.innerHTML = `
+                    <div class="empty-state" style="padding:40px">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="36" height="36"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/></svg>
+                        <p>No alerts right now</p>
+                    </div>`;
+            }
+        } catch {
+            body.innerHTML = '<div class="empty-state"><p>Could not load alerts</p></div>';
+        }
+    },
+
+    // ── Donut Chart Generator ──────────────────────────────────────────
+    createDonutChart(segments, centerValue = '', centerLabel = '') {
+        const circumference = 2 * Math.PI * 58;
+        const total = segments.reduce((sum, s) => sum + s.value, 0) || 1;
+        let accumulated = 0;
+
+        const arcs = segments.map(s => {
+            const pct = s.value / total;
+            const dashArray = circumference * pct;
+            const dashOffset = -circumference * accumulated;
+            accumulated += pct;
+            return `<circle class="donut-segment" cx="70" cy="70" r="58"
+                stroke="${s.color}" stroke-dasharray="${dashArray} ${circumference - dashArray}"
+                stroke-dashoffset="${dashOffset}" />`;
+        }).join('');
+
+        return `<div class="donut-chart">
+            <svg viewBox="0 0 140 140">
+                <circle class="donut-bg" cx="70" cy="70" r="58"/>
+                ${arcs}
+            </svg>
+            <div class="donut-chart-center">
+                <div class="donut-value">${centerValue}</div>
+                <div class="donut-label">${centerLabel}</div>
+            </div>
+        </div>`;
+    },
+
+    // ── Floating Action Button ─────────────────────────────────────────
+    setupFAB() {
+        if (document.getElementById('fab-btn')) return;
+        const fab = document.createElement('button');
+        fab.className = 'fab';
+        fab.id = 'fab-btn';
+        fab.title = 'Quick Scan for Edges';
+        fab.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>';
+        fab.onclick = () => {
+            if (window.location.pathname === '/edges') {
+                document.querySelector('.btn-scan')?.click();
+            } else {
+                window.location.href = '/edges';
+            }
+        };
+        document.body.appendChild(fab);
+    },
+
+    // ── Enhanced Settle with Confetti ──────────────────────────────────
+    async settleBetWithEffect(betId, status, profitLoss) {
+        await this.settleBet(betId, status, profitLoss);
+        if (status === 'won') {
+            this.showConfetti();
+        }
+    },
+
+    // ── Heatmap Calendar ────────────────────────────────────────────
+    createHeatmapCalendar(dailyPnl) {
+        if (!dailyPnl || dailyPnl.length === 0) {
+            return '<div class="empty-state" style="padding:40px"><p>No daily P/L data for heatmap</p></div>';
+        }
+
+        // Build a map of date -> pnl
+        const pnlMap = {};
+        dailyPnl.forEach(d => { pnlMap[d.date] = d.pnl; });
+
+        // Get range: last 90 days
+        const today = new Date();
+        const start = new Date(today);
+        start.setDate(start.getDate() - 89);
+
+        // Align to start of week (Sunday)
+        const dayOfWeek = start.getDay();
+        start.setDate(start.getDate() - dayOfWeek);
+
+        const days = [];
+        const current = new Date(start);
+        while (current <= today) {
+            const dateStr = current.toISOString().slice(0, 10);
+            const pnl = pnlMap[dateStr] || 0;
+            const isInRange = current >= new Date(today.getTime() - 89 * 86400000);
+            days.push({ date: dateStr, pnl, active: isInRange });
+            current.setDate(current.getDate() + 1);
+        }
+
+        const maxAbs = Math.max(...days.filter(d => d.active).map(d => Math.abs(d.pnl)), 1);
+
+        const weekLabels = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+        const labelsHtml = weekLabels.map(l =>
+            `<div style="font-size:9px;color:var(--text-tertiary);display:flex;align-items:center;justify-content:center">${l}</div>`
+        ).join('');
+
+        const cellsHtml = days.map(d => {
+            if (!d.active) {
+                return '<div class="heatmap-day" style="background:transparent"></div>';
+            }
+            let bg;
+            if (d.pnl === 0) {
+                bg = 'rgba(255,255,255,0.03)';
+            } else if (d.pnl > 0) {
+                const intensity = Math.min(d.pnl / maxAbs, 1);
+                const alpha = 0.15 + intensity * 0.65;
+                bg = `rgba(0, 230, 138, ${alpha.toFixed(2)})`;
+            } else {
+                const intensity = Math.min(Math.abs(d.pnl) / maxAbs, 1);
+                const alpha = 0.15 + intensity * 0.65;
+                bg = `rgba(255, 77, 106, ${alpha.toFixed(2)})`;
+            }
+            const tooltip = `${d.date}: $${d.pnl >= 0 ? '+' : ''}${d.pnl.toFixed(2)}`;
+            return `<div class="heatmap-day" style="background:${bg}" data-tooltip="${tooltip}"></div>`;
+        }).join('');
+
+        return `
+            <div class="heatmap-calendar">
+                ${labelsHtml}
+                ${cellsHtml}
+            </div>
+            <div class="heatmap-legend">
+                <span>Less</span>
+                <div class="heatmap-legend-block" style="background:rgba(255,77,106,0.6)"></div>
+                <div class="heatmap-legend-block" style="background:rgba(255,77,106,0.25)"></div>
+                <div class="heatmap-legend-block" style="background:rgba(255,255,255,0.03)"></div>
+                <div class="heatmap-legend-block" style="background:rgba(0,230,138,0.25)"></div>
+                <div class="heatmap-legend-block" style="background:rgba(0,230,138,0.6)"></div>
+                <span>More</span>
+            </div>`;
+    },
+
+    // ── Bankroll Health Gauge (Half-circle) ──────────────────────────
+    createHealthGauge(score, label = 'Health') {
+        // Score 0-100
+        const clamped = Math.max(0, Math.min(100, score));
+        const angle = (clamped / 100) * 180;
+        const color = clamped >= 70 ? 'var(--accent-green)' : clamped >= 40 ? 'var(--accent-yellow)' : 'var(--accent-red)';
+        const status = clamped >= 70 ? 'Healthy' : clamped >= 40 ? 'Caution' : 'At Risk';
+
+        // Arc math for SVG
+        const cx = 90, cy = 80, r = 65;
+        const startAngle = Math.PI;
+        const endAngle = Math.PI + (angle * Math.PI / 180);
+        const x1 = cx + r * Math.cos(startAngle);
+        const y1 = cy + r * Math.sin(startAngle);
+        const x2 = cx + r * Math.cos(endAngle);
+        const y2 = cy + r * Math.sin(endAngle);
+        const largeArc = angle > 180 ? 1 : 0;
+
+        return `<div class="health-gauge">
+            <svg viewBox="0 0 180 100">
+                <path d="M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}"
+                      fill="none" stroke="var(--bg-tertiary)" stroke-width="10" stroke-linecap="round"/>
+                <path d="M ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2.toFixed(2)} ${y2.toFixed(2)}"
+                      fill="none" stroke="${color}" stroke-width="10" stroke-linecap="round"
+                      style="filter:drop-shadow(0 0 6px ${color})"/>
+            </svg>
+            <div class="health-gauge-label">
+                <div class="health-gauge-value" style="color:${color}">${clamped}</div>
+                <div class="health-gauge-text">${status}</div>
+            </div>
+        </div>`;
+    },
+
+    // ── Advanced P/L Line Chart (SVG) ───────────────────────────────
+    createLineChart(data, width = 800, height = 200) {
+        if (!data || data.length < 2) return '';
+
+        const padding = { top: 20, right: 20, bottom: 30, left: 60 };
+        const chartW = width - padding.left - padding.right;
+        const chartH = height - padding.top - padding.bottom;
+
+        const minY = Math.min(...data.map(d => d.y), 0);
+        const maxY = Math.max(...data.map(d => d.y), 0);
+        const rangeY = maxY - minY || 1;
+
+        const scaleX = (i) => padding.left + (i / (data.length - 1)) * chartW;
+        const scaleY = (v) => padding.top + chartH - ((v - minY) / rangeY) * chartH;
+
+        // Build path
+        const linePath = data.map((d, i) =>
+            `${i === 0 ? 'M' : 'L'} ${scaleX(i).toFixed(1)} ${scaleY(d.y).toFixed(1)}`
+        ).join(' ');
+
+        // Gradient fill area
+        const areaPath = `${linePath} L ${scaleX(data.length - 1).toFixed(1)} ${scaleY(0).toFixed(1)} L ${scaleX(0).toFixed(1)} ${scaleY(0).toFixed(1)} Z`;
+
+        // Zero line
+        const zeroY = scaleY(0);
+
+        // Y-axis labels
+        const yTicks = 5;
+        const yLabels = Array.from({length: yTicks + 1}, (_, i) => {
+            const val = minY + (rangeY / yTicks) * i;
+            return { val, y: scaleY(val) };
+        });
+
+        // X-axis labels (show ~6 dates)
+        const xStep = Math.max(1, Math.floor(data.length / 6));
+        const xLabels = data.filter((_, i) => i % xStep === 0 || i === data.length - 1);
+
+        const finalVal = data[data.length - 1].y;
+        const lineColor = finalVal >= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
+        const gradId = 'pnl-grad-' + Math.random().toString(36).slice(2, 8);
+
+        return `<svg viewBox="0 0 ${width} ${height}" style="width:100%;height:auto;max-height:${height}px">
+            <defs>
+                <linearGradient id="${gradId}" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="${lineColor}" stop-opacity="0.2"/>
+                    <stop offset="100%" stop-color="${lineColor}" stop-opacity="0"/>
+                </linearGradient>
+            </defs>
+            ${yLabels.map(l => `
+                <line x1="${padding.left}" y1="${l.y.toFixed(1)}" x2="${width - padding.right}" y2="${l.y.toFixed(1)}"
+                      stroke="var(--border-light)" stroke-width="1"/>
+                <text x="${padding.left - 8}" y="${l.y.toFixed(1)}" text-anchor="end" dominant-baseline="middle"
+                      fill="var(--text-tertiary)" font-size="10" font-family="var(--font-mono)">$${l.val >= 0 ? '' : ''}${l.val.toFixed(0)}</text>
+            `).join('')}
+            <line x1="${padding.left}" y1="${zeroY.toFixed(1)}" x2="${width - padding.right}" y2="${zeroY.toFixed(1)}"
+                  stroke="var(--text-tertiary)" stroke-width="1" stroke-dasharray="4,4" opacity="0.3"/>
+            <path d="${areaPath}" fill="url(#${gradId})"/>
+            <path d="${linePath}" fill="none" stroke="${lineColor}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="${scaleX(data.length - 1).toFixed(1)}" cy="${scaleY(finalVal).toFixed(1)}" r="4"
+                    fill="${lineColor}" stroke="var(--bg-card)" stroke-width="2"/>
+            ${xLabels.map(d => {
+                const i = data.indexOf(d);
+                return `<text x="${scaleX(i).toFixed(1)}" y="${height - 6}" text-anchor="middle"
+                              fill="var(--text-tertiary)" font-size="10">${d.label || ''}</text>`;
+            }).join('')}
+        </svg>`;
+    },
+
+    // ── Advanced Analytics Loader ────────────────────────────────────
+    async loadAdvancedAnalytics() {
+        try {
+            const [analyticsResp, betsResp, settingsResp] = await Promise.all([
+                fetch('/api/analytics'),
+                fetch('/api/bets'),
+                fetch('/api/settings'),
+            ]);
+            const analytics = await analyticsResp.json();
+            const bets = await betsResp.json();
+            const settings = await settingsResp.json();
+
+            // Advanced metrics
+            const metricsEl = document.getElementById('advanced-metrics');
+            if (metricsEl && analytics.daily_pnl && analytics.daily_pnl.length > 0) {
+                const pnls = analytics.daily_pnl.map(d => d.pnl);
+                const mean = pnls.reduce((a, b) => a + b, 0) / pnls.length;
+                const variance = pnls.reduce((sum, p) => sum + Math.pow(p - mean, 2), 0) / pnls.length;
+                const stdDev = Math.sqrt(variance) || 1;
+                const sharpe = (mean / stdDev * Math.sqrt(252)).toFixed(2);
+
+                // Max drawdown
+                let peak = 0, maxDd = 0, cumulative = 0;
+                pnls.forEach(p => {
+                    cumulative += p;
+                    if (cumulative > peak) peak = cumulative;
+                    const dd = peak - cumulative;
+                    if (dd > maxDd) maxDd = dd;
+                });
+
+                // Profit factor
+                const grossWins = pnls.filter(p => p > 0).reduce((a, b) => a + b, 0);
+                const grossLosses = Math.abs(pnls.filter(p => p < 0).reduce((a, b) => a + b, 0)) || 1;
+                const profitFactor = (grossWins / grossLosses).toFixed(2);
+
+                // Streaks
+                let currentStreak = 0, maxWinStreak = 0, maxLossStreak = 0, curWin = 0, curLoss = 0;
+                pnls.forEach(p => {
+                    if (p > 0) { curWin++; curLoss = 0; maxWinStreak = Math.max(maxWinStreak, curWin); }
+                    else if (p < 0) { curLoss++; curWin = 0; maxLossStreak = Math.max(maxLossStreak, curLoss); }
+                });
+
+                const sharpeColor = parseFloat(sharpe) >= 1 ? 'text-green' : parseFloat(sharpe) >= 0 ? 'text-dim' : 'text-red';
+
+                metricsEl.innerHTML = `
+                    <div class="stat-card green">
+                        <div class="stat-label">Sharpe Ratio</div>
+                        <div class="stat-value ${sharpeColor}">${sharpe}</div>
+                        <div class="stat-sub">${parseFloat(sharpe) >= 1 ? 'Excellent' : parseFloat(sharpe) >= 0.5 ? 'Good' : 'Needs work'}</div>
+                    </div>
+                    <div class="stat-card blue">
+                        <div class="stat-label">Max Drawdown</div>
+                        <div class="stat-value text-red">$${maxDd.toFixed(2)}</div>
+                        <div class="stat-sub">${settings.bankroll ? (maxDd / settings.bankroll * 100).toFixed(1) + '% of bankroll' : 'Peak to trough'}</div>
+                    </div>
+                    <div class="stat-card yellow">
+                        <div class="stat-label">Profit Factor</div>
+                        <div class="stat-value ${parseFloat(profitFactor) >= 1.5 ? 'text-green' : ''}">${profitFactor}</div>
+                        <div class="stat-sub">${parseFloat(profitFactor) >= 1.5 ? 'Strong edge' : parseFloat(profitFactor) >= 1 ? 'Marginal' : 'Losing'}</div>
+                    </div>
+                    <div class="stat-card purple">
+                        <div class="stat-label">Win Streaks</div>
+                        <div class="stat-value">${maxWinStreak}W / ${maxLossStreak}L</div>
+                        <div class="stat-sub">Best / Worst streaks</div>
+                    </div>
+                `;
+            }
+
+            // Advanced P/L line chart
+            const advChartEl = document.getElementById('advanced-pnl-chart');
+            if (advChartEl && analytics.daily_pnl && analytics.daily_pnl.length > 0) {
+                let cumulative = 0;
+                const chartData = analytics.daily_pnl.map(d => {
+                    cumulative += d.pnl;
+                    return { y: cumulative, label: d.date.slice(5) };
+                });
+                advChartEl.innerHTML = this.createLineChart(chartData);
+            } else if (advChartEl) {
+                advChartEl.innerHTML = '<div class="empty-state" style="padding:40px"><p>No data for P/L chart yet</p></div>';
+            }
+
+            // Drawdown chart
+            const ddChartEl = document.getElementById('drawdown-chart');
+            if (ddChartEl && analytics.daily_pnl && analytics.daily_pnl.length > 0) {
+                let peak = 0, cumulative = 0;
+                const ddData = analytics.daily_pnl.map(d => {
+                    cumulative += d.pnl;
+                    if (cumulative > peak) peak = cumulative;
+                    return { y: -(peak - cumulative), label: d.date.slice(5) };
+                });
+                ddChartEl.innerHTML = this.createLineChart(ddData, 800, 160);
+            } else if (ddChartEl) {
+                ddChartEl.innerHTML = '<div class="empty-state" style="padding:40px"><p>No data for drawdown chart yet</p></div>';
+            }
+
+            // Monthly breakdown
+            const monthlyEl = document.getElementById('monthly-breakdown');
+            if (monthlyEl && analytics.by_month) {
+                const months = Object.entries(analytics.by_month);
+                if (months.length === 0) {
+                    monthlyEl.innerHTML = '<div class="empty-state" style="padding:40px"><p>No monthly data yet</p></div>';
+                } else {
+                    monthlyEl.innerHTML = `
+                        <table class="data-table">
+                            <thead><tr><th>Month</th><th class="right">Bets</th><th class="right">Win Rate</th><th class="right">P/L</th><th class="right">ROI</th></tr></thead>
+                            <tbody>
+                                ${months.map(([name, d]) => `
+                                <tr class="new-row">
+                                    <td class="font-bold">${name}</td>
+                                    <td class="right font-mono">${d.bets}</td>
+                                    <td class="right font-mono">${d.win_rate}%</td>
+                                    <td class="right font-mono font-bold ${d.profit >= 0 ? 'text-green' : 'text-red'}">$${d.profit >= 0 ? '+' : ''}${d.profit.toFixed(2)}</td>
+                                    <td class="right"><span class="ev-badge ${d.roi >= 0 ? 'high' : 'negative'}">${d.roi >= 0 ? '+' : ''}${d.roi}%</span></td>
+                                </tr>`).join('')}
+                            </tbody>
+                        </table>
+                    `;
+                }
+            }
+        } catch {}
+    },
+
+    // ── Dashboard Risk Summary ──────────────────────────────────────
+    async loadDashboardRisk() {
+        try {
+            const [betsResp, settingsResp, analyticsResp] = await Promise.all([
+                fetch('/api/bets'),
+                fetch('/api/settings'),
+                fetch('/api/analytics'),
+            ]);
+            const bets = await betsResp.json();
+            const settings = await settingsResp.json();
+            const analytics = await analyticsResp.json();
+
+            const riskEl = document.getElementById('dashboard-risk');
+            if (!riskEl) return;
+
+            if (bets.total_bets === 0) {
+                riskEl.innerHTML = `<div class="empty-state" style="padding:40px">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="36" height="36"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                    <p>Start tracking bets to see risk metrics</p>
+                </div>`;
+                return;
+            }
+
+            // Calculate health score (0-100)
+            const bankroll = settings.bankroll || 1000;
+            const roi = bets.roi || 0;
+            const winRate = bets.win_rate || 0;
+
+            // Health factors
+            let score = 50; // baseline
+            score += Math.min(roi, 20); // ROI contributes up to +20
+            score += (winRate - 0.5) * 40; // Win rate above 50% contributes
+            if (bets.total_profit > 0) score += 10;
+            score = Math.max(0, Math.min(100, Math.round(score)));
+
+            const gauge = this.createHealthGauge(score);
+            const heatmap = this.createHeatmapCalendar(analytics.daily_pnl);
+
+            riskEl.innerHTML = `
+                <div style="display:grid;grid-template-columns:200px 1fr;gap:24px;align-items:start">
+                    <div style="text-align:center">
+                        ${gauge}
+                        <div style="margin-top:12px;display:grid;gap:8px">
+                            <div style="display:flex;justify-content:space-between;font-size:12px">
+                                <span class="text-dim">Bankroll</span>
+                                <span class="font-mono font-bold text-green">$${bankroll.toLocaleString()}</span>
+                            </div>
+                            <div style="display:flex;justify-content:space-between;font-size:12px">
+                                <span class="text-dim">Net P/L</span>
+                                <span class="font-mono font-bold ${bets.total_profit >= 0 ? 'text-green' : 'text-red'}">$${bets.total_profit >= 0 ? '+' : ''}${bets.total_profit.toFixed(2)}</span>
+                            </div>
+                            <div style="display:flex;justify-content:space-between;font-size:12px">
+                                <span class="text-dim">ROI</span>
+                                <span class="font-mono font-bold ${roi >= 0 ? 'text-green' : 'text-red'}">${roi >= 0 ? '+' : ''}${roi.toFixed(1)}%</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <div style="font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:8px">90-Day P/L Heatmap</div>
+                        ${heatmap}
+                    </div>
+                </div>
+            `;
+        } catch {}
+    },
+
+    // ── Progress Ring Generator ──────────────────────────────────────
+    createProgressRing(value, max = 100, size = 48, label = '') {
+        const pct = Math.min(Math.max(value / max, 0), 1);
+        const r = (size / 2) - 6;
+        const circumference = 2 * Math.PI * r;
+        const offset = circumference * (1 - pct);
+        const color = pct > 0.6 ? 'var(--accent-green)' : pct > 0.35 ? 'var(--accent-yellow)' : 'var(--accent-red)';
+        return `<div class="progress-ring" style="width:${size}px;height:${size}px">
+            <svg viewBox="0 0 ${size} ${size}" width="${size}" height="${size}">
+                <circle class="progress-ring-track" cx="${size/2}" cy="${size/2}" r="${r}"/>
+                <circle class="progress-ring-fill" cx="${size/2}" cy="${size/2}" r="${r}"
+                    stroke="${color}" stroke-dasharray="${circumference}" stroke-dashoffset="${offset}"/>
+            </svg>
+            <div class="progress-ring-value">${label || Math.round(value) + '%'}</div>
+        </div>`;
+    },
+
+    // ── Accent Theme System ─────────────────────────────────────────
+    setAccent(accent) {
+        document.documentElement.setAttribute('data-accent', accent);
+        localStorage.setItem('sba-accent', accent);
+        this.toast(`Accent theme: ${accent}`, 'success');
+    },
+
+    loadAccent() {
+        const saved = localStorage.getItem('sba-accent');
+        if (saved) document.documentElement.setAttribute('data-accent', saved);
+    },
+
+    // ── Enhanced Player Page ────────────────────────────────────────
+    async loadPlayerEnhanced(name) {
+        const container = document.getElementById('player-content');
+        if (!container) return;
+
+        container.innerHTML = `
+            <div style="display:grid;gap:16px">
+                <div class="skeleton" style="height:120px;border-radius:var(--radius-lg)"></div>
+                <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px">
+                    <div class="skeleton skeleton-card"></div>
+                    <div class="skeleton skeleton-card"></div>
+                    <div class="skeleton skeleton-card"></div>
+                    <div class="skeleton skeleton-card"></div>
+                </div>
+            </div>`;
+
+        try {
+            const resp = await fetch(`/api/players/${encodeURIComponent(name)}`);
+            if (!resp.ok) {
+                container.innerHTML = `<div class="empty-state" style="padding:60px">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+                    <p>Player "${name}" not found</p>
+                    <p class="text-dim" style="font-size:12px">Run <code class="step-code" style="display:inline">sba data backfill --player "${name}"</code> to import</p>
+                </div>`;
+                return;
+            }
+
+            const p = await resp.json();
+            const initials = p.name.split(' ').map(n => n[0]).join('');
+
+            // Build comparison bars for stats
+            const statBars = (stat, color, maxVal) => {
+                const l5 = p.last_5[stat] || 0;
+                const l20 = p.last_20[stat] || 0;
+                const trend = p.trends[stat + '_trend'];
+                const trendStr = trend !== undefined ? (trend >= 0 ? '+' : '') + trend.toFixed(1) : '';
+                const trendColor = trend >= 0 ? 'text-green' : 'text-red';
+                return `
+                    <div class="comparison-bar">
+                        <span class="comparison-bar-label">L5</span>
+                        <div class="comparison-bar-track"><div class="comparison-bar-fill ${color}" style="width:${Math.min(l5 / (maxVal || 1) * 100, 100)}%"></div></div>
+                        <span class="comparison-bar-value">${l5.toFixed(1)}</span>
+                    </div>
+                    <div class="comparison-bar">
+                        <span class="comparison-bar-label">L20</span>
+                        <div class="comparison-bar-track"><div class="comparison-bar-fill ${color}" style="width:${Math.min(l20 / (maxVal || 1) * 100, 100)}%;opacity:0.6"></div></div>
+                        <span class="comparison-bar-value text-dim">${l20.toFixed(1)}</span>
+                    </div>
+                    ${trendStr ? `<div style="font-size:11px;text-align:right" class="${trendColor}">Trend: ${trendStr}</div>` : ''}
+                `;
+            };
+
+            container.innerHTML = `
+                <div class="player-hero">
+                    <div class="player-hero-content">
+                        <div class="player-avatar-lg">${initials}</div>
+                        <div class="player-hero-info">
+                            <h2>${p.name}</h2>
+                            <div class="player-hero-meta">
+                                <span>${p.team}</span>
+                                <span class="sep"></span>
+                                <span>${p.position}</span>
+                                <span class="sep"></span>
+                                <span>${p.games} games</span>
+                            </div>
+                            <div class="player-stat-pills">
+                                <div class="player-stat-pill">
+                                    <span class="pill-label">PPG</span>
+                                    <span class="pill-value text-green">${(p.last_5.points || 0).toFixed(1)}</span>
+                                </div>
+                                <div class="player-stat-pill">
+                                    <span class="pill-label">RPG</span>
+                                    <span class="pill-value text-blue" style="color:var(--accent-blue)">${(p.last_5.rebounds || 0).toFixed(1)}</span>
+                                </div>
+                                <div class="player-stat-pill">
+                                    <span class="pill-label">APG</span>
+                                    <span class="pill-value text-yellow" style="color:var(--accent-yellow)">${(p.last_5.assists || 0).toFixed(1)}</span>
+                                </div>
+                                <div class="player-stat-pill">
+                                    <span class="pill-label">MPG</span>
+                                    <span class="pill-value" style="color:var(--accent-purple)">${(p.last_5.minutes || 0).toFixed(1)}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="dashboard-grid">
+                    <div class="card tilt-card">
+                        <div class="card-header"><h3 style="color:var(--accent-green)">Points</h3></div>
+                        <div class="card-body padded">${statBars('points', '', 40)}</div>
+                    </div>
+                    <div class="card tilt-card">
+                        <div class="card-header"><h3 style="color:var(--accent-blue)">Rebounds</h3></div>
+                        <div class="card-body padded">${statBars('rebounds', 'blue', 15)}</div>
+                    </div>
+                    <div class="card tilt-card">
+                        <div class="card-header"><h3 style="color:var(--accent-yellow)">Assists</h3></div>
+                        <div class="card-body padded">${statBars('assists', 'yellow', 12)}</div>
+                    </div>
+                    <div class="card tilt-card">
+                        <div class="card-header"><h3 style="color:var(--accent-purple)">Minutes</h3></div>
+                        <div class="card-body padded">${statBars('minutes', 'purple', 42)}</div>
+                    </div>
+
+                    <div class="card full-width">
+                        <div class="card-header">
+                            <h3>
+                                <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><rect x="2" y="3" width="20" height="18" rx="2"/><line x1="2" y1="9" x2="22" y2="9"/></svg>
+                                Recent Games
+                            </h3>
+                            <span class="text-dim" style="font-size:12px">${p.recent_games.length} games</span>
+                        </div>
+                        <div class="card-body">
+                            <div style="overflow-x:auto">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Date</th><th>Opp</th><th class="right">Min</th>
+                                            <th class="right">Pts</th><th class="right">Reb</th>
+                                            <th class="right">Ast</th><th class="right">3PM</th>
+                                            <th class="right">Stl</th><th class="right">Blk</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${p.recent_games.map((g, i) => {
+                                            const isHot = g.points >= (p.last_20.points || 0) * 1.3;
+                                            const isCold = g.points <= (p.last_20.points || 0) * 0.5;
+                                            return `
+                                            <tr class="new-row ${isHot ? 'hot-row' : isCold ? 'cold-row' : ''}" style="animation-delay:${i * 0.03}s">
+                                                <td class="text-dim">${g.date}</td>
+                                                <td>${g.opponent}</td>
+                                                <td class="right font-mono">${Math.round(g.minutes)}</td>
+                                                <td class="right font-mono font-bold">${g.points}</td>
+                                                <td class="right font-mono">${g.rebounds}</td>
+                                                <td class="right font-mono">${g.assists}</td>
+                                                <td class="right font-mono">${g.threes}</td>
+                                                <td class="right font-mono">${g.steals}</td>
+                                                <td class="right font-mono">${g.blocks}</td>
+                                            </tr>`;
+                                        }).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        } catch (err) {
+            container.innerHTML = `<div class="empty-state text-red">Error loading player: ${err.message}</div>`;
+        }
+    },
+
+    // ── Edge Summary Banner ─────────────────────────────────────────
+    createEdgeSummaryBanner(edges) {
+        if (!edges || edges.length === 0) return '';
+        const avgEv = edges.reduce((s, e) => s + e.ev, 0) / edges.length;
+        const totalStake = edges.reduce((s, e) => s + e.recommended_stake, 0);
+        const highConf = edges.filter(e => e.confidence === 'high').length;
+        const bestEv = Math.max(...edges.map(e => e.ev));
+        return `
+            <div class="edge-summary-banner">
+                <div class="edge-summary-item">
+                    <div class="edge-sum-value text-green">${edges.length}</div>
+                    <div class="edge-sum-label">Edges Found</div>
+                </div>
+                <div class="edge-summary-item">
+                    <div class="edge-sum-value text-green">${(avgEv * 100).toFixed(1)}%</div>
+                    <div class="edge-sum-label">Avg EV</div>
+                </div>
+                <div class="edge-summary-item">
+                    <div class="edge-sum-value" style="color:var(--accent-yellow)">${(bestEv * 100).toFixed(1)}%</div>
+                    <div class="edge-sum-label">Best EV</div>
+                </div>
+                <div class="edge-summary-item">
+                    <div class="edge-sum-value" style="color:var(--accent-blue)">${highConf}</div>
+                    <div class="edge-sum-label">High Confidence</div>
+                </div>
+                <div class="edge-summary-item">
+                    <div class="edge-sum-value" style="color:var(--accent-purple)">$${totalStake.toFixed(0)}</div>
+                    <div class="edge-sum-label">Total Stake</div>
+                </div>
+            </div>
+        `;
+    },
+
+    // ── EV Heat Class ───────────────────────────────────────────────
+    getEvHeatClass(ev) {
+        if (ev >= 0.08) return 'ev-heat-ultra';
+        if (ev >= 0.05) return 'ev-heat-high';
+        return '';
+    },
+
+    // ── Line Movement SVG Chart ─────────────────────────────────────
+    createLineMovementChart(groups) {
+        const allSnaps = Object.values(groups).flat();
+        if (allSnaps.length < 2) return '';
+
+        const width = 800, height = 200;
+        const padding = { top: 20, right: 20, bottom: 30, left: 60 };
+        const chartW = width - padding.left - padding.right;
+        const chartH = height - padding.top - padding.bottom;
+
+        // Get all odds values
+        const allOdds = allSnaps.map(s => s.odds_american);
+        const minOdds = Math.min(...allOdds);
+        const maxOdds = Math.max(...allOdds);
+        const rangeOdds = maxOdds - minOdds || 1;
+
+        const colors = ['var(--accent-green)', 'var(--accent-blue)', 'var(--accent-yellow)', 'var(--accent-purple)', 'var(--accent-cyan)', 'var(--accent-red)'];
+        let colorIdx = 0;
+
+        const scaleY = (v) => padding.top + chartH - ((v - minOdds) / rangeOdds) * chartH;
+
+        // Y-axis labels
+        const yTicks = 5;
+        const yLabels = Array.from({length: yTicks + 1}, (_, i) => {
+            const val = minOdds + (rangeOdds / yTicks) * i;
+            return { val: Math.round(val), y: scaleY(val) };
+        });
+
+        let paths = '';
+        let dots = '';
+        let legend = '';
+
+        Object.entries(groups).forEach(([key, snaps]) => {
+            const color = colors[colorIdx++ % colors.length];
+            const scaleX = (i) => padding.left + (i / Math.max(snaps.length - 1, 1)) * chartW;
+
+            const pathD = snaps.map((s, i) =>
+                `${i === 0 ? 'M' : 'L'} ${scaleX(i).toFixed(1)} ${scaleY(s.odds_american).toFixed(1)}`
+            ).join(' ');
+
+            paths += `<path d="${pathD}" fill="none" stroke="${color}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.8"/>`;
+            dots += snaps.map((s, i) =>
+                `<circle class="lm-chart-dot" cx="${scaleX(i).toFixed(1)}" cy="${scaleY(s.odds_american).toFixed(1)}" r="3.5" fill="${color}" stroke="var(--bg-card)" stroke-width="1.5" data-tooltip="${s.odds_american > 0 ? '+' : ''}${s.odds_american}"/>`
+            ).join('');
+
+            legend += `<span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--text-secondary)"><span style="width:10px;height:3px;background:${color};border-radius:2px"></span>${key}</span>`;
+        });
+
+        return `
+            <div class="lm-visual-chart">
+                <svg viewBox="0 0 ${width} ${height}" style="width:100%;height:auto;max-height:${height}px">
+                    ${yLabels.map(l => `
+                        <line x1="${padding.left}" y1="${l.y.toFixed(1)}" x2="${width - padding.right}" y2="${l.y.toFixed(1)}" stroke="var(--border-light)" stroke-width="1"/>
+                        <text x="${padding.left - 8}" y="${l.y.toFixed(1)}" text-anchor="end" dominant-baseline="middle" fill="var(--text-tertiary)" font-size="10" font-family="var(--font-mono)">${l.val > 0 ? '+' : ''}${l.val}</text>
+                    `).join('')}
+                    ${paths}
+                    ${dots}
+                </svg>
+                <div style="display:flex;gap:16px;padding:8px 0 0;flex-wrap:wrap">${legend}</div>
+            </div>
+        `;
+    },
+
+    // ── Enhanced Settings with Accent Picker ────────────────────────
+    renderAccentPicker() {
+        const currentAccent = localStorage.getItem('sba-accent') || '';
+        const accents = [
+            { id: '', label: 'Default', color: '#00e68a' },
+            { id: 'emerald', label: 'Emerald', color: '#10b981' },
+            { id: 'neon', label: 'Neon', color: '#39ff14' },
+            { id: 'gold', label: 'Gold', color: '#f59e0b' },
+            { id: 'ocean', label: 'Ocean', color: '#06b6d4' },
+        ];
+        return `
+            <div class="settings-row" style="border-bottom:none">
+                <div>
+                    <div class="font-bold">Accent Theme</div>
+                    <div class="text-dim" style="font-size:12px">Customize the app's primary accent color</div>
+                </div>
+                <div class="accent-picker">
+                    ${accents.map(a => `
+                        <div class="accent-swatch ${currentAccent === a.id ? 'active' : ''}"
+                             style="background:${a.color}"
+                             onclick="SBA.setAccent('${a.id}');document.querySelectorAll('.accent-swatch').forEach(s=>s.classList.remove('active'));this.classList.add('active')"
+                             data-tooltip="${a.label}"></div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+    },
+};
+
+    // ── NProgress-style Top Loading Bar ──────────────────────────────
+    setupProgressBar() {
+        // Create the progress bar element
+        const bar = document.createElement('div');
+        bar.id = 'nprogress-bar';
+        document.body.prepend(bar);
+
+        // Intercept link clicks for page navigation loading effect
+        document.addEventListener('click', (e) => {
+            const link = e.target.closest('a[href]');
+            if (!link) return;
+            const href = link.getAttribute('href');
+            if (!href || href.startsWith('#') || href.startsWith('javascript:') || link.target === '_blank') return;
+            if (href.startsWith('http') && !href.includes(window.location.host)) return;
+
+            bar.classList.remove('done');
+            bar.style.width = '0%';
+            // Force reflow
+            void bar.offsetWidth;
+            bar.style.width = '30%';
+
+            setTimeout(() => { bar.style.width = '60%'; }, 150);
+            setTimeout(() => { bar.style.width = '85%'; }, 400);
+        });
+
+        // Complete the bar when page finishes loading
+        window.addEventListener('load', () => {
+            bar.style.width = '100%';
+            setTimeout(() => {
+                bar.classList.add('done');
+                setTimeout(() => { bar.style.width = '0'; bar.classList.remove('done'); }, 500);
+            }, 200);
+        });
+    },
+
+    // ── Ticker Tape ───────────────────────────────────────────────────
+    setupTickerTape() {
+        const contentArea = document.querySelector('.content-area');
+        if (!contentArea) return;
+
+        const tickers = [
+            { label: 'NFL', team: 'KC Chiefs', odds: '-155', change: 'up' },
+            { label: 'NBA', team: 'LAL vs BOS', odds: '+210', change: 'down' },
+            { label: 'MLB', team: 'NYY', odds: '-130', change: 'up' },
+            { label: 'NHL', team: 'TOR vs MTL', odds: '+145', change: 'up' },
+            { label: 'NCAAF', team: 'Alabama', odds: '-180', change: 'down' },
+            { label: 'NBA', team: 'GSW vs PHX', odds: '-110', change: 'up' },
+            { label: 'NFL', team: 'SF 49ers', odds: '+125', change: 'down' },
+            { label: 'MLB', team: 'LAD', odds: '-165', change: 'up' },
+        ];
+
+        const itemsHTML = tickers.map(t => `
+            <span class="ticker-item">
+                <strong>${t.label}</strong>
+                <span class="ticker-sep">|</span>
+                ${t.team}
+                <span class="ticker-${t.change}">${t.change === 'up' ? '\u25B2' : '\u25BC'}</span>
+                ${t.odds}
+            </span>
+        `).join('');
+
+        const tape = document.createElement('div');
+        tape.className = 'ticker-tape';
+        tape.setAttribute('aria-hidden', 'true');
+        tape.innerHTML = `<div class="ticker-track">${itemsHTML}${itemsHTML}</div>`;
+
+        contentArea.insertBefore(tape, contentArea.firstChild);
+    },
+
+    // ── Animated Number Counter ───────────────────────────────────────
+    animateCounters() {
+        const statValues = document.querySelectorAll('.stat-value, .metric-value, .kpi-value');
+        statValues.forEach(el => {
+            const text = el.textContent.trim();
+            const num = parseFloat(text.replace(/[^0-9.\-]/g, ''));
+            if (isNaN(num) || num === 0) return;
+
+            const prefix = text.match(/^[^0-9\-]*/)?.[0] || '';
+            const suffix = text.match(/[^0-9.]*$/)?.[0] || '';
+            const decimals = (text.split('.')[1] || '').replace(/[^0-9]/g, '').length;
+
+            el.setAttribute('data-animate', 'true');
+            el.classList.add('counting');
+            const start = 0;
+            const duration = 800;
+            const startTime = performance.now();
+
+            const update = (now) => {
+                const elapsed = now - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                const eased = 1 - Math.pow(1 - progress, 3); // easeOutCubic
+                const current = start + (num - start) * eased;
+                el.textContent = prefix + current.toFixed(decimals) + suffix;
+                if (progress < 1) {
+                    requestAnimationFrame(update);
+                } else {
+                    el.textContent = text; // restore original
+                    el.classList.remove('counting');
+                }
+            };
+            requestAnimationFrame(update);
+        });
+    },
+
+    // ── SVG Path Drawing Animation ────────────────────────────────────
+    animateChartPaths() {
+        const charts = document.querySelectorAll('.lm-visual-chart svg');
+        charts.forEach(svg => {
+            const paths = svg.querySelectorAll('path[d]');
+            const dots = svg.querySelectorAll('circle');
+
+            paths.forEach(path => {
+                const length = path.getTotalLength();
+                path.classList.add('chart-line-animated');
+                path.style.setProperty('--path-length', length);
+                path.style.strokeDasharray = length;
+                path.style.strokeDashoffset = length;
+            });
+
+            dots.forEach((dot, i) => {
+                dot.classList.add('chart-dot-animated');
+                dot.style.animationDelay = `${0.8 + i * 0.05}s`;
+            });
+        });
+    },
+
+    // ── Calculator Gauge Rendering ────────────────────────────────────
+    renderGauge(containerId, value, max, label, colorStops) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+
+        const pct = Math.min(Math.max(value / max, 0), 1);
+        const radius = 60;
+        const circumference = Math.PI * radius; // half circle
+        const offset = circumference * (1 - pct);
+
+        // Color based on percentage
+        let color = colorStops?.[0] || 'var(--accent-green)';
+        if (colorStops) {
+            if (pct < 0.33) color = colorStops[0];
+            else if (pct < 0.66) color = colorStops[1];
+            else color = colorStops[2];
+        }
+
+        container.innerHTML = `
+            <div class="gauge-container">
+                <svg class="gauge-svg" viewBox="0 0 160 100">
+                    <path class="gauge-bg"
+                        d="M 15 90 A 60 60 0 0 1 145 90"
+                        stroke-dasharray="${circumference}"
+                        stroke-dashoffset="0"/>
+                    <path class="gauge-fill"
+                        d="M 15 90 A 60 60 0 0 1 145 90"
+                        stroke="${color}"
+                        stroke-dasharray="${circumference}"
+                        stroke-dashoffset="${offset}"
+                        style="transition: stroke-dashoffset 1.2s cubic-bezier(0.4,0,0.2,1)"/>
+                    <text class="gauge-value" x="80" y="82">${typeof value === 'number' ? value.toFixed(1) : value}</text>
+                    <text class="gauge-label" x="80" y="96">${label}</text>
+                </svg>
+            </div>
+        `;
+    },
+
+    // ── Onboarding Welcome ────────────────────────────────────────────
+    showOnboarding() {
+        if (localStorage.getItem('sba-onboarded')) return;
+
+        const overlay = document.createElement('div');
+        overlay.className = 'onboarding-overlay';
+        overlay.innerHTML = `
+            <div class="onboarding-card">
+                <h2>Welcome to SBA Elite</h2>
+                <p>Your premium sports betting analytics platform with ML-powered predictions and real-time edge detection.</p>
+                <div class="onboarding-features">
+                    <div class="onboarding-feature">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/></svg>
+                        Edge Detection
+                    </div>
+                    <div class="onboarding-feature">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+                        Player Props
+                    </div>
+                    <div class="onboarding-feature">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                        Line Movement
+                    </div>
+                    <div class="onboarding-feature">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                        Live Feed
+                    </div>
+                </div>
+                <button class="btn btn-primary" onclick="SBA.dismissOnboarding()" style="padding:12px 48px;font-size:15px;font-weight:700">
+                    Get Started
+                </button>
+                <p style="font-size:11px;color:var(--text-tertiary);margin-top:16px;margin-bottom:0">Press <kbd style="background:var(--bg-tertiary);padding:2px 6px;border-radius:4px;font-size:10px">Ctrl+K</kbd> anytime for commands</p>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+    },
+
+    dismissOnboarding() {
+        localStorage.setItem('sba-onboarded', '1');
+        const overlay = document.querySelector('.onboarding-overlay');
+        if (overlay) {
+            overlay.style.opacity = '0';
+            setTimeout(() => overlay.remove(), 500);
+        }
+    },
+
+    // ── Enhanced Notification Bell ────────────────────────────────────
+    ringBell() {
+        const bell = document.getElementById('notification-bell');
+        if (bell) {
+            bell.classList.remove('has-alerts');
+            void bell.offsetWidth;
+            bell.classList.add('has-alerts');
+        }
+    },
 };
 
 // Initialize on DOM ready
-document.addEventListener('DOMContentLoaded', () => SBA.init());
+document.addEventListener('DOMContentLoaded', () => {
+    SBA.init();
+    SBA.setupScrollProgress();
+    SBA.setupFAB();
+    SBA.setupProgressBar();
+    SBA.setupTickerTape();
+
+    // Setup reveal animations after a brief delay
+    setTimeout(() => SBA.setupRevealAnimations(), 100);
+
+    // Animate counters and chart paths after content loads
+    setTimeout(() => {
+        SBA.animateCounters();
+        SBA.animateChartPaths();
+    }, 300);
+
+    // Show onboarding for first-time users
+    setTimeout(() => SBA.showOnboarding(), 800);
+});
 
 // Make globally accessible
 window.SBA = SBA;

@@ -3,7 +3,7 @@
 
 {% block content %}
 <h1 class="page-title">
-    Live Odds Feed
+    <span class="gradient-text">Live Odds Feed</span>
     <span class="badge">Live</span>
 </h1>
 
@@ -11,6 +11,7 @@
     <div class="ticker-label"><span class="ticker-dot"></span> REAL-TIME</div>
     <div class="ticker-content">
         <span class="ticker-item">Auto-refreshing every 10 seconds</span>
+        <span class="ticker-item">&middot; Real-time odds from 20+ sportsbooks</span>
     </div>
 </div>
 
@@ -21,6 +22,7 @@
         <option value="100">Last 100</option>
     </select>
 
+    <span class="text-dim" style="font-size:11px;margin-left:8px" id="feed-last-update"></span>
     <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-tertiary);cursor:pointer;margin-left:auto">
         <input type="checkbox" id="feed-auto" checked onchange="toggleFeedAuto(this.checked)" style="accent-color:var(--accent-green)">
         Auto-refresh (10s)
@@ -73,6 +75,8 @@ async function loadLiveFeed() {
         const data = await resp.json();
 
         countEl.textContent = `${data.length} updates`;
+        const lastUpdateEl = document.getElementById('feed-last-update');
+        if (lastUpdateEl) lastUpdateEl.textContent = `Updated ${new Date().toLocaleTimeString()}`;
 
         if (data.length === 0) {
             tbody.innerHTML = `<tr><td colspan="8" class="empty-state">

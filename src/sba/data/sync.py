@@ -6,8 +6,8 @@ import logging
 from datetime import datetime
 
 from sba.config import get_settings
-from sba.data.clients.odds_api import OddsAPIClient
 from sba.data.clients.balldontlie import BallDontLieClient
+from sba.data.clients.odds_api import OddsAPIClient
 from sba.data.db import get_connection, init_db
 from sba.data.db.repository import Repository
 

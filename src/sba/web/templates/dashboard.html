@@ -3,7 +3,7 @@
 
 {% block content %}
 <h1 class="page-title">
-    Dashboard
+    <span class="gradient-text">Dashboard</span>
     <span class="badge">Live</span>
 </h1>
 
@@ -88,6 +88,20 @@
         </div>
     </div>
 
+    <!-- Bankroll Health & Risk -->
+    <div class="card full-width">
+        <div class="card-header">
+            <h3>
+                <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                Bankroll Health & P/L Heatmap
+            </h3>
+            <a href="/analytics" class="btn btn-outline btn-sm">Full Analytics</a>
+        </div>
+        <div class="card-body padded" id="dashboard-risk">
+            <div class="loading-spinner"><div class="spinner"></div> Loading risk metrics...</div>
+        </div>
+    </div>
+
     <!-- Quick Actions -->
     <div class="card full-width">
         <div class="card-header">
@@ -117,6 +131,16 @@
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="28" height="28"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/></svg>
                     <div class="quick-action-title">Analytics</div>
                     <div class="quick-action-desc">P/L breakdown & insights</div>
+                </a>
+                <a href="/watchlist" class="quick-action-card green" style="border-color:rgba(255,194,52,0.15)">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="28" height="28"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                    <div class="quick-action-title">Watchlist</div>
+                    <div class="quick-action-desc">Track your favorite events</div>
+                </a>
+                <a href="/simulator" class="quick-action-card blue" style="border-color:rgba(168,85,247,0.15)">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="28" height="28"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                    <div class="quick-action-title">Simulator</div>
+                    <div class="quick-action-desc">Monte Carlo bankroll projections</div>
                 </a>
             </div>
         </div>
@@ -172,6 +196,9 @@
 
 {% block scripts %}
 <script>
-document.addEventListener('DOMContentLoaded', () => SBA.loadDashboard());
+document.addEventListener('DOMContentLoaded', () => {
+    SBA.loadDashboard();
+    SBA.loadDashboardRisk();
+});
 </script>
 {% endblock %}

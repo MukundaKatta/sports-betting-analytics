@@ -1,7 +1,9 @@
 """Tests for rate limiter."""
 
 import time
+
 import pytest
+
 from sba.utils.rate_limiter import RateLimiter
 
 

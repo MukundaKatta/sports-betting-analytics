@@ -53,6 +53,16 @@ def odds_comparison_page(request: Request):
     return templates.TemplateResponse(request, "odds-comparison.html")
 
 
+@router.get("/simulator")
+def simulator_page(request: Request):
+    return templates.TemplateResponse(request, "simulator.html")
+
+
+@router.get("/live-feed")
+def live_feed_page(request: Request):
+    return templates.TemplateResponse(request, "live-feed.html")
+
+
 @router.get("/player/{name}")
 def player_page(request: Request, name: str):
     return templates.TemplateResponse(request, "player.html", {"player_name": name})

@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+{% block title %}Bankroll Simulator{% endblock %}
+
+{% block content %}
+<h1 class="page-title">
+    Bankroll Simulator
+    <span class="badge">Pro</span>
+</h1>
+
+<div class="dashboard-grid">
+    <!-- Simulation Controls -->
+    <div class="card">
+        <div class="card-header">
+            <h3>
+                <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+                Parameters
+            </h3>
+        </div>
+        <div class="card-body padded">
+            <div style="display:grid;gap:16px">
+                <div>
+                    <label class="stat-label" style="margin-bottom:6px;display:block">Starting Bankroll</label>
+                    <input type="number" id="sim-bankroll" value="1000" class="filter-select" style="width:100%;padding-right:14px">
+                </div>
+                <div>
+                    <label class="stat-label" style="margin-bottom:6px;display:block">Number of Bets</label>
+                    <input type="number" id="sim-bets" value="200" class="filter-select" style="width:100%;padding-right:14px">
+                </div>
+                <div>
+                    <label class="stat-label" style="margin-bottom:6px;display:block">Average Odds (American)</label>
+                    <input type="number" id="sim-odds" value="-110" class="filter-select" style="width:100%;padding-right:14px">
+                </div>
+                <div>
+                    <label class="stat-label" style="margin-bottom:6px;display:block">Win Rate (%)</label>
+                    <input type="number" id="sim-winrate" value="53" step="0.5" class="filter-select" style="width:100%;padding-right:14px">
+                </div>
+                <div>
+                    <label class="stat-label" style="margin-bottom:6px;display:block">Kelly Fraction</label>
+                    <input type="number" id="sim-kelly" value="0.25" step="0.05" class="filter-select" style="width:100%;padding-right:14px">
+                </div>
+                <div>
+                    <label class="stat-label" style="margin-bottom:6px;display:block">Simulations</label>
+                    <input type="number" id="sim-count" value="50" class="filter-select" style="width:100%;padding-right:14px">
+                </div>
+                <button class="btn btn-primary btn-block" onclick="runSimulation()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                    Run Simulation
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Summary Results -->
+    <div class="card">
+        <div class="card-header">
+            <h3>
+                <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+                Projection Summary
+            </h3>
+        </div>
+        <div class="card-body padded" id="sim-summary">
+            <div class="empty-state" style="padding:48px 24px">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                <p>Configure parameters and click "Run Simulation" to project bankroll growth</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Monte Carlo Chart -->
+    <div class="card full-width">
+        <div class="card-header">
+            <h3>
+                <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                Monte Carlo Projection
+            </h3>
+            <span class="text-dim" style="font-size:12px" id="sim-info"></span>
+        </div>
+        <div class="card-body padded" id="sim-chart">
+            <div class="empty-state" style="padding:60px 24px">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                <p>Bankroll projection bands will appear here</p>
+                <p class="text-dim" style="font-size:12px">Shows P10, P25, Median, P75, and P90 percentile paths</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function runSimulation() {
+    const body = {
+        bankroll: parseFloat(document.getElementById('sim-bankroll').value),
+        num_bets: parseInt(document.getElementById('sim-bets').value),
+        avg_odds: parseInt(document.getElementById('sim-odds').value),
+        win_rate: parseFloat(document.getElementById('sim-winrate').value) / 100,
+        kelly_fraction: parseFloat(document.getElementById('sim-kelly').value),
+        simulations: parseInt(document.getElementById('sim-count').value),
+    };
+
+    const chartEl = document.getElementById('sim-chart');
+    const summaryEl = document.getElementById('sim-summary');
+    const infoEl = document.getElementById('sim-info');
+    chartEl.innerHTML = '<div class="loading-spinner"><div class="spinner"></div> Running Monte Carlo simulation...</div>';
+
+    try {
+        const resp = await fetch('/api/simulate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+        });
+        const data = await resp.json();
+        const s = data.summary;
+
+        infoEl.textContent = `${data.simulations} simulations × ${data.num_bets} bets`;
+
+        // Summary cards
+        const profColor = s.median_roi >= 0 ? 'text-green' : 'text-red';
+        const profGlow = s.median_roi >= 0 ? 'glow-green' : 'glow-red';
+        summaryEl.innerHTML = `
+            <div class="stats-grid" style="margin:0">
+                <div class="stat-card green">
+                    <div class="stat-label">Median Final</div>
+                    <div class="stat-value ${profColor} ${profGlow}">$${s.median_final.toLocaleString()}</div>
+                    <div class="stat-sub">${s.median_roi >= 0 ? '+' : ''}${s.median_roi}% ROI</div>
+                </div>
+                <div class="stat-card blue">
+                    <div class="stat-label">Profitable</div>
+                    <div class="stat-value">${s.profitable_pct}%</div>
+                    <div class="stat-sub">of simulations</div>
+                    <div class="progress-bar"><div class="progress-fill ${s.profitable_pct > 50 ? 'green' : 'red'}" style="width:${s.profitable_pct}%"></div></div>
+                </div>
+                <div class="stat-card yellow">
+                    <div class="stat-label">Best Case</div>
+                    <div class="stat-value text-green">$${s.best_case.toLocaleString()}</div>
+                    <div class="stat-sub">P90 scenario</div>
+                </div>
+                <div class="stat-card purple">
+                    <div class="stat-label">Worst Case</div>
+                    <div class="stat-value text-red">$${s.worst_case.toLocaleString()}</div>
+                    <div class="stat-sub">P10 scenario</div>
+                </div>
+            </div>
+        `;
+
+        // Draw chart as CSS bar visualization
+        const p = data.percentiles;
+        const allVals = [...p.p10, ...p.p90];
+        const maxVal = Math.max(...allVals);
+        const minVal = Math.min(...allVals);
+        const range = maxVal - minVal || 1;
+
+        // Sample points (show ~40 points max)
+        const step = Math.max(1, Math.floor(p.p50.length / 40));
+        const points = [];
+        for (let i = 0; i < p.p50.length; i += step) points.push(i);
+        if (points[points.length-1] !== p.p50.length-1) points.push(p.p50.length-1);
+
+        chartEl.innerHTML = `
+            <div style="position:relative;height:320px;display:flex;align-items:flex-end;gap:1px;padding:0 4px">
+                ${points.map(i => {
+                    const h90 = ((p.p90[i] - minVal) / range) * 300;
+                    const h75 = ((p.p75[i] - minVal) / range) * 300;
+                    const h50 = ((p.p50[i] - minVal) / range) * 300;
+                    const h25 = ((p.p25[i] - minVal) / range) * 300;
+                    const h10 = ((p.p10[i] - minVal) / range) * 300;
+                    const w = Math.max(100 / points.length - 1, 2);
+                    return `<div style="flex:1;position:relative;height:310px" data-tooltip="Bet ${i}: $${p.p50[i].toLocaleString()}">
+                        <div style="position:absolute;bottom:${h10}px;left:20%;right:20%;height:${h90-h10}px;background:var(--accent-green-dim);border-radius:2px"></div>
+                        <div style="position:absolute;bottom:${h25}px;left:10%;right:10%;height:${h75-h25}px;background:rgba(0,230,138,0.15);border-radius:2px"></div>
+                        <div style="position:absolute;bottom:${h50-1}px;left:0;right:0;height:3px;background:var(--accent-green);border-radius:2px"></div>
+                    </div>`;
+                }).join('')}
+            </div>
+            <div style="display:flex;justify-content:space-between;padding:8px 4px 0;font-size:11px;color:var(--text-tertiary)">
+                <span>Bet 0</span>
+                <span style="display:flex;gap:16px">
+                    <span><span style="display:inline-block;width:8px;height:3px;background:var(--accent-green);border-radius:1px;vertical-align:middle"></span> Median</span>
+                    <span><span style="display:inline-block;width:8px;height:8px;background:rgba(0,230,138,0.15);border-radius:1px;vertical-align:middle"></span> P25-P75</span>
+                    <span><span style="display:inline-block;width:8px;height:8px;background:var(--accent-green-dim);border-radius:1px;vertical-align:middle"></span> P10-P90</span>
+                </span>
+                <span>Bet ${data.num_bets}</span>
+            </div>
+        `;
+
+        SBA.toast('Simulation complete', 'success');
+    } catch (err) {
+        chartEl.innerHTML = `<div class="empty-state text-red">Error: ${err.message}</div>`;
+    }
+}
+</script>
+{% endblock %}

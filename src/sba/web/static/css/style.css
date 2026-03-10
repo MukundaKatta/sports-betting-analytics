@@ -2481,3 +2481,155 @@ a:hover { color: #7db3ff; }
     opacity: 1;
     transform: scale(1);
 }
+
+/* ── Mobile Bottom Navigation ────────────────────────────────────────── */
+
+.mobile-bottom-nav {
+    display: none;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-top: 1px solid var(--glass-border);
+    padding: 6px 0;
+    padding-bottom: max(6px, env(safe-area-inset-bottom));
+}
+
+.mobile-bottom-nav {
+    justify-content: space-around;
+}
+
+.mobile-nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 6px 12px;
+    color: var(--text-tertiary);
+    font-size: 10px;
+    font-weight: 500;
+    text-decoration: none;
+    transition: color var(--transition-fast);
+    border-radius: var(--radius-sm);
+}
+
+.mobile-nav-item:hover,
+.mobile-nav-item.active {
+    color: var(--accent-blue);
+}
+
+.mobile-nav-item.active svg {
+    color: var(--accent-blue);
+}
+
+@media (max-width: 1024px) {
+    .mobile-bottom-nav {
+        display: flex;
+    }
+    .content-area {
+        padding-bottom: 80px;
+    }
+}
+
+/* ── Onboarding Progress ─────────────────────────────────────────────── */
+
+.onboarding-progress {
+    display: flex;
+    gap: 8px;
+    padding: 16px 24px;
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-md);
+    margin-bottom: 20px;
+    align-items: center;
+}
+
+.onboarding-step {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--text-tertiary);
+    padding: 6px 12px;
+    border-radius: var(--radius-xl);
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--border-light);
+    transition: all var(--transition-fast);
+}
+
+.onboarding-step.completed {
+    color: var(--accent-green);
+    background: var(--accent-green-dim);
+    border-color: rgba(0, 230, 138, 0.15);
+}
+
+.onboarding-step.active {
+    color: var(--accent-blue);
+    background: var(--accent-blue-dim);
+    border-color: rgba(91, 154, 255, 0.15);
+}
+
+.onboarding-step-check {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 2px solid currentColor;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    flex-shrink: 0;
+}
+
+.onboarding-step.completed .onboarding-step-check {
+    background: var(--accent-green);
+    border-color: var(--accent-green);
+    color: var(--text-inverse);
+}
+
+.onboarding-connector {
+    width: 24px;
+    height: 2px;
+    background: var(--border-light);
+    flex-shrink: 0;
+}
+
+.onboarding-connector.completed {
+    background: var(--accent-green);
+}
+
+/* ── Simulation Chart Tooltip ────────────────────────────────────────── */
+
+[data-tooltip]:hover {
+    z-index: 10;
+}
+
+/* ── Feed Pulse Animation ────────────────────────────────────────────── */
+
+.feed-new {
+    animation: feed-highlight 2s ease-out;
+}
+
+@keyframes feed-highlight {
+    0% { background: rgba(0, 230, 138, 0.15); }
+    100% { background: transparent; }
+}
+
+/* ── Premium Version Badge in Sidebar ────────────────────────────────── */
+
+.version-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--accent-green);
+    padding: 3px 8px;
+    border-radius: var(--radius-xl);
+    background: var(--accent-green-dim);
+    margin-top: 8px;
+}

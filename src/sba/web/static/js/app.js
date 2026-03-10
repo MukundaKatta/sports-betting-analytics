@@ -941,6 +941,50 @@ const SBA = {
                 }
             }
 
+            // P/L Heatmap Calendar
+            const heatmapEl = document.getElementById('pnl-heatmap');
+            if (heatmapEl) {
+                if (analytics.daily_pnl && analytics.daily_pnl.length > 0) {
+                    heatmapEl.innerHTML = this.createHeatmapCalendar(analytics.daily_pnl);
+                } else {
+                    heatmapEl.innerHTML = '<div class="empty-state" style="padding:40px"><p>No data for heatmap yet</p></div>';
+                }
+            }
+
+            // Bankroll health gauge
+            const healthEl = document.getElementById('bankroll-health');
+            if (healthEl) {
+                try {
+                    const settingsResp2 = await fetch('/api/settings');
+                    const settings2 = await settingsResp2.json();
+                    const bankroll = settings2.bankroll || 1000;
+                    const roi = bets.roi || 0;
+                    const winRate = bets.win_rate || 0;
+                    let score = 50;
+                    score += Math.min(roi, 20);
+                    score += (winRate - 0.5) * 40;
+                    if (bets.total_profit > 0) score += 10;
+                    score = Math.max(0, Math.min(100, Math.round(score)));
+                    healthEl.innerHTML = `
+                        <div style="text-align:center">
+                            ${this.createHealthGauge(score)}
+                            <div style="margin-top:16px;display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                                <div class="step-card" style="text-align:center;padding:12px">
+                                    <div class="stat-label">Bankroll</div>
+                                    <div class="font-mono font-bold text-green" style="font-size:18px">$${bankroll.toLocaleString()}</div>
+                                </div>
+                                <div class="step-card" style="text-align:center;padding:12px">
+                                    <div class="stat-label">Net P/L</div>
+                                    <div class="font-mono font-bold ${bets.total_profit >= 0 ? 'text-green' : 'text-red'}" style="font-size:18px">$${bets.total_profit >= 0 ? '+' : ''}${bets.total_profit.toFixed(2)}</div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                } catch {
+                    healthEl.innerHTML = '<div class="empty-state"><p>Could not load health data</p></div>';
+                }
+            }
+
             // Notable bets
             const notableEl = document.getElementById('notable-bets');
             if (notableEl) {
@@ -2034,6 +2078,384 @@ const SBA = {
         if (status === 'won') {
             this.showConfetti();
         }
+    },
+
+    // ── Heatmap Calendar ────────────────────────────────────────────
+    createHeatmapCalendar(dailyPnl) {
+        if (!dailyPnl || dailyPnl.length === 0) {
+            return '<div class="empty-state" style="padding:40px"><p>No daily P/L data for heatmap</p></div>';
+        }
+
+        // Build a map of date -> pnl
+        const pnlMap = {};
+        dailyPnl.forEach(d => { pnlMap[d.date] = d.pnl; });
+
+        // Get range: last 90 days
+        const today = new Date();
+        const start = new Date(today);
+        start.setDate(start.getDate() - 89);
+
+        // Align to start of week (Sunday)
+        const dayOfWeek = start.getDay();
+        start.setDate(start.getDate() - dayOfWeek);
+
+        const days = [];
+        const current = new Date(start);
+        while (current <= today) {
+            const dateStr = current.toISOString().slice(0, 10);
+            const pnl = pnlMap[dateStr] || 0;
+            const isInRange = current >= new Date(today.getTime() - 89 * 86400000);
+            days.push({ date: dateStr, pnl, active: isInRange });
+            current.setDate(current.getDate() + 1);
+        }
+
+        const maxAbs = Math.max(...days.filter(d => d.active).map(d => Math.abs(d.pnl)), 1);
+
+        const weekLabels = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+        const labelsHtml = weekLabels.map(l =>
+            `<div style="font-size:9px;color:var(--text-tertiary);display:flex;align-items:center;justify-content:center">${l}</div>`
+        ).join('');
+
+        const cellsHtml = days.map(d => {
+            if (!d.active) {
+                return '<div class="heatmap-day" style="background:transparent"></div>';
+            }
+            let bg;
+            if (d.pnl === 0) {
+                bg = 'rgba(255,255,255,0.03)';
+            } else if (d.pnl > 0) {
+                const intensity = Math.min(d.pnl / maxAbs, 1);
+                const alpha = 0.15 + intensity * 0.65;
+                bg = `rgba(0, 230, 138, ${alpha.toFixed(2)})`;
+            } else {
+                const intensity = Math.min(Math.abs(d.pnl) / maxAbs, 1);
+                const alpha = 0.15 + intensity * 0.65;
+                bg = `rgba(255, 77, 106, ${alpha.toFixed(2)})`;
+            }
+            const tooltip = `${d.date}: $${d.pnl >= 0 ? '+' : ''}${d.pnl.toFixed(2)}`;
+            return `<div class="heatmap-day" style="background:${bg}" data-tooltip="${tooltip}"></div>`;
+        }).join('');
+
+        return `
+            <div class="heatmap-calendar">
+                ${labelsHtml}
+                ${cellsHtml}
+            </div>
+            <div class="heatmap-legend">
+                <span>Less</span>
+                <div class="heatmap-legend-block" style="background:rgba(255,77,106,0.6)"></div>
+                <div class="heatmap-legend-block" style="background:rgba(255,77,106,0.25)"></div>
+                <div class="heatmap-legend-block" style="background:rgba(255,255,255,0.03)"></div>
+                <div class="heatmap-legend-block" style="background:rgba(0,230,138,0.25)"></div>
+                <div class="heatmap-legend-block" style="background:rgba(0,230,138,0.6)"></div>
+                <span>More</span>
+            </div>`;
+    },
+
+    // ── Bankroll Health Gauge (Half-circle) ──────────────────────────
+    createHealthGauge(score, label = 'Health') {
+        // Score 0-100
+        const clamped = Math.max(0, Math.min(100, score));
+        const angle = (clamped / 100) * 180;
+        const color = clamped >= 70 ? 'var(--accent-green)' : clamped >= 40 ? 'var(--accent-yellow)' : 'var(--accent-red)';
+        const status = clamped >= 70 ? 'Healthy' : clamped >= 40 ? 'Caution' : 'At Risk';
+
+        // Arc math for SVG
+        const cx = 90, cy = 80, r = 65;
+        const startAngle = Math.PI;
+        const endAngle = Math.PI + (angle * Math.PI / 180);
+        const x1 = cx + r * Math.cos(startAngle);
+        const y1 = cy + r * Math.sin(startAngle);
+        const x2 = cx + r * Math.cos(endAngle);
+        const y2 = cy + r * Math.sin(endAngle);
+        const largeArc = angle > 180 ? 1 : 0;
+
+        return `<div class="health-gauge">
+            <svg viewBox="0 0 180 100">
+                <path d="M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}"
+                      fill="none" stroke="var(--bg-tertiary)" stroke-width="10" stroke-linecap="round"/>
+                <path d="M ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2.toFixed(2)} ${y2.toFixed(2)}"
+                      fill="none" stroke="${color}" stroke-width="10" stroke-linecap="round"
+                      style="filter:drop-shadow(0 0 6px ${color})"/>
+            </svg>
+            <div class="health-gauge-label">
+                <div class="health-gauge-value" style="color:${color}">${clamped}</div>
+                <div class="health-gauge-text">${status}</div>
+            </div>
+        </div>`;
+    },
+
+    // ── Advanced P/L Line Chart (SVG) ───────────────────────────────
+    createLineChart(data, width = 800, height = 200) {
+        if (!data || data.length < 2) return '';
+
+        const padding = { top: 20, right: 20, bottom: 30, left: 60 };
+        const chartW = width - padding.left - padding.right;
+        const chartH = height - padding.top - padding.bottom;
+
+        const minY = Math.min(...data.map(d => d.y), 0);
+        const maxY = Math.max(...data.map(d => d.y), 0);
+        const rangeY = maxY - minY || 1;
+
+        const scaleX = (i) => padding.left + (i / (data.length - 1)) * chartW;
+        const scaleY = (v) => padding.top + chartH - ((v - minY) / rangeY) * chartH;
+
+        // Build path
+        const linePath = data.map((d, i) =>
+            `${i === 0 ? 'M' : 'L'} ${scaleX(i).toFixed(1)} ${scaleY(d.y).toFixed(1)}`
+        ).join(' ');
+
+        // Gradient fill area
+        const areaPath = `${linePath} L ${scaleX(data.length - 1).toFixed(1)} ${scaleY(0).toFixed(1)} L ${scaleX(0).toFixed(1)} ${scaleY(0).toFixed(1)} Z`;
+
+        // Zero line
+        const zeroY = scaleY(0);
+
+        // Y-axis labels
+        const yTicks = 5;
+        const yLabels = Array.from({length: yTicks + 1}, (_, i) => {
+            const val = minY + (rangeY / yTicks) * i;
+            return { val, y: scaleY(val) };
+        });
+
+        // X-axis labels (show ~6 dates)
+        const xStep = Math.max(1, Math.floor(data.length / 6));
+        const xLabels = data.filter((_, i) => i % xStep === 0 || i === data.length - 1);
+
+        const finalVal = data[data.length - 1].y;
+        const lineColor = finalVal >= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
+        const gradId = 'pnl-grad-' + Math.random().toString(36).slice(2, 8);
+
+        return `<svg viewBox="0 0 ${width} ${height}" style="width:100%;height:auto;max-height:${height}px">
+            <defs>
+                <linearGradient id="${gradId}" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="${lineColor}" stop-opacity="0.2"/>
+                    <stop offset="100%" stop-color="${lineColor}" stop-opacity="0"/>
+                </linearGradient>
+            </defs>
+            ${yLabels.map(l => `
+                <line x1="${padding.left}" y1="${l.y.toFixed(1)}" x2="${width - padding.right}" y2="${l.y.toFixed(1)}"
+                      stroke="var(--border-light)" stroke-width="1"/>
+                <text x="${padding.left - 8}" y="${l.y.toFixed(1)}" text-anchor="end" dominant-baseline="middle"
+                      fill="var(--text-tertiary)" font-size="10" font-family="var(--font-mono)">$${l.val >= 0 ? '' : ''}${l.val.toFixed(0)}</text>
+            `).join('')}
+            <line x1="${padding.left}" y1="${zeroY.toFixed(1)}" x2="${width - padding.right}" y2="${zeroY.toFixed(1)}"
+                  stroke="var(--text-tertiary)" stroke-width="1" stroke-dasharray="4,4" opacity="0.3"/>
+            <path d="${areaPath}" fill="url(#${gradId})"/>
+            <path d="${linePath}" fill="none" stroke="${lineColor}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="${scaleX(data.length - 1).toFixed(1)}" cy="${scaleY(finalVal).toFixed(1)}" r="4"
+                    fill="${lineColor}" stroke="var(--bg-card)" stroke-width="2"/>
+            ${xLabels.map(d => {
+                const i = data.indexOf(d);
+                return `<text x="${scaleX(i).toFixed(1)}" y="${height - 6}" text-anchor="middle"
+                              fill="var(--text-tertiary)" font-size="10">${d.label || ''}</text>`;
+            }).join('')}
+        </svg>`;
+    },
+
+    // ── Advanced Analytics Loader ────────────────────────────────────
+    async loadAdvancedAnalytics() {
+        try {
+            const [analyticsResp, betsResp, settingsResp] = await Promise.all([
+                fetch('/api/analytics'),
+                fetch('/api/bets'),
+                fetch('/api/settings'),
+            ]);
+            const analytics = await analyticsResp.json();
+            const bets = await betsResp.json();
+            const settings = await settingsResp.json();
+
+            // Advanced metrics
+            const metricsEl = document.getElementById('advanced-metrics');
+            if (metricsEl && analytics.daily_pnl && analytics.daily_pnl.length > 0) {
+                const pnls = analytics.daily_pnl.map(d => d.pnl);
+                const mean = pnls.reduce((a, b) => a + b, 0) / pnls.length;
+                const variance = pnls.reduce((sum, p) => sum + Math.pow(p - mean, 2), 0) / pnls.length;
+                const stdDev = Math.sqrt(variance) || 1;
+                const sharpe = (mean / stdDev * Math.sqrt(252)).toFixed(2);
+
+                // Max drawdown
+                let peak = 0, maxDd = 0, cumulative = 0;
+                pnls.forEach(p => {
+                    cumulative += p;
+                    if (cumulative > peak) peak = cumulative;
+                    const dd = peak - cumulative;
+                    if (dd > maxDd) maxDd = dd;
+                });
+
+                // Profit factor
+                const grossWins = pnls.filter(p => p > 0).reduce((a, b) => a + b, 0);
+                const grossLosses = Math.abs(pnls.filter(p => p < 0).reduce((a, b) => a + b, 0)) || 1;
+                const profitFactor = (grossWins / grossLosses).toFixed(2);
+
+                // Streaks
+                let currentStreak = 0, maxWinStreak = 0, maxLossStreak = 0, curWin = 0, curLoss = 0;
+                pnls.forEach(p => {
+                    if (p > 0) { curWin++; curLoss = 0; maxWinStreak = Math.max(maxWinStreak, curWin); }
+                    else if (p < 0) { curLoss++; curWin = 0; maxLossStreak = Math.max(maxLossStreak, curLoss); }
+                });
+
+                const sharpeColor = parseFloat(sharpe) >= 1 ? 'text-green' : parseFloat(sharpe) >= 0 ? 'text-dim' : 'text-red';
+
+                metricsEl.innerHTML = `
+                    <div class="stat-card green">
+                        <div class="stat-label">Sharpe Ratio</div>
+                        <div class="stat-value ${sharpeColor}">${sharpe}</div>
+                        <div class="stat-sub">${parseFloat(sharpe) >= 1 ? 'Excellent' : parseFloat(sharpe) >= 0.5 ? 'Good' : 'Needs work'}</div>
+                    </div>
+                    <div class="stat-card blue">
+                        <div class="stat-label">Max Drawdown</div>
+                        <div class="stat-value text-red">$${maxDd.toFixed(2)}</div>
+                        <div class="stat-sub">${settings.bankroll ? (maxDd / settings.bankroll * 100).toFixed(1) + '% of bankroll' : 'Peak to trough'}</div>
+                    </div>
+                    <div class="stat-card yellow">
+                        <div class="stat-label">Profit Factor</div>
+                        <div class="stat-value ${parseFloat(profitFactor) >= 1.5 ? 'text-green' : ''}">${profitFactor}</div>
+                        <div class="stat-sub">${parseFloat(profitFactor) >= 1.5 ? 'Strong edge' : parseFloat(profitFactor) >= 1 ? 'Marginal' : 'Losing'}</div>
+                    </div>
+                    <div class="stat-card purple">
+                        <div class="stat-label">Win Streaks</div>
+                        <div class="stat-value">${maxWinStreak}W / ${maxLossStreak}L</div>
+                        <div class="stat-sub">Best / Worst streaks</div>
+                    </div>
+                `;
+            }
+
+            // Advanced P/L line chart
+            const advChartEl = document.getElementById('advanced-pnl-chart');
+            if (advChartEl && analytics.daily_pnl && analytics.daily_pnl.length > 0) {
+                let cumulative = 0;
+                const chartData = analytics.daily_pnl.map(d => {
+                    cumulative += d.pnl;
+                    return { y: cumulative, label: d.date.slice(5) };
+                });
+                advChartEl.innerHTML = this.createLineChart(chartData);
+            } else if (advChartEl) {
+                advChartEl.innerHTML = '<div class="empty-state" style="padding:40px"><p>No data for P/L chart yet</p></div>';
+            }
+
+            // Drawdown chart
+            const ddChartEl = document.getElementById('drawdown-chart');
+            if (ddChartEl && analytics.daily_pnl && analytics.daily_pnl.length > 0) {
+                let peak = 0, cumulative = 0;
+                const ddData = analytics.daily_pnl.map(d => {
+                    cumulative += d.pnl;
+                    if (cumulative > peak) peak = cumulative;
+                    return { y: -(peak - cumulative), label: d.date.slice(5) };
+                });
+                ddChartEl.innerHTML = this.createLineChart(ddData, 800, 160);
+            } else if (ddChartEl) {
+                ddChartEl.innerHTML = '<div class="empty-state" style="padding:40px"><p>No data for drawdown chart yet</p></div>';
+            }
+
+            // Monthly breakdown
+            const monthlyEl = document.getElementById('monthly-breakdown');
+            if (monthlyEl && analytics.by_month) {
+                const months = Object.entries(analytics.by_month);
+                if (months.length === 0) {
+                    monthlyEl.innerHTML = '<div class="empty-state" style="padding:40px"><p>No monthly data yet</p></div>';
+                } else {
+                    monthlyEl.innerHTML = `
+                        <table class="data-table">
+                            <thead><tr><th>Month</th><th class="right">Bets</th><th class="right">Win Rate</th><th class="right">P/L</th><th class="right">ROI</th></tr></thead>
+                            <tbody>
+                                ${months.map(([name, d]) => `
+                                <tr class="new-row">
+                                    <td class="font-bold">${name}</td>
+                                    <td class="right font-mono">${d.bets}</td>
+                                    <td class="right font-mono">${d.win_rate}%</td>
+                                    <td class="right font-mono font-bold ${d.profit >= 0 ? 'text-green' : 'text-red'}">$${d.profit >= 0 ? '+' : ''}${d.profit.toFixed(2)}</td>
+                                    <td class="right"><span class="ev-badge ${d.roi >= 0 ? 'high' : 'negative'}">${d.roi >= 0 ? '+' : ''}${d.roi}%</span></td>
+                                </tr>`).join('')}
+                            </tbody>
+                        </table>
+                    `;
+                }
+            }
+        } catch {}
+    },
+
+    // ── Dashboard Risk Summary ──────────────────────────────────────
+    async loadDashboardRisk() {
+        try {
+            const [betsResp, settingsResp, analyticsResp] = await Promise.all([
+                fetch('/api/bets'),
+                fetch('/api/settings'),
+                fetch('/api/analytics'),
+            ]);
+            const bets = await betsResp.json();
+            const settings = await settingsResp.json();
+            const analytics = await analyticsResp.json();
+
+            const riskEl = document.getElementById('dashboard-risk');
+            if (!riskEl) return;
+
+            if (bets.total_bets === 0) {
+                riskEl.innerHTML = `<div class="empty-state" style="padding:40px">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="36" height="36"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                    <p>Start tracking bets to see risk metrics</p>
+                </div>`;
+                return;
+            }
+
+            // Calculate health score (0-100)
+            const bankroll = settings.bankroll || 1000;
+            const roi = bets.roi || 0;
+            const winRate = bets.win_rate || 0;
+
+            // Health factors
+            let score = 50; // baseline
+            score += Math.min(roi, 20); // ROI contributes up to +20
+            score += (winRate - 0.5) * 40; // Win rate above 50% contributes
+            if (bets.total_profit > 0) score += 10;
+            score = Math.max(0, Math.min(100, Math.round(score)));
+
+            const gauge = this.createHealthGauge(score);
+            const heatmap = this.createHeatmapCalendar(analytics.daily_pnl);
+
+            riskEl.innerHTML = `
+                <div style="display:grid;grid-template-columns:200px 1fr;gap:24px;align-items:start">
+                    <div style="text-align:center">
+                        ${gauge}
+                        <div style="margin-top:12px;display:grid;gap:8px">
+                            <div style="display:flex;justify-content:space-between;font-size:12px">
+                                <span class="text-dim">Bankroll</span>
+                                <span class="font-mono font-bold text-green">$${bankroll.toLocaleString()}</span>
+                            </div>
+                            <div style="display:flex;justify-content:space-between;font-size:12px">
+                                <span class="text-dim">Net P/L</span>
+                                <span class="font-mono font-bold ${bets.total_profit >= 0 ? 'text-green' : 'text-red'}">$${bets.total_profit >= 0 ? '+' : ''}${bets.total_profit.toFixed(2)}</span>
+                            </div>
+                            <div style="display:flex;justify-content:space-between;font-size:12px">
+                                <span class="text-dim">ROI</span>
+                                <span class="font-mono font-bold ${roi >= 0 ? 'text-green' : 'text-red'}">${roi >= 0 ? '+' : ''}${roi.toFixed(1)}%</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <div style="font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:8px">90-Day P/L Heatmap</div>
+                        ${heatmap}
+                    </div>
+                </div>
+            `;
+        } catch {}
+    },
+
+    // ── Progress Ring Generator ──────────────────────────────────────
+    createProgressRing(value, max = 100, size = 48, label = '') {
+        const pct = Math.min(Math.max(value / max, 0), 1);
+        const r = (size / 2) - 6;
+        const circumference = 2 * Math.PI * r;
+        const offset = circumference * (1 - pct);
+        const color = pct > 0.6 ? 'var(--accent-green)' : pct > 0.35 ? 'var(--accent-yellow)' : 'var(--accent-red)';
+        return `<div class="progress-ring" style="width:${size}px;height:${size}px">
+            <svg viewBox="0 0 ${size} ${size}" width="${size}" height="${size}">
+                <circle class="progress-ring-track" cx="${size/2}" cy="${size/2}" r="${r}"/>
+                <circle class="progress-ring-fill" cx="${size/2}" cy="${size/2}" r="${r}"
+                    stroke="${color}" stroke-dasharray="${circumference}" stroke-dashoffset="${offset}"/>
+            </svg>
+            <div class="progress-ring-value">${label || Math.round(value) + '%'}</div>
+        </div>`;
     },
 };
 

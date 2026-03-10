@@ -3285,3 +3285,673 @@ body::after {
 [data-theme="light"] .notification-panel {
     background: rgba(255, 255, 255, 0.92);
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   World-Class Premium Upgrades v3.0
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Skeleton Loading Screens ─────────────────────────────────── */
+
+.skeleton {
+    background: linear-gradient(
+        90deg,
+        var(--bg-tertiary) 25%,
+        var(--bg-surface) 50%,
+        var(--bg-tertiary) 75%
+    );
+    background-size: 200% 100%;
+    animation: skeleton-shimmer 1.5s ease-in-out infinite;
+    border-radius: var(--radius-sm);
+}
+
+.skeleton-line {
+    height: 14px;
+    margin-bottom: 10px;
+    border-radius: 4px;
+}
+
+.skeleton-line.w-75 { width: 75%; }
+.skeleton-line.w-50 { width: 50%; }
+.skeleton-line.w-25 { width: 25%; }
+
+.skeleton-circle {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+}
+
+.skeleton-card {
+    padding: 20px;
+    border-radius: var(--radius-md);
+    min-height: 120px;
+}
+
+@keyframes skeleton-shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+/* ── Animated Card Borders (Glow on Hover) ────────────────────── */
+
+.card {
+    position: relative;
+    overflow: hidden;
+}
+
+.card::before {
+    content: '';
+    position: absolute;
+    top: -1px;
+    left: -1px;
+    right: -1px;
+    bottom: -1px;
+    background: linear-gradient(
+        135deg,
+        transparent 0%,
+        rgba(0, 230, 138, 0.08) 25%,
+        transparent 50%,
+        rgba(91, 154, 255, 0.08) 75%,
+        transparent 100%
+    );
+    border-radius: inherit;
+    z-index: -1;
+    opacity: 0;
+    transition: opacity 0.4s ease;
+}
+
+.card:hover::before {
+    opacity: 1;
+}
+
+/* ── Enhanced Stat Cards with Shine Effect ────────────────────── */
+
+.stat-card {
+    position: relative;
+    overflow: hidden;
+}
+
+.stat-card::after {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: linear-gradient(
+        45deg,
+        transparent 40%,
+        rgba(255, 255, 255, 0.03) 50%,
+        transparent 60%
+    );
+    transform: rotate(0deg);
+    transition: transform 0.6s ease;
+    pointer-events: none;
+}
+
+.stat-card:hover::after {
+    transform: rotate(180deg);
+}
+
+/* ── Pulse Animation for Live Indicators ──────────────────────── */
+
+.live-pulse {
+    position: relative;
+}
+
+.live-pulse::before {
+    content: '';
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent-green);
+    top: 50%;
+    left: -16px;
+    transform: translateY(-50%);
+    animation: live-pulse-ring 2s ease-in-out infinite;
+}
+
+@keyframes live-pulse-ring {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(0, 230, 138, 0.5); }
+    50% { box-shadow: 0 0 0 8px rgba(0, 230, 138, 0); }
+}
+
+/* ── Heatmap Calendar ─────────────────────────────────────────── */
+
+.heatmap-calendar {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 3px;
+    padding: 8px;
+}
+
+.heatmap-day {
+    aspect-ratio: 1;
+    border-radius: 3px;
+    position: relative;
+    cursor: default;
+    min-width: 14px;
+    min-height: 14px;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.heatmap-day:hover {
+    transform: scale(1.4);
+    z-index: 2;
+    box-shadow: 0 0 8px rgba(0, 0, 0, 0.5);
+}
+
+.heatmap-day[data-tooltip]:hover::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    white-space: nowrap;
+    z-index: 10;
+    border: 1px solid var(--border-color);
+    pointer-events: none;
+}
+
+.heatmap-legend {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    color: var(--text-tertiary);
+    padding: 8px;
+    justify-content: flex-end;
+}
+
+.heatmap-legend-block {
+    width: 12px;
+    height: 12px;
+    border-radius: 2px;
+}
+
+/* ── Bankroll Health Gauge ────────────────────────────────────── */
+
+.health-gauge {
+    position: relative;
+    width: 180px;
+    height: 100px;
+    margin: 0 auto;
+}
+
+.health-gauge svg {
+    width: 100%;
+    height: 100%;
+}
+
+.health-gauge-label {
+    position: absolute;
+    bottom: 4px;
+    left: 50%;
+    transform: translateX(-50%);
+    text-align: center;
+}
+
+.health-gauge-value {
+    font-size: 24px;
+    font-weight: 800;
+    font-family: var(--font-mono);
+}
+
+.health-gauge-text {
+    font-size: 11px;
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* ── Enhanced Badge Styles ────────────────────────────────────── */
+
+.badge-glow {
+    position: relative;
+}
+
+.badge-glow::after {
+    content: '';
+    position: absolute;
+    inset: -2px;
+    border-radius: inherit;
+    background: inherit;
+    filter: blur(6px);
+    opacity: 0.4;
+    z-index: -1;
+}
+
+/* ── Animated Progress Ring ───────────────────────────────────── */
+
+.progress-ring {
+    display: inline-block;
+    position: relative;
+}
+
+.progress-ring svg {
+    transform: rotate(-90deg);
+}
+
+.progress-ring-track {
+    fill: none;
+    stroke: var(--bg-tertiary);
+    stroke-width: 6;
+}
+
+.progress-ring-fill {
+    fill: none;
+    stroke: var(--accent-green);
+    stroke-width: 6;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.progress-ring-value {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 11px;
+    font-weight: 700;
+    font-family: var(--font-mono);
+}
+
+/* ── Data Table Enhancements ──────────────────────────────────── */
+
+.data-table tbody tr {
+    transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.data-table tbody tr:hover {
+    background: rgba(255, 255, 255, 0.03);
+    transform: translateX(2px);
+}
+
+.data-table tbody tr:active {
+    transform: translateX(0);
+}
+
+/* Row highlight for hot items */
+.data-table tr.hot-row {
+    background: rgba(0, 230, 138, 0.04);
+    border-left: 2px solid var(--accent-green);
+}
+
+.data-table tr.cold-row {
+    background: rgba(255, 77, 106, 0.04);
+    border-left: 2px solid var(--accent-red);
+}
+
+/* ── Enhanced Filter Bar ──────────────────────────────────────── */
+
+.filters-bar {
+    position: relative;
+    overflow: hidden;
+}
+
+.filters-bar::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: var(--gradient-premium);
+    opacity: 0.3;
+}
+
+/* ── Animated Number Counter ──────────────────────────────────── */
+
+.counter-animate {
+    display: inline-block;
+    transition: transform 0.2s ease;
+}
+
+.counter-animate.bump {
+    animation: counter-bump 0.3s ease;
+}
+
+/* ── Status Pill ──────────────────────────────────────────────── */
+
+.status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.status-pill.positive {
+    background: var(--accent-green-dim);
+    color: var(--accent-green);
+}
+
+.status-pill.negative {
+    background: var(--accent-red-dim);
+    color: var(--accent-red);
+}
+
+.status-pill.neutral {
+    background: var(--accent-blue-dim);
+    color: var(--accent-blue);
+}
+
+/* ── Risk Level Indicator ─────────────────────────────────────── */
+
+.risk-meter {
+    display: flex;
+    gap: 2px;
+    align-items: flex-end;
+    height: 20px;
+}
+
+.risk-bar {
+    width: 4px;
+    border-radius: 2px;
+    transition: height 0.3s ease, background 0.3s ease;
+}
+
+/* ── Enhanced Quick Action Cards ──────────────────────────────── */
+
+.quick-action-card {
+    position: relative;
+    overflow: hidden;
+}
+
+.quick-action-card::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 50%;
+    height: 100%;
+    background: linear-gradient(
+        90deg,
+        transparent 0%,
+        rgba(255, 255, 255, 0.04) 50%,
+        transparent 100%
+    );
+    transition: left 0.5s ease;
+}
+
+.quick-action-card:hover::after {
+    left: 150%;
+}
+
+/* ── Breadcrumb Trail ─────────────────────────────────────────── */
+
+.breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--text-tertiary);
+    margin-bottom: 16px;
+}
+
+.breadcrumb a {
+    color: var(--text-secondary);
+    text-decoration: none;
+    transition: color 0.15s;
+}
+
+.breadcrumb a:hover {
+    color: var(--accent-green);
+}
+
+.breadcrumb-sep {
+    opacity: 0.3;
+}
+
+/* ── Premium Gradient Borders ─────────────────────────────────── */
+
+.gradient-border {
+    position: relative;
+    background: var(--bg-card);
+    border-radius: var(--radius-md);
+}
+
+.gradient-border::before {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    background: var(--gradient-premium);
+    z-index: -1;
+    opacity: 0.5;
+}
+
+/* ── Enhanced Mobile Bottom Nav ───────────────────────────────── */
+
+.mobile-bottom-nav .mobile-nav-item.active {
+    position: relative;
+}
+
+.mobile-bottom-nav .mobile-nav-item.active::before {
+    content: '';
+    position: absolute;
+    top: -2px;
+    left: 25%;
+    right: 25%;
+    height: 2px;
+    background: var(--gradient-premium);
+    border-radius: 0 0 2px 2px;
+}
+
+/* ── Streak Badge ─────────────────────────────────────────────── */
+
+.streak-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 700;
+    font-family: var(--font-mono);
+}
+
+.streak-badge.hot {
+    background: linear-gradient(135deg, rgba(255, 77, 106, 0.15), rgba(255, 194, 52, 0.15));
+    color: var(--accent-yellow);
+}
+
+.streak-badge.cold {
+    background: linear-gradient(135deg, rgba(91, 154, 255, 0.15), rgba(168, 85, 247, 0.15));
+    color: var(--accent-blue);
+}
+
+/* ── Tooltip Enhancement ──────────────────────────────────────── */
+
+[data-tooltip] {
+    position: relative;
+    cursor: pointer;
+}
+
+[data-tooltip]:hover::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-size: 11px;
+    white-space: nowrap;
+    z-index: 100;
+    border: 1px solid var(--border-color);
+    pointer-events: none;
+    animation: tooltip-in 0.15s ease;
+    box-shadow: var(--shadow-lg);
+}
+
+@keyframes tooltip-in {
+    from { opacity: 0; transform: translateX(-50%) translateY(4px); }
+    to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+/* ── Page Transition ──────────────────────────────────────────── */
+
+.content-area {
+    animation: page-enter 0.3s cubic-bezier(0.2, 0, 0, 1);
+}
+
+@keyframes page-enter {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ── Smooth Number Transition ─────────────────────────────────── */
+
+.number-glow {
+    text-shadow: 0 0 20px currentColor;
+}
+
+/* ── Enhanced Page Title ──────────────────────────────────────── */
+
+.page-title .gradient-text {
+    position: relative;
+}
+
+.page-title .gradient-text::after {
+    content: '';
+    position: absolute;
+    bottom: -4px;
+    left: 0;
+    width: 40px;
+    height: 3px;
+    background: var(--gradient-premium);
+    border-radius: 2px;
+}
+
+/* ── Card Header Accent Line ──────────────────────────────────── */
+
+.card-header {
+    position: relative;
+}
+
+.card-header::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 20px;
+    right: 20px;
+    height: 1px;
+    background: linear-gradient(
+        90deg,
+        transparent 0%,
+        var(--border-color) 20%,
+        var(--border-color) 80%,
+        transparent 100%
+    );
+}
+
+/* ── Bet Outcome Animations ───────────────────────────────────── */
+
+@keyframes win-flash {
+    0%, 100% { background: transparent; }
+    50% { background: rgba(0, 230, 138, 0.08); }
+}
+
+@keyframes loss-flash {
+    0%, 100% { background: transparent; }
+    50% { background: rgba(255, 77, 106, 0.08); }
+}
+
+.bet-won {
+    animation: win-flash 0.6s ease 2;
+}
+
+.bet-lost {
+    animation: loss-flash 0.6s ease 2;
+}
+
+/* ── Smooth Scrollbar ─────────────────────────────────────────── */
+
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+/* ── Enhanced Live Ticker ─────────────────────────────────────── */
+
+.live-ticker {
+    position: relative;
+    overflow: hidden;
+}
+
+.live-ticker::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 60px;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, var(--bg-primary));
+    pointer-events: none;
+}
+
+/* ── Light Theme v3 Overrides ─────────────────────────────────── */
+
+[data-theme="light"] .skeleton {
+    background: linear-gradient(
+        90deg,
+        #f0f2f5 25%,
+        #e4e7ec 50%,
+        #f0f2f5 75%
+    );
+    background-size: 200% 100%;
+}
+
+[data-theme="light"] ::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.15);
+}
+
+[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 0, 0, 0.25);
+}
+
+[data-theme="light"] [data-tooltip]:hover::after {
+    background: #fff;
+    border-color: rgba(0, 0, 0, 0.1);
+    color: #1a1a1a;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .data-table tbody tr:hover {
+    background: rgba(0, 0, 0, 0.02);
+}
+
+[data-theme="light"] .live-ticker::after {
+    background: linear-gradient(90deg, transparent, #f8f9fb);
+}

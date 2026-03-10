@@ -188,7 +188,7 @@ def health_check():
 
     return HealthResponse(
         status="ok",
-        version="1.0.0",
+        version="1.1.0",
         uptime=f"{hours}h {minutes}m {seconds}s",
         database=db_status,
     )

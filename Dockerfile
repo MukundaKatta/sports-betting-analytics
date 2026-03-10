@@ -7,13 +7,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     sqlite3 curl && \
     rm -rf /var/lib/apt/lists/*
 
-# Install Python deps
+# Copy source and install package
 COPY pyproject.toml ./
-RUN pip install --no-cache-dir -e ".[dev]" 2>/dev/null || pip install --no-cache-dir .
-
-# Copy application source
 COPY src/ src/
 COPY .env.example .env.example
+RUN pip install --no-cache-dir .
 
 # Create data directory for SQLite
 RUN mkdir -p data

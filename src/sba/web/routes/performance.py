@@ -1,10 +1,14 @@
-"""Performance today, equity curve, bet grades, insights, achievements, CLV,
-power ratings, sharp/public money, correlations, staking, simulate, backtest endpoints."""
+"""Performance analytics endpoints: today's performance, equity curve,
+sharp money, power ratings, public money, correlations, achievements,
+insights, bet grading/rating, staking, momentum, daily summary, cache stats.
+
+CLV tracking → clv.py
+Simulation/backtest → simulation.py
+"""
 
 from __future__ import annotations
 
 import logging
-import random
 
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
@@ -18,20 +22,6 @@ router = APIRouter(tags=["performance"])
 
 
 # ── Pydantic models ─────────────────────────────────────────────────
-
-class SimulationRequest(BaseModel):
-    bankroll: float = 1000
-    num_bets: int = 100
-    avg_odds: int = -110
-    win_rate: float = 0.53
-    kelly_fraction: float = 0.25
-    simulations: int = 50
-
-
-class CLVRequest(BaseModel):
-    bet_id: int
-    closing_odds_american: int
-
 
 class GradeBetRequest(BaseModel):
     selection: str
@@ -48,18 +38,6 @@ class GradeBetRequest(BaseModel):
     total_books: int = 1
     is_live: bool = False
     hours_to_start: float | None = None
-
-
-class BacktestRequest(BaseModel):
-    strategy_name: str = "Custom Strategy"
-    starting_bankroll: float = 10000.0
-    stake_type: str = "flat"
-    stake_amount: float = 100.0
-    min_edge: float = 0.0
-    min_odds: int = -500
-    max_odds: int = 5000
-    stop_loss: float | None = None
-    take_profit: float | None = None
 
 
 class BetRatingRequest(BaseModel):
@@ -122,7 +100,6 @@ def _get_user_stats() -> dict:
     staked = sum(abs(b["recommended_stake"] or 0) for b in bets) or 1
     roi = profit / staked * 100 if staked > 0 else 0
 
-    sports = set()
     books = set()
     for b in bets:
         if b["bookmaker"]:
@@ -135,7 +112,6 @@ def _get_user_stats() -> dict:
         """).fetchall()
     sports = {r["sport"] for r in sport_rows}
 
-    # Longest win streak
     longest_win = 0
     current_win = 0
     biggest_dog = 0
@@ -163,156 +139,6 @@ def _get_user_stats() -> dict:
         "analytics_views": 0,
         "perfect_weeks": 0,
         "comeback_count": 0,
-    }
-
-
-# ── Endpoints ────────────────────────────────────────────────────────
-
-@router.post("/simulate")
-def run_simulation(req: SimulationRequest):
-    """Run Monte Carlo bankroll simulation."""
-    random.seed(42)
-    results = []
-
-    # Convert American odds to decimal payout
-    if req.avg_odds > 0:
-        payout_mult = req.avg_odds / 100
-    else:
-        payout_mult = 100 / abs(req.avg_odds)
-
-    for _ in range(req.simulations):
-        bankroll = req.bankroll
-        path = [bankroll]
-        for _ in range(req.num_bets):
-            stake = bankroll * req.kelly_fraction * 0.1  # scaled kelly
-            if stake <= 0:
-                path.append(bankroll)
-                continue
-            if random.random() < req.win_rate:
-                bankroll += stake * payout_mult
-            else:
-                bankroll -= stake
-            path.append(round(bankroll, 2))
-        results.append(path)
-
-    # Calculate percentiles
-    num_steps = req.num_bets + 1
-    p10 = []
-    p25 = []
-    p50 = []
-    p75 = []
-    p90 = []
-    for i in range(num_steps):
-        vals = sorted(r[i] for r in results)
-        n = len(vals)
-        p10.append(round(vals[int(n * 0.1)], 2))
-        p25.append(round(vals[int(n * 0.25)], 2))
-        p50.append(round(vals[int(n * 0.5)], 2))
-        p75.append(round(vals[int(n * 0.75)], 2))
-        p90.append(round(vals[int(n * 0.9)], 2))
-
-    final_values = [r[-1] for r in results]
-    profitable = sum(1 for v in final_values if v > req.bankroll)
-
-    return {
-        "percentiles": {"p10": p10, "p25": p25, "p50": p50, "p75": p75, "p90": p90},
-        "summary": {
-            "median_final": round(p50[-1], 2),
-            "best_case": round(max(final_values), 2),
-            "worst_case": round(min(final_values), 2),
-            "profitable_pct": round(profitable / req.simulations * 100, 1),
-            "median_roi": round((p50[-1] - req.bankroll) / req.bankroll * 100, 1),
-        },
-        "simulations": req.simulations,
-        "num_bets": req.num_bets,
-    }
-
-
-# ── CLV Tracking ─────────────────────────────────────────────────────
-
-@router.post("/clv/record")
-def record_closing_line(req: CLVRequest):
-    """Record the closing line for a bet to calculate CLV."""
-    from sba.services.sharp_money import calculate_clv
-    from sba.utils.odds_math import american_to_decimal
-
-    with get_connection() as conn:
-        bet_row = conn.execute("SELECT odds_american FROM bets WHERE id = ?", (req.bet_id,)).fetchone()
-        if not bet_row:
-            raise HTTPException(404, "Bet not found")
-
-        clv = calculate_clv(bet_row["odds_american"], req.closing_odds_american)
-        closing_dec = american_to_decimal(req.closing_odds_american)
-
-        conn.execute("""
-            INSERT INTO closing_lines (bet_id, closing_odds_american, closing_odds_decimal,
-                                       clv_american, clv_percentage)
-            VALUES (?, ?, ?, ?, ?)
-            ON CONFLICT(bet_id) DO UPDATE SET
-                closing_odds_american=excluded.closing_odds_american,
-                closing_odds_decimal=excluded.closing_odds_decimal,
-                clv_american=excluded.clv_american,
-                clv_percentage=excluded.clv_percentage,
-                captured_at=CURRENT_TIMESTAMP
-        """, (req.bet_id, req.closing_odds_american, round(closing_dec, 4),
-              clv["clv_american"], clv["clv_percentage"]))
-
-    return clv
-
-
-@router.get("/clv/summary")
-def clv_summary():
-    """Get aggregate CLV stats across all tracked bets."""
-    with get_connection() as conn:
-        rows = conn.execute("""
-            SELECT cl.*, b.market, b.bookmaker, b.status, b.odds_american as placed_odds
-            FROM closing_lines cl
-            JOIN bets b ON cl.bet_id = b.id
-            ORDER BY cl.captured_at DESC
-        """).fetchall()
-
-    if not rows:
-        return {
-            "total_tracked": 0, "avg_clv": 0, "beat_closing_pct": 0,
-            "clv_by_market": {}, "clv_by_bookmaker": {}, "entries": [],
-        }
-
-    entries = []
-    by_market: dict[str, list] = {}
-    by_book: dict[str, list] = {}
-
-    for r in rows:
-        entry = {
-            "bet_id": r["bet_id"],
-            "placed_odds": r["placed_odds"],
-            "closing_odds": r["closing_odds_american"],
-            "clv_american": r["clv_american"],
-            "clv_percentage": r["clv_percentage"],
-            "market": r["market"],
-            "bookmaker": r["bookmaker"],
-            "status": r["status"],
-        }
-        entries.append(entry)
-        by_market.setdefault(r["market"], []).append(r["clv_percentage"])
-        by_book.setdefault(r["bookmaker"], []).append(r["clv_percentage"])
-
-    avg_clv = round(sum(r["clv_percentage"] for r in rows) / len(rows), 2)
-    beat_pct = round(sum(1 for r in rows if r["clv_percentage"] > 0) / len(rows) * 100, 1)
-
-    clv_by_market = {
-        m: round(sum(vals) / len(vals), 2) for m, vals in by_market.items()
-    }
-    clv_by_book = {
-        b: round(sum(vals) / len(vals), 2) for b, vals in by_book.items()
-    }
-
-    return {
-        "total_tracked": len(rows),
-        "avg_clv": avg_clv,
-        "beat_closing_pct": beat_pct,
-        "clv_by_market": clv_by_market,
-        "clv_by_bookmaker": clv_by_book,
-        "entries": entries[:50],
     }
 
 
@@ -493,7 +319,6 @@ def get_public_money(event_id: str, market: str = Query("h2h")):
         if not event:
             raise HTTPException(404, "Event not found")
 
-        # Get latest odds for simulation
         odds = conn.execute("""
             SELECT outcome_name, price_american
             FROM odds_snapshots
@@ -568,21 +393,29 @@ def analyze_public_money_endpoint(
 # ── Correlations ─────────────────────────────────────────────────────
 
 @router.get("/correlations")
-def get_correlation_matrix():
-    """Get the known correlation matrix for SGP pricing."""
-    from sba.services.correlations import CORRELATION_MATRIX
+def get_correlation_matrix(sport: str = ""):
+    """Get the known correlation matrix for SGP pricing.
 
-    return [
-        {
-            "market_a": k[0],
-            "direction_a": k[1],
-            "market_b": k[2],
-            "direction_b": k[3],
-            "correlation": v,
-        }
-        for k, v in CORRELATION_MATRIX.items()
-        if v != 0
-    ]
+    Args:
+        sport: Filter by sport (nba, nfl, mlb, nhl). Empty returns all.
+    """
+    from sba.services.correlations import SPORT_CORRELATIONS, normalize_sport
+
+    result = []
+    for sport_key, pairs in SPORT_CORRELATIONS.items():
+        if sport and normalize_sport(sport) != sport_key and sport_key != "default":
+            continue
+        for k, v in pairs.items():
+            if v != 0:
+                result.append({
+                    "sport": sport_key,
+                    "market_a": k[0],
+                    "direction_a": k[1],
+                    "market_b": k[2],
+                    "direction_b": k[3],
+                    "correlation": v,
+                })
+    return result
 
 
 # ── Bet Grading ──────────────────────────────────────────────────────
@@ -649,7 +482,6 @@ def get_graded_edges():
     if not rows:
         return {"grades": [], "total": 0}
 
-    # Simple grading based on available data
     grades = []
     for r in rows:
         edge = max(0, (1.0 / r["price_decimal"] - 0.5) * 100) if r["price_decimal"] > 0 else 0
@@ -678,92 +510,6 @@ def get_graded_edges():
 
     grades.sort(key=lambda x: x["score"], reverse=True)
     return {"grades": grades[:50], "total": len(grades)}
-
-
-# ── Backtest ──────────────────────────────────────────────────────────
-
-@router.post("/backtest")
-def run_backtest_endpoint(req: BacktestRequest):
-    """Backtest a strategy against historical bet data."""
-    from sba.services.backtester import run_backtest
-
-    with get_connection() as conn:
-        rows = conn.execute("""
-            SELECT b.event_id, b.selection, b.odds_american,
-                   b.odds_decimal, b.status, b.profit_loss
-            FROM bets b
-            WHERE b.status IN ('won', 'lost', 'push', 'win', 'loss')
-            ORDER BY b.placed_at
-        """).fetchall()
-
-    historical = [
-        {
-            "event": r["event_id"] or "",
-            "selection": r["selection"] or "",
-            "odds_american": r["odds_american"] or -110,
-            "odds_decimal": r["odds_decimal"] or 1.909,
-            "result": "win" if r["status"] in ("won", "win") else "push" if r["status"] == "push" else "loss",
-        }
-        for r in rows
-    ]
-
-    if not historical:
-        # Generate sample data for demonstration
-        random.seed(42)
-        historical = []
-        for i in range(200):
-            odds = random.choice([-110, -115, 100, 120, 150, -130, -105, 200])
-            dec = 1 + (odds / 100) if odds > 0 else 1 + (100 / abs(odds))
-            imp = 1 / dec
-            # Simulate with slight edge
-            win_chance = imp + 0.02
-            result = "win" if random.random() < win_chance else "loss"
-            historical.append({
-                "event": f"Game_{i+1}",
-                "selection": f"Team_{random.choice(['A','B'])}",
-                "odds_american": odds,
-                "odds_decimal": round(dec, 3),
-                "result": result,
-                "edge_pct": round(random.uniform(0, 8), 1),
-            })
-
-    bt = run_backtest(
-        historical,
-        strategy_name=req.strategy_name,
-        starting_bankroll=req.starting_bankroll,
-        stake_type=req.stake_type,
-        stake_amount=req.stake_amount,
-        min_edge=req.min_edge,
-        min_odds=req.min_odds,
-        max_odds=req.max_odds,
-        stop_loss=req.stop_loss,
-        take_profit=req.take_profit,
-    )
-
-    return {
-        "strategy_name": bt.strategy_name,
-        "grade": bt.grade,
-        "total_bets": bt.total_bets,
-        "wins": bt.wins,
-        "losses": bt.losses,
-        "pushes": bt.pushes,
-        "win_rate": bt.win_rate,
-        "total_wagered": bt.total_wagered,
-        "total_profit": bt.total_profit,
-        "roi_pct": bt.roi_pct,
-        "max_drawdown": bt.max_drawdown,
-        "max_drawdown_pct": bt.max_drawdown_pct,
-        "sharpe_ratio": bt.sharpe_ratio,
-        "longest_win_streak": bt.longest_win_streak,
-        "longest_lose_streak": bt.longest_lose_streak,
-        "avg_odds": bt.avg_odds,
-        "avg_stake": bt.avg_stake,
-        "profit_factor": bt.profit_factor,
-        "starting_bankroll": bt.starting_bankroll,
-        "ending_bankroll": bt.ending_bankroll,
-        "peak_bankroll": bt.peak_bankroll,
-        "equity_curve": bt.equity_curve,
-    }
 
 
 # ── Achievements ──────────────────────────────────────────────────────
@@ -813,7 +559,6 @@ def get_insights():
 
     bets = _get_settled_bets_dicts()
 
-    # Get bankroll
     bankroll = 0
     with get_connection() as conn:
         row = conn.execute(
@@ -984,3 +729,28 @@ def equity_curve():
         "total_roi": round((cumulative - starting) / starting * 100, 1) if starting > 0 else 0,
         "curve": curve,
     }
+
+
+# ── Momentum & Streaks ──────────────────────────────────────────────
+
+@router.get("/momentum")
+def get_momentum():
+    """Get streak analysis and momentum score for betting performance."""
+    from sba.services.momentum import get_streak_analysis
+    return get_streak_analysis()
+
+
+@router.get("/daily-summary")
+def get_daily_summary():
+    """Get smart daily summary with today's performance, trends, and insights."""
+    from sba.services.momentum import get_daily_summary
+    return get_daily_summary()
+
+
+# ── Cache Stats ──────────────────────────────────────────────────────
+
+@router.get("/cache/stats")
+def get_cache_stats():
+    """Get API response cache statistics."""
+    from sba.utils.cache import cache
+    return cache.stats

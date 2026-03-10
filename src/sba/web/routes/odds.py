@@ -9,6 +9,7 @@ from pydantic import BaseModel
 
 from sba.config import get_settings
 from sba.data.db import get_connection
+from sba.utils.cache import cached_response
 from sba.web.api import repo
 
 logger = logging.getLogger(__name__)
@@ -105,7 +106,7 @@ def get_odds_comparison(event_id: str, market: str = Query("h2h")):
 
 
 @router.get("/live-odds")
-def get_live_odds(limit: int = Query(20)):
+def get_live_odds(limit: int = Query(20, ge=1, le=500)):
     """Get most recent odds snapshots as a live feed."""
     with get_connection() as conn:
         rows = conn.execute("""
@@ -143,61 +144,70 @@ def odds_screen(
     """Get a comprehensive odds screen showing all events with best odds.
 
     Like OddsJam's main screen: every game, every book, best price highlighted.
+    Uses a single JOIN query instead of N+1 queries per event.
     """
     with get_connection() as conn:
-        # Get all upcoming events
-        events = conn.execute("""
-            SELECT * FROM events WHERE completed = 0
-            ORDER BY commence_time LIMIT 50
-        """).fetchall()
+        # Single query: events + their latest odds per bookmaker/outcome
+        rows = conn.execute("""
+            SELECT e.id as event_id, e.home_team, e.away_team,
+                   e.commence_time, e.sport,
+                   os.bookmaker, os.outcome_name, os.outcome_point,
+                   os.price_american, os.price_decimal,
+                   MAX(os.snapshot_time) as latest_time
+            FROM events e
+            INNER JOIN odds_snapshots os ON os.event_id = e.id
+            WHERE e.completed = 0 AND os.market = ?
+            GROUP BY e.id, os.bookmaker, os.outcome_name
+            ORDER BY e.commence_time, os.bookmaker
+            LIMIT 500
+        """, (market,)).fetchall()
 
-        odds_screen_data = []
-        for event in events:
-            # Get latest odds for each bookmaker
-            snapshots = conn.execute("""
-                SELECT bookmaker, outcome_name, outcome_point,
-                       price_american, price_decimal,
-                       MAX(snapshot_time) as latest_time
-                FROM odds_snapshots
-                WHERE event_id = ? AND market = ?
-                GROUP BY bookmaker, outcome_name
-                ORDER BY bookmaker
-            """, (event["id"], market)).fetchall()
-
-            if not snapshots:
-                continue
-
-            # Organize by outcome
-            by_outcome: dict[str, list] = {}
-            for s in snapshots:
-                outcome = s["outcome_name"]
-                by_outcome.setdefault(outcome, []).append({
-                    "bookmaker": s["bookmaker"],
-                    "odds_american": s["price_american"],
-                    "odds_decimal": round(s["price_decimal"], 3),
-                    "line": s["outcome_point"],
-                })
-
-            # Find best odds for each outcome
-            best_odds = {}
-            for outcome, books in by_outcome.items():
-                best = max(books, key=lambda b: b["odds_decimal"])
-                best_odds[outcome] = {
-                    "bookmaker": best["bookmaker"],
-                    "odds_american": best["odds_american"],
-                }
-
-            odds_screen_data.append({
-                "event_id": event["id"],
-                "home_team": event["home_team"],
-                "away_team": event["away_team"],
-                "commence_time": event["commence_time"],
-                "sport": event["sport"],
+    # Group rows by event
+    events_map: dict[str, dict] = {}
+    for r in rows:
+        eid = r["event_id"]
+        if eid not in events_map:
+            events_map[eid] = {
+                "event_id": eid,
+                "home_team": r["home_team"],
+                "away_team": r["away_team"],
+                "commence_time": r["commence_time"],
+                "sport": r["sport"],
                 "market": market,
-                "outcomes": by_outcome,
-                "best_odds": best_odds,
-                "num_books": len({s["bookmaker"] for s in snapshots}),
-            })
+                "outcomes": {},
+                "bookmakers": set(),
+            }
+        ev = events_map[eid]
+        outcome = r["outcome_name"]
+        ev["outcomes"].setdefault(outcome, []).append({
+            "bookmaker": r["bookmaker"],
+            "odds_american": r["price_american"],
+            "odds_decimal": round(r["price_decimal"], 3),
+            "line": r["outcome_point"],
+        })
+        ev["bookmakers"].add(r["bookmaker"])
+
+    # Build response with best odds
+    odds_screen_data = []
+    for ev in events_map.values():
+        best_odds = {}
+        for outcome, books in ev["outcomes"].items():
+            best = max(books, key=lambda b: b["odds_decimal"])
+            best_odds[outcome] = {
+                "bookmaker": best["bookmaker"],
+                "odds_american": best["odds_american"],
+            }
+        odds_screen_data.append({
+            "event_id": ev["event_id"],
+            "home_team": ev["home_team"],
+            "away_team": ev["away_team"],
+            "commence_time": ev["commence_time"],
+            "sport": ev["sport"],
+            "market": market,
+            "outcomes": ev["outcomes"],
+            "best_odds": best_odds,
+            "num_books": len(ev["bookmakers"]),
+        })
 
     return {
         "sport": sport,
@@ -268,6 +278,7 @@ def get_consensus(event_id: str):
 
 
 @router.get("/sports")
+@cached_response(ttl=300, prefix="sports")
 def get_available_sports():
     """Get all available sports with event counts."""
     with get_connection() as conn:

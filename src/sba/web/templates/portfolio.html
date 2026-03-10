@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+{% block title %}Daily Portfolio{% endblock %}
+
+{% block content %}
+<div class="frosted-panel reveal-up" style="padding:32px;margin-bottom:28px;position:relative;overflow:hidden">
+    <div style="position:absolute;top:0;right:0;width:300px;height:100%;opacity:0.05;background:linear-gradient(135deg,var(--accent-green),var(--accent-purple));border-radius:50%;filter:blur(60px);transform:translate(30%,-30%)"></div>
+    <h1 class="page-title" style="margin:0 0 8px">
+        <span class="gradient-text animated-gradient-text">Daily Portfolio Builder</span>
+        <span class="tag-elite" style="margin-left:12px">Premium</span>
+    </h1>
+    <p class="text-dim" style="margin:0;font-size:13px;max-width:540px">Like a robo-advisor for sports betting. Automatically builds a diversified portfolio of +EV bets, sized with Kelly criterion and diversified across events and bookmakers.</p>
+</div>
+
+<!-- Controls -->
+<div class="frosted-panel reveal-up" style="padding:16px;margin-bottom:24px;display:flex;gap:16px;flex-wrap:wrap;align-items:end;animation-delay:0.1s">
+    <div>
+        <label class="form-label">Sport</label>
+        <select id="pf-sport" class="form-input">
+            <option value="">Default</option>
+            <option value="basketball_nba">NBA</option>
+            <option value="football_nfl">NFL</option>
+            <option value="baseball_mlb">MLB</option>
+            <option value="icehockey_nhl">NHL</option>
+        </select>
+    </div>
+    <div>
+        <label class="form-label">Max Bets</label>
+        <input type="number" id="pf-max-bets" class="form-input" value="20" min="1" max="50" style="width:80px">
+    </div>
+    <div>
+        <label class="form-label">Max Exposure %</label>
+        <input type="number" id="pf-exposure" class="form-input" value="15" min="1" max="50" step="1" style="width:80px">
+    </div>
+    <button class="btn btn-primary" onclick="buildPortfolio()" id="build-btn">Build Portfolio</button>
+</div>
+
+<!-- Portfolio Summary -->
+<div class="stats-grid reveal-up" id="portfolio-stats" style="display:none;animation-delay:0.15s">
+    <div class="stat-card green card-3d-tilt">
+        <div class="stat-label">Total Bets</div>
+        <div class="stat-value font-mono" id="pf-count">--</div>
+        <div class="stat-sub" id="pf-events">-- events</div>
+    </div>
+    <div class="stat-card blue card-3d-tilt">
+        <div class="stat-label">Total Stake</div>
+        <div class="stat-value font-mono" id="pf-stake">--</div>
+        <div class="stat-sub" id="pf-exposure-pct">-- of bankroll</div>
+    </div>
+    <div class="stat-card yellow card-3d-tilt">
+        <div class="stat-label">Expected Profit</div>
+        <div class="stat-value font-mono" id="pf-profit">--</div>
+        <div class="stat-sub" id="pf-roi">-- expected ROI</div>
+    </div>
+    <div class="stat-card purple card-3d-tilt">
+        <div class="stat-label">Avg Edge</div>
+        <div class="stat-value font-mono" id="pf-avg-ev">--</div>
+        <div class="stat-sub" id="pf-books">-- books</div>
+    </div>
+</div>
+
+<!-- Portfolio Table -->
+<div class="card featured-card reveal-up" style="animation-delay:0.2s">
+    <div class="card-header">
+        <h3>
+            <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><rect x="2" y="3" width="20" height="18" rx="2"/><line x1="2" y1="9" x2="22" y2="9"/></svg>
+            Today's Portfolio
+        </h3>
+        <span class="text-dim" style="font-size:11px" id="pf-generated-at"></span>
+    </div>
+    <div class="card-body" id="portfolio-body">
+        <div class="text-dim" style="text-align:center;padding:40px">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="36" height="36"><rect x="2" y="3" width="20" height="18" rx="2"/><line x1="2" y1="9" x2="22" y2="9"/></svg>
+            <p>Click "Build Portfolio" to generate today's optimal bet portfolio</p>
+            <p style="font-size:11px">Requires synced odds data (run <code>sba data sync</code> first)</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function buildPortfolio() {
+    const btn = document.getElementById('build-btn');
+    btn.textContent = 'Building...';
+    btn.disabled = true;
+
+    try {
+        const sport = document.getElementById('pf-sport').value;
+        const maxBets = document.getElementById('pf-max-bets').value;
+        const exposure = document.getElementById('pf-exposure').value;
+
+        const params = new URLSearchParams();
+        if (sport) params.set('sport', sport);
+        params.set('max_bets', maxBets);
+        params.set('max_exposure', exposure);
+
+        const resp = await fetch('/api/portfolio?' + params.toString());
+        const d = await resp.json();
+
+        if (d.error) {
+            SBA.toast(d.error, 'error');
+            return;
+        }
+
+        // Update stats
+        const statsEl = document.getElementById('portfolio-stats');
+        statsEl.style.display = '';
+        document.getElementById('pf-count').textContent = d.summary.total_bets;
+        document.getElementById('pf-events').textContent = d.summary.unique_events + ' events';
+        document.getElementById('pf-stake').textContent = '$' + d.summary.total_stake.toLocaleString();
+        document.getElementById('pf-exposure-pct').textContent = d.summary.bankroll_exposure + '% of $' + d.summary.bankroll.toLocaleString();
+        document.getElementById('pf-profit').textContent = '+$' + d.summary.expected_profit.toLocaleString();
+        document.getElementById('pf-roi').textContent = '+' + d.summary.expected_roi + '% expected ROI';
+        document.getElementById('pf-avg-ev').textContent = '+' + d.summary.avg_ev_pct + '%';
+        document.getElementById('pf-books').textContent = d.summary.unique_books + ' books';
+        document.getElementById('pf-generated-at').textContent = 'Generated: ' + new Date(d.generated_at).toLocaleTimeString();
+
+        // Render table
+        const el = document.getElementById('portfolio-body');
+        if (d.portfolio.length === 0) {
+            el.innerHTML = '<div class="text-dim" style="text-align:center;padding:30px">No +EV edges found. Sync odds data first or lower the EV threshold.</div>';
+            return;
+        }
+
+        el.innerHTML = '<table class="data-table"><thead><tr><th>Event</th><th>Market</th><th>Selection</th><th>Book</th><th class="right">Odds</th><th class="right">EV</th><th class="right">Stake</th><th class="right">Exp. Profit</th></tr></thead><tbody>' +
+            d.portfolio.map(b => {
+                const confColor = b.confidence === 'high' ? '#00e68a' : b.confidence === 'medium' ? '#ffc234' : '#5b9aff';
+                return `<tr>
+                    <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis">${b.event_name}</td>
+                    <td>${b.market}</td>
+                    <td class="font-bold">${b.selection}${b.line ? ' ' + b.line : ''}</td>
+                    <td>${b.bookmaker}</td>
+                    <td class="right font-mono">${b.odds_american > 0 ? '+' : ''}${b.odds_american}</td>
+                    <td class="right font-mono text-green">+${b.ev_pct}%</td>
+                    <td class="right font-mono font-bold">$${b.stake.toFixed(2)}</td>
+                    <td class="right font-mono text-green">+$${b.expected_profit.toFixed(2)}</td>
+                </tr>`;
+            }).join('') + '</tbody></table>';
+
+    } catch (err) {
+        console.error('Portfolio error:', err);
+        SBA.toast('Failed to build portfolio', 'error');
+    } finally {
+        btn.textContent = 'Build Portfolio';
+        btn.disabled = false;
+    }
+}
+</script>
+{% endblock %}

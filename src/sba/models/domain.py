@@ -251,3 +251,58 @@ class AlertRule:
     enabled: bool = True
     last_triggered: datetime | None = None
     id: int | None = None
+
+
+@dataclass
+class BookBalance:
+    """Balance at a specific sportsbook."""
+    sportsbook: str
+    balance: float
+    deposited: float = 0.0
+    withdrawn: float = 0.0
+    bonus_balance: float = 0.0
+    notes: str = ""
+    is_limited: bool = False
+    updated_at: datetime | None = None
+    id: int | None = None
+
+
+@dataclass
+class AccountLimit:
+    """Tracks sportsbook account limiting status."""
+    sportsbook: str
+    limit_type: str  # "full", "partial", "stake_reduced", "promo_banned", "none"
+    max_stake: float | None = None
+    detected_at: datetime | None = None
+    notes: str = ""
+    severity: str = "medium"  # "low", "medium", "high", "banned"
+    id: int | None = None
+
+
+@dataclass
+class PortfolioBet:
+    """A bet in the daily portfolio recommendation."""
+    event_id: str
+    event_name: str
+    market: str
+    selection: str
+    bookmaker: str
+    odds_american: int
+    odds_decimal: float
+    ev_pct: float
+    kelly_pct: float
+    recommended_stake: float
+    confidence: str = "medium"
+    model_prob: float = 0.0
+
+
+@dataclass
+class SituationSplit:
+    """Player performance in a specific situation."""
+    situation: str
+    label: str
+    games: int
+    avg_value: float
+    hit_rate: float
+    std_dev: float = 0.0
+    trend: str = "flat"

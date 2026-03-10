@@ -3420,18 +3420,18 @@ body::after {
 
 .heatmap-calendar {
     display: grid;
-    grid-template-columns: repeat(7, 1fr);
+    grid-template-columns: repeat(7, 18px);
     gap: 3px;
     padding: 8px;
+    justify-content: start;
 }
 
 .heatmap-day {
-    aspect-ratio: 1;
+    width: 18px;
+    height: 18px;
     border-radius: 3px;
     position: relative;
     cursor: default;
-    min-width: 14px;
-    min-height: 14px;
     transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
@@ -6089,4 +6089,200 @@ html {
         opacity: 1;
         transform: none;
     }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   New Feature Styles — v2.1.0
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* Odds Freshness Indicator */
+.freshness-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: 600;
+    font-family: var(--font-mono);
+}
+.freshness-badge.fresh {
+    background: var(--accent-green-dim);
+    color: var(--accent-green);
+}
+.freshness-badge.stale {
+    background: var(--accent-yellow-dim);
+    color: var(--accent-yellow);
+}
+.freshness-badge.expired {
+    background: var(--accent-red-dim);
+    color: var(--accent-red);
+}
+.freshness-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    display: inline-block;
+}
+.freshness-badge.fresh .freshness-dot { background: var(--accent-green); }
+.freshness-badge.stale .freshness-dot { background: var(--accent-yellow); }
+.freshness-badge.expired .freshness-dot { background: var(--accent-red); }
+
+/* Deep Link Button */
+.deep-link-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--accent-blue);
+    background: var(--accent-blue-dim);
+    text-decoration: none;
+    transition: all 0.15s;
+    border: none;
+    cursor: pointer;
+}
+.deep-link-btn:hover {
+    background: rgba(91, 154, 255, 0.25);
+    transform: translateY(-1px);
+}
+
+/* Skeleton Loader (enhanced) */
+.skeleton-loader {
+    padding: 16px;
+}
+.skeleton-loader .skeleton-line {
+    background: linear-gradient(90deg,
+        rgba(255,255,255,0.04) 0%,
+        rgba(255,255,255,0.08) 40%,
+        rgba(255,255,255,0.04) 100%);
+    background-size: 200% 100%;
+    animation: skeleton-shimmer 1.5s ease-in-out infinite;
+    border-radius: 6px;
+}
+
+/* Error state */
+.error-state {
+    text-align: center;
+    padding: 32px 16px;
+    color: var(--text-secondary);
+}
+.error-state svg {
+    opacity: 0.3;
+    margin-bottom: 12px;
+}
+.error-state p {
+    margin: 4px 0;
+}
+.error-state .error-title {
+    font-weight: 600;
+    color: var(--accent-red);
+    font-size: 14px;
+}
+.error-state .error-action {
+    margin-top: 12px;
+}
+
+/* Empty state (enhanced) */
+.empty-state-card {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text-secondary);
+}
+.empty-state-card svg {
+    opacity: 0.2;
+    margin-bottom: 16px;
+}
+.empty-state-card .empty-title {
+    font-weight: 700;
+    font-size: 15px;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+}
+.empty-state-card .empty-desc {
+    font-size: 12px;
+    max-width: 320px;
+    margin: 0 auto;
+}
+
+/* Calibration chart bar */
+.cal-bar-container {
+    display: flex;
+    align-items: flex-end;
+    gap: 4px;
+    height: 120px;
+    padding: 0 8px;
+}
+.cal-bar {
+    flex: 1;
+    border-radius: 4px 4px 0 0;
+    transition: height 0.4s ease-out;
+    position: relative;
+    min-width: 0;
+}
+.cal-bar .cal-label {
+    position: absolute;
+    bottom: -20px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 9px;
+    white-space: nowrap;
+    color: var(--text-tertiary);
+}
+.cal-bar .cal-value {
+    position: absolute;
+    top: -18px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 9px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+/* ── Modal System ──────────────────────────────────────────────────── */
+.sba-modal-overlay {
+    position: fixed; inset: 0; z-index: 9999;
+    background: rgba(0,0,0,0.6); backdrop-filter: blur(4px);
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; transition: opacity 0.2s ease;
+}
+.sba-modal-overlay.open { opacity: 1; }
+.sba-modal-card {
+    background: var(--bg-secondary); border: 1px solid var(--border);
+    border-radius: 16px; padding: 0; width: 90%; max-width: 420px;
+    box-shadow: 0 24px 48px rgba(0,0,0,0.4);
+    transform: scale(0.95); transition: transform 0.2s ease;
+}
+.sba-modal-overlay.open .sba-modal-card { transform: scale(1); }
+.sba-modal-header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 20px 24px 0; margin-bottom: 8px;
+}
+.sba-modal-header h3 { font-size: 17px; font-weight: 700; margin: 0; }
+.sba-modal-close {
+    background: none; border: none; color: var(--text-tertiary);
+    font-size: 22px; cursor: pointer; padding: 0 4px; line-height: 1;
+}
+.sba-modal-close:hover { color: var(--text-primary); }
+.sba-modal-body { padding: 12px 24px 16px; }
+.sba-modal-footer {
+    display: flex; justify-content: flex-end; gap: 10px;
+    padding: 16px 24px; border-top: 1px solid var(--border);
+}
+
+/* ── Accessibility: Reduced Motion ─────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+    .loading-spinner svg { animation: none; }
+    .skeleton { animation: none; background: var(--bg-tertiary); }
+    .status-dot::before { animation: none; }
+    .nav-link:hover .nav-icon { transform: none; }
+    .card:hover { transform: none; }
 }

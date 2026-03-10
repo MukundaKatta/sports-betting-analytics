@@ -83,6 +83,32 @@
             <div class="empty-state"><p>Loading trends...</p></div>
         </div>
     </div>
+
+    <!-- Situation Splits -->
+    <div class="card full-width featured-card frosted-panel reveal-up" style="animation-delay:0.3s">
+        <div class="card-header">
+            <h3>
+                <svg class="header-icon icon-bounce" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
+                Situation Splits
+                <span class="tag-elite" style="margin-left:8px">Premium</span>
+            </h3>
+            <div style="display:flex;gap:8px;align-items:center">
+                <select id="split-stat" class="form-input" style="font-size:12px;padding:4px 8px" onchange="loadSplits()">
+                    <option value="points">Points</option>
+                    <option value="rebounds">Rebounds</option>
+                    <option value="assists">Assists</option>
+                    <option value="threes">3-Pointers</option>
+                    <option value="steals">Steals</option>
+                    <option value="blocks">Blocks</option>
+                </select>
+                <input type="number" id="split-line" class="form-input" style="width:70px;font-size:12px;padding:4px 8px" placeholder="Line" step="0.5" value="0">
+                <button class="btn btn-outline btn-sm" onclick="loadSplits()">Analyze</button>
+            </div>
+        </div>
+        <div class="card-body" id="splits-body">
+            <div class="text-dim" style="text-align:center;padding:20px">Select a stat and click Analyze to see situation splits.</div>
+        </div>
+    </div>
 </div>
 {% endblock %}
 
@@ -194,6 +220,58 @@ async function loadPlayerData(name) {
         }
     } catch (err) {
         console.error('Failed to load player:', err);
+    }
+}
+
+async function loadSplits() {
+    const stat = document.getElementById('split-stat').value;
+    const line = document.getElementById('split-line').value || 0;
+    const el = document.getElementById('splits-body');
+    el.innerHTML = '<div class="loading-spinner" style="padding:20px"><div class="spinner"></div> Analyzing splits...</div>';
+
+    try {
+        const resp = await fetch(`/api/splits/${encodeURIComponent('{{ player_name }}')}?stat=${stat}&line=${line}`);
+        if (resp.status === 404) {
+            const d = await resp.json();
+            el.innerHTML = `<div class="text-dim" style="text-align:center;padding:20px">${d.detail || 'No data available'}</div>`;
+            return;
+        }
+        const d = await resp.json();
+
+        if (!d.splits || d.splits.length === 0) {
+            el.innerHTML = '<div class="text-dim" style="text-align:center;padding:20px">No split data available.</div>';
+            return;
+        }
+
+        el.innerHTML = `
+            <div style="padding:12px 16px;border-bottom:1px solid var(--border-color)">
+                <span class="text-dim" style="font-size:12px">${d.stat_label} &middot; Line: ${d.line} &middot; ${d.total_games} total games</span>
+            </div>
+            <table class="data-table"><thead><tr>
+                <th>Situation</th>
+                <th class="right">Games</th>
+                <th class="right">Average</th>
+                <th class="right">Hit Rate</th>
+                <th class="right">Std Dev</th>
+                <th class="center">Trend</th>
+            </tr></thead><tbody>` +
+            d.splits.map(s => {
+                const hitColor = s.hit_rate >= 60 ? 'text-green' : s.hit_rate <= 40 ? 'text-red' : '';
+                const trendIcon = s.trend === 'up' ? '<span style="color:var(--accent-green)">&#9650;</span>' :
+                                  s.trend === 'down' ? '<span style="color:var(--accent-red)">&#9660;</span>' :
+                                  '<span class="text-dim">&mdash;</span>';
+                return `<tr>
+                    <td class="font-bold">${s.label}</td>
+                    <td class="right font-mono">${s.games}</td>
+                    <td class="right font-mono font-bold">${s.avg_value}</td>
+                    <td class="right font-mono ${hitColor}">${s.hit_rate}%</td>
+                    <td class="right font-mono text-dim">${s.std_dev}</td>
+                    <td class="center">${trendIcon}</td>
+                </tr>`;
+            }).join('') + '</tbody></table>';
+    } catch (err) {
+        console.error('Splits error:', err);
+        el.innerHTML = '<div class="text-dim" style="text-align:center;padding:20px">Failed to load splits.</div>';
     }
 }
 

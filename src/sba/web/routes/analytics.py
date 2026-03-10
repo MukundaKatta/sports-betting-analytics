@@ -10,6 +10,7 @@ from fastapi import APIRouter, Query
 from pydantic import BaseModel
 
 from sba.data.db import get_connection
+from sba.utils.cache import cache
 from sba.web.api import repo
 
 logger = logging.getLogger(__name__)
@@ -30,7 +31,15 @@ class AnalyticsResponse(BaseModel):
 # ── Helpers ──────────────────────────────────────────────────────────
 
 def _get_settled_bets_dicts() -> list[dict]:
-    """Helper to get settled bets as dicts for analytics service."""
+    """Helper to get settled bets as dicts for analytics service.
+
+    Cached for 120s to avoid repeated full-table scans across the 7+
+    analytics breakdown endpoints that all call this function.
+    """
+    cached_result = cache.get("settled_bets:all")
+    if cached_result is not None:
+        return cached_result
+
     with get_connection() as conn:
         rows = conn.execute("""
             SELECT b.*, e.sport, e.home_team, e.away_team
@@ -39,7 +48,7 @@ def _get_settled_bets_dicts() -> list[dict]:
             WHERE b.status IN ('won', 'lost', 'push')
             ORDER BY b.placed_at
         """).fetchall()
-    return [
+    result = [
         {
             "status": r["status"],
             "profit_loss": r["profit_loss"] or 0,
@@ -53,6 +62,8 @@ def _get_settled_bets_dicts() -> list[dict]:
         }
         for r in rows
     ]
+    cache.set("settled_bets:all", result, ttl=120.0)
+    return result
 
 
 def _row_to_dict(r) -> dict:
@@ -67,76 +78,96 @@ def _row_to_dict(r) -> dict:
 
 @router.get("/analytics", response_model=AnalyticsResponse)
 def get_analytics():
-    """Get detailed betting analytics breakdown."""
+    """Get detailed betting analytics breakdown using SQL aggregations."""
     with get_connection() as conn:
-        bets = repo.get_bet_history(conn)
+        # By market — computed in SQL instead of Python
+        market_rows = conn.execute("""
+            SELECT market,
+                   COUNT(*) as bets,
+                   SUM(CASE WHEN status='won' THEN 1 ELSE 0 END) as wins,
+                   ROUND(SUM(profit_loss), 2) as profit,
+                   ROUND(SUM(recommended_stake), 2) as staked
+            FROM bets WHERE status IN ('won', 'lost', 'push')
+            GROUP BY market
+        """).fetchall()
 
-    settled = [b for b in bets if b.status in ("won", "lost", "push")]
-
-    # Analytics by market
-    by_market: dict[str, dict] = {}
-    for b in settled:
-        m = b.market
-        if m not in by_market:
-            by_market[m] = {"bets": 0, "wins": 0, "profit": 0.0, "staked": 0.0}
-        by_market[m]["bets"] += 1
-        if b.status == "won":
-            by_market[m]["wins"] += 1
-        by_market[m]["profit"] += b.profit_loss
-        by_market[m]["staked"] += b.recommended_stake
-
-    for m in by_market:
-        by_market[m]["win_rate"] = round(by_market[m]["wins"] / max(by_market[m]["bets"], 1) * 100, 1)
-        by_market[m]["roi"] = round(by_market[m]["profit"] / max(by_market[m]["staked"], 1) * 100, 1)
-        by_market[m]["profit"] = round(by_market[m]["profit"], 2)
-        by_market[m]["staked"] = round(by_market[m]["staked"], 2)
-
-    # Analytics by bookmaker
-    by_bookmaker: dict[str, dict] = {}
-    for b in settled:
-        bk = b.bookmaker
-        if bk not in by_bookmaker:
-            by_bookmaker[bk] = {"bets": 0, "wins": 0, "profit": 0.0, "staked": 0.0}
-        by_bookmaker[bk]["bets"] += 1
-        if b.status == "won":
-            by_bookmaker[bk]["wins"] += 1
-        by_bookmaker[bk]["profit"] += b.profit_loss
-        by_bookmaker[bk]["staked"] += b.recommended_stake
-
-    for bk in by_bookmaker:
-        by_bookmaker[bk]["win_rate"] = round(by_bookmaker[bk]["wins"] / max(by_bookmaker[bk]["bets"], 1) * 100, 1)
-        by_bookmaker[bk]["roi"] = round(by_bookmaker[bk]["profit"] / max(by_bookmaker[bk]["staked"], 1) * 100, 1)
-        by_bookmaker[bk]["profit"] = round(by_bookmaker[bk]["profit"], 2)
-        by_bookmaker[bk]["staked"] = round(by_bookmaker[bk]["staked"], 2)
-
-    # Daily P/L timeline
-    daily_pnl: dict[str, float] = {}
-    for b in settled:
-        if b.placed_at:
-            day = b.placed_at.strftime("%Y-%m-%d")
-            daily_pnl[day] = round(daily_pnl.get(day, 0) + b.profit_loss, 2)
-
-    daily_pnl_list = [{"date": d, "pnl": v} for d, v in sorted(daily_pnl.items())]
-
-    # Best and worst bets
-    best = max(settled, key=lambda b: b.profit_loss) if settled else None
-    worst = min(settled, key=lambda b: b.profit_loss) if settled else None
-
-    def bet_summary(b):
-        return {
-            "selection": b.selection, "market": b.market,
-            "odds": b.odds_american, "profit_loss": round(b.profit_loss, 2),
-            "bookmaker": b.bookmaker,
+        by_market = {
+            r["market"]: {
+                "bets": r["bets"], "wins": r["wins"],
+                "profit": r["profit"] or 0, "staked": r["staked"] or 0,
+                "win_rate": round(r["wins"] / max(r["bets"], 1) * 100, 1),
+                "roi": round((r["profit"] or 0) / max(r["staked"] or 1, 1) * 100, 1),
+            }
+            for r in market_rows
         }
 
-    # Current streak
+        # By bookmaker — computed in SQL
+        book_rows = conn.execute("""
+            SELECT bookmaker,
+                   COUNT(*) as bets,
+                   SUM(CASE WHEN status='won' THEN 1 ELSE 0 END) as wins,
+                   ROUND(SUM(profit_loss), 2) as profit,
+                   ROUND(SUM(recommended_stake), 2) as staked
+            FROM bets WHERE status IN ('won', 'lost', 'push')
+            GROUP BY bookmaker
+        """).fetchall()
+
+        by_bookmaker = {
+            r["bookmaker"]: {
+                "bets": r["bets"], "wins": r["wins"],
+                "profit": r["profit"] or 0, "staked": r["staked"] or 0,
+                "win_rate": round(r["wins"] / max(r["bets"], 1) * 100, 1),
+                "roi": round((r["profit"] or 0) / max(r["staked"] or 1, 1) * 100, 1),
+            }
+            for r in book_rows
+        }
+
+        # Daily P/L — computed in SQL
+        daily_rows = conn.execute("""
+            SELECT DATE(placed_at) as bet_date,
+                   ROUND(SUM(profit_loss), 2) as pnl
+            FROM bets WHERE status IN ('won', 'lost', 'push') AND placed_at IS NOT NULL
+            GROUP BY DATE(placed_at) ORDER BY bet_date
+        """).fetchall()
+
+        daily_pnl_list = [{"date": r["bet_date"], "pnl": r["pnl"] or 0} for r in daily_rows]
+
+        # Best and worst bets — single query each
+        best_row = conn.execute("""
+            SELECT selection, market, odds_american, profit_loss, bookmaker
+            FROM bets WHERE status IN ('won', 'lost', 'push')
+            ORDER BY profit_loss DESC LIMIT 1
+        """).fetchone()
+
+        worst_row = conn.execute("""
+            SELECT selection, market, odds_american, profit_loss, bookmaker
+            FROM bets WHERE status IN ('won', 'lost', 'push')
+            ORDER BY profit_loss ASC LIMIT 1
+        """).fetchone()
+
+        # Current streak — last N settled bets
+        streak_rows = conn.execute("""
+            SELECT status FROM bets
+            WHERE status IN ('won', 'lost', 'push')
+            ORDER BY placed_at DESC LIMIT 50
+        """).fetchall()
+
+    def row_summary(r):
+        if not r:
+            return None
+        return {
+            "selection": r["selection"], "market": r["market"],
+            "odds": r["odds_american"], "profit_loss": round(r["profit_loss"], 2),
+            "bookmaker": r["bookmaker"],
+        }
+
     streak_type = ""
     streak_count = 0
-    for b in sorted(settled, key=lambda x: x.placed_at or datetime.min, reverse=True):
+    for r in streak_rows:
         if not streak_type:
-            streak_type = b.status
+            streak_type = r["status"]
             streak_count = 1
-        elif b.status == streak_type:
+        elif r["status"] == streak_type:
             streak_count += 1
         else:
             break
@@ -145,8 +176,8 @@ def get_analytics():
         by_market=by_market,
         by_bookmaker=by_bookmaker,
         daily_pnl=daily_pnl_list,
-        best_bet=bet_summary(best) if best else None,
-        worst_bet=bet_summary(worst) if worst else None,
+        best_bet=row_summary(best_row),
+        worst_bet=row_summary(worst_row),
         streak={"type": streak_type, "count": streak_count},
     )
 
@@ -320,7 +351,7 @@ def analytics_by_bookmaker():
 
 
 @router.get("/analytics/trends")
-def analytics_trends(window: int = Query(7)):
+def analytics_trends(window: int = Query(7, ge=1, le=365)):
     """Rolling performance trends over time."""
     from sba.services.analytics import rolling_trends
     bets = _get_settled_bets_dicts()

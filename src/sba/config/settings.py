@@ -27,6 +27,17 @@ class Settings(BaseSettings):
     ODDS_API_CREDIT_RESERVE: int = 50
     BALLDONTLIE_RATE_LIMIT: int = 30  # requests per minute
 
+    # CORS — comma-separated origins, configurable for production deployments
+    CORS_ORIGINS: str = "http://localhost:8000,http://127.0.0.1:8000"
+
+    # Rate limiting — configurable via env
+    RATE_LIMIT_MAX_REQUESTS: int = 120
+    RATE_LIMIT_WINDOW_SECONDS: int = 60
+
+    # API authentication — set to enable key-based auth on /api/* endpoints
+    # When empty, API is unauthenticated (development mode)
+    API_KEY: str = ""
+
     @field_validator("KELLY_FRACTION")
     @classmethod
     def kelly_fraction_range(cls, v: float) -> float:

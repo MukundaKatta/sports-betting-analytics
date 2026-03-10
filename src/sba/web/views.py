@@ -146,3 +146,28 @@ def insights_page(request: Request):
 @router.get("/player/{name}")
 def player_page(request: Request, name: str):
     return templates.TemplateResponse(request, "player.html", {"player_name": name})
+
+
+@router.get("/multibook")
+def multibook_page(request: Request):
+    return templates.TemplateResponse(request, "multibook.html")
+
+
+@router.get("/account-limits")
+def account_limits_page(request: Request):
+    return templates.TemplateResponse(request, "account-limits.html")
+
+
+@router.get("/portfolio")
+def portfolio_page(request: Request):
+    return templates.TemplateResponse(request, "portfolio.html")
+
+
+@router.get("/bet-import")
+def bet_import_page(request: Request):
+    return templates.TemplateResponse(request, "bet-import.html")
+
+
+@router.get("/notifications")
+def notifications_page(request: Request):
+    return templates.TemplateResponse(request, "notifications.html")

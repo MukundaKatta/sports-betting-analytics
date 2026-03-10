@@ -1,0 +1,241 @@
+{% extends "base.html" %}
+{% block title %}Account Limits{% endblock %}
+
+{% block content %}
+<div class="frosted-panel reveal-up" style="padding:32px;margin-bottom:28px;position:relative;overflow:hidden">
+    <div style="position:absolute;top:0;right:0;width:300px;height:100%;opacity:0.05;background:linear-gradient(135deg,var(--accent-red),var(--accent-yellow));border-radius:50%;filter:blur(60px);transform:translate(30%,-30%)"></div>
+    <h1 class="page-title" style="margin:0 0 8px">
+        <span class="gradient-text animated-gradient-text">Account Limits Tracker</span>
+        <span class="tag-elite" style="margin-left:12px">Exclusive</span>
+    </h1>
+    <p class="text-dim" style="margin:0;font-size:13px;max-width:540px">Track which sportsbooks have limited your account, monitor limiting risk, and get tips to extend your book longevity. No competitor offers this.</p>
+</div>
+
+<!-- Health Score -->
+<div class="stats-grid reveal-up" style="animation-delay:0.1s">
+    <div class="stat-card green card-3d-tilt" id="health-card">
+        <div class="stat-label">Account Health Score</div>
+        <div class="stat-value font-mono" id="al-health">--</div>
+        <div class="stat-sub">out of 100</div>
+    </div>
+    <div class="stat-card blue card-3d-tilt">
+        <div class="stat-label">Total Books</div>
+        <div class="stat-value font-mono" id="al-total">--</div>
+        <div class="stat-sub">tracked</div>
+    </div>
+    <div class="stat-card yellow card-3d-tilt">
+        <div class="stat-label">Active Books</div>
+        <div class="stat-value font-mono" id="al-active">--</div>
+        <div class="stat-sub">available for betting</div>
+    </div>
+    <div class="stat-card purple card-3d-tilt">
+        <div class="stat-label">Limited/Banned</div>
+        <div class="stat-value font-mono" id="al-limited">--</div>
+        <div class="stat-sub">books restricted</div>
+    </div>
+</div>
+
+<div class="dashboard-grid">
+    <!-- Add Limit -->
+    <div class="card reveal-left" style="animation-delay:0.15s">
+        <div class="card-header">
+            <h3>
+                <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                Update Limit Status
+            </h3>
+        </div>
+        <div class="card-body padded">
+            <form id="limit-form" onsubmit="saveLimit(event)">
+                <div style="display:grid;gap:12px">
+                    <div>
+                        <label class="form-label">Sportsbook</label>
+                        <select id="limit-book" class="form-input" required>
+                            <option value="">Select...</option>
+                            <option value="draftkings">DraftKings</option>
+                            <option value="fanduel">FanDuel</option>
+                            <option value="betmgm">BetMGM</option>
+                            <option value="caesars">Caesars</option>
+                            <option value="espnbet">ESPN BET</option>
+                            <option value="fanatics">Fanatics</option>
+                            <option value="betrivers">BetRivers</option>
+                            <option value="hard_rock">Hard Rock Bet</option>
+                            <option value="pointsbet">PointsBet</option>
+                            <option value="pinnacle">Pinnacle</option>
+                            <option value="bovada">Bovada</option>
+                            <option value="bet365">bet365</option>
+                        </select>
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                        <div>
+                            <label class="form-label">Limit Type</label>
+                            <select id="limit-type" class="form-input">
+                                <option value="none">No Limits</option>
+                                <option value="stake_reduced">Stake Reduced</option>
+                                <option value="partial">Partial Restrictions</option>
+                                <option value="promo_banned">Promo Banned</option>
+                                <option value="full">Fully Limited</option>
+                                <option value="closed">Account Closed</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="form-label">Severity</label>
+                            <select id="limit-severity" class="form-input">
+                                <option value="none">None</option>
+                                <option value="low">Low</option>
+                                <option value="medium">Medium</option>
+                                <option value="high">High</option>
+                                <option value="banned">Banned</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="form-label">Max Stake (if reduced)</label>
+                        <input type="number" step="0.01" id="limit-max-stake" class="form-input" placeholder="Leave blank if N/A">
+                    </div>
+                    <div>
+                        <label class="form-label">Notes</label>
+                        <input type="text" id="limit-notes" class="form-input" placeholder="e.g., Props limited to $10 max...">
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-block">Save Status</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Limits Table -->
+    <div class="card featured-card reveal-right" style="animation-delay:0.2s">
+        <div class="card-header">
+            <h3>
+                <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+                Limiting Status by Book
+            </h3>
+        </div>
+        <div class="card-body" id="limits-list">
+            <div class="skeleton-loader">
+                <div class="skeleton-line" style="width:100%;height:48px;margin-bottom:8px"></div>
+                <div class="skeleton-line" style="width:100%;height:48px;margin-bottom:8px"></div>
+                <div class="skeleton-line" style="width:100%;height:48px"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Risk Assessment -->
+    <div class="card full-width reveal-up" style="animation-delay:0.25s">
+        <div class="card-header">
+            <h3>
+                <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                Limiting Risk Assessment
+            </h3>
+        </div>
+        <div class="card-body padded" id="risk-assessment">
+            <div class="text-dim" style="text-align:center;padding:20px">Place bets to generate risk analysis...</div>
+        </div>
+    </div>
+
+    <!-- Tips -->
+    <div class="card full-width reveal-up" style="animation-delay:0.3s">
+        <div class="card-header">
+            <h3>
+                <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+                Tips to Avoid Getting Limited
+            </h3>
+        </div>
+        <div class="card-body padded" id="limit-tips"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function loadLimits() {
+    try {
+        const resp = await fetch('/api/account-limits');
+        const d = await resp.json();
+
+        document.getElementById('al-health').textContent = d.health_score;
+        const hc = document.getElementById('health-card');
+        if (d.health_score >= 75) hc.className = 'stat-card green card-3d-tilt';
+        else if (d.health_score >= 50) hc.className = 'stat-card yellow card-3d-tilt';
+        else hc.className = 'stat-card red card-3d-tilt';
+
+        document.getElementById('al-total').textContent = d.total_books;
+        document.getElementById('al-active').textContent = d.active_books;
+        const lim = d.total_books - d.active_books;
+        document.getElementById('al-limited').textContent = lim;
+
+        const el = document.getElementById('limits-list');
+        if (d.limits.length === 0) {
+            el.innerHTML = '<div class="text-dim" style="text-align:center;padding:30px">No limiting data tracked yet. Add your sportsbooks above.</div>';
+        } else {
+            el.innerHTML = '<table class="data-table"><thead><tr><th>Sportsbook</th><th>Status</th><th>Severity</th><th>Max Stake</th><th>Notes</th><th></th></tr></thead><tbody>' +
+                d.limits.map(l => `<tr>
+                    <td class="font-bold">${l.sportsbook}</td>
+                    <td>${l.limit_description}</td>
+                    <td><span class="tag" style="background:${l.severity_color}22;color:${l.severity_color}">${l.severity_label}</span></td>
+                    <td class="font-mono">${l.max_stake ? '$' + l.max_stake.toLocaleString() : '—'}</td>
+                    <td class="text-dim">${l.notes || '—'}</td>
+                    <td><button class="btn btn-outline btn-sm" onclick="deleteLimit('${l.sportsbook}')" style="font-size:10px">Remove</button></td>
+                </tr>`).join('') + '</tbody></table>';
+        }
+
+        // Tips
+        const tipsEl = document.getElementById('limit-tips');
+        tipsEl.innerHTML = '<div style="display:grid;gap:8px">' +
+            d.tips.map((t, i) => `<div style="display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.04)">
+                <span style="min-width:24px;height:24px;border-radius:6px;background:var(--accent-blue-dim);color:var(--accent-blue);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700">${i+1}</span>
+                <span style="font-size:13px">${t}</span>
+            </div>`).join('') + '</div>';
+
+    } catch (err) { console.error('Limits error:', err); }
+
+    // Load risk assessment
+    try {
+        const resp = await fetch('/api/account-limits/risk');
+        const risks = await resp.json();
+        const el = document.getElementById('risk-assessment');
+        if (risks.length === 0) {
+            el.innerHTML = '<div class="text-dim" style="text-align:center;padding:20px">Place bets through tracked sportsbooks to generate risk analysis.</div>';
+            return;
+        }
+        el.innerHTML = '<table class="data-table"><thead><tr><th>Sportsbook</th><th class="right">Bets</th><th class="right">Win Rate</th><th class="right">Profit</th><th class="right">Risk Score</th><th>Risk Factors</th></tr></thead><tbody>' +
+            risks.map(r => {
+                const riskColor = r.risk_level === 'high' ? '#ff4d6a' : r.risk_level === 'medium' ? '#ffc234' : '#00e68a';
+                return `<tr>
+                    <td class="font-bold">${r.sportsbook}</td>
+                    <td class="right font-mono">${r.total_bets}</td>
+                    <td class="right font-mono">${r.win_rate}%</td>
+                    <td class="right font-mono" style="color:${r.total_profit >= 0 ? 'var(--accent-green)' : 'var(--accent-red)'}">$${r.total_profit.toLocaleString()}</td>
+                    <td class="right"><span class="tag" style="background:${riskColor}22;color:${riskColor}">${r.risk_score}% ${r.risk_level}</span></td>
+                    <td class="text-dim" style="font-size:11px">${r.risk_factors.join(', ') || 'Low risk'}</td>
+                </tr>`;
+            }).join('') + '</tbody></table>';
+    } catch (err) { console.error('Risk error:', err); }
+}
+
+async function saveLimit(e) {
+    e.preventDefault();
+    const body = {
+        sportsbook: document.getElementById('limit-book').value,
+        limit_type: document.getElementById('limit-type').value,
+        severity: document.getElementById('limit-severity').value,
+        max_stake: parseFloat(document.getElementById('limit-max-stake').value) || null,
+        notes: document.getElementById('limit-notes').value,
+    };
+    if (!body.sportsbook) { SBA.toast('Select a sportsbook', 'warning'); return; }
+    await fetch('/api/account-limits', {
+        method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body)
+    });
+    SBA.toast('Limit status saved!', 'success');
+    loadLimits();
+    document.getElementById('limit-form').reset();
+}
+
+async function deleteLimit(name) {
+    await fetch('/api/account-limits/' + name, { method: 'DELETE' });
+    SBA.toast('Removed', 'success');
+    loadLimits();
+}
+
+document.addEventListener('DOMContentLoaded', loadLimits);
+</script>
+{% endblock %}

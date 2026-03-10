@@ -9,6 +9,7 @@ from pydantic import BaseModel
 
 from sba.config import get_settings
 from sba.data.db import get_connection
+from sba.web.errors import safe_endpoint
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["bankroll"])
@@ -21,9 +22,43 @@ class BankrollActionRequest(BaseModel):
     reason: str = ""
 
 
+class BankrollHistoryEntry(BaseModel):
+    id: int
+    amount: float
+    change: float
+    reason: str
+    bet_id: int | None = None
+    created_at: str
+
+
+class BankrollResponse(BaseModel):
+    current_balance: float
+    starting_balance: float
+    total_deposited: float
+    total_withdrawn: float
+    total_profit: float
+    roi_pct: float
+    history: list[BankrollHistoryEntry]
+
+
+class BankrollActionResponse(BaseModel):
+    balance: float
+    deposited: float | None = None
+    withdrawn: float | None = None
+    status: str | None = None
+
+
+class DailyPnLEntry(BaseModel):
+    date: str
+    daily_change: float
+    end_balance: float
+    transactions: int
+
+
 # ── Endpoints ────────────────────────────────────────────────────────
 
-@router.get("/bankroll")
+@router.get("/bankroll", response_model=BankrollResponse)
+@safe_endpoint
 def get_bankroll():
     """Get bankroll history and current balance."""
     with get_connection() as conn:
@@ -72,6 +107,7 @@ def get_bankroll():
 
 
 @router.post("/bankroll/deposit")
+@safe_endpoint
 def bankroll_deposit(req: BankrollActionRequest):
     """Record a bankroll deposit."""
     with get_connection() as conn:
@@ -88,6 +124,7 @@ def bankroll_deposit(req: BankrollActionRequest):
 
 
 @router.post("/bankroll/withdraw")
+@safe_endpoint
 def bankroll_withdraw(req: BankrollActionRequest):
     """Record a bankroll withdrawal."""
     with get_connection() as conn:
@@ -104,6 +141,7 @@ def bankroll_withdraw(req: BankrollActionRequest):
 
 
 @router.post("/bankroll/initialize")
+@safe_endpoint
 def bankroll_initialize(req: BankrollActionRequest):
     """Initialize bankroll tracking with a starting balance."""
     with get_connection() as conn:
@@ -114,7 +152,8 @@ def bankroll_initialize(req: BankrollActionRequest):
     return {"balance": req.amount, "status": "initialized"}
 
 
-@router.get("/bankroll/daily")
+@router.get("/bankroll/daily", response_model=list[DailyPnLEntry])
+@safe_endpoint
 def bankroll_daily_pnl():
     """Get daily P&L summary from bankroll log."""
     with get_connection() as conn:

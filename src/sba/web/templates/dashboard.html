@@ -282,7 +282,11 @@ async function loadTodayPnl() {
                 ${d.pending > 0 ? `<div class="text-dim" style="font-size:11px;margin-top:8px">${d.pending} pending bet${d.pending > 1 ? 's' : ''} today</div>` : ''}
             </div>
         `;
-    } catch (err) { console.error('Today P/L error:', err); }
+    } catch (err) {
+        console.error('Today P/L error:', err);
+        const el = document.getElementById('today-pnl');
+        if (el) el.innerHTML = '<div class="text-dim" style="text-align:center;padding:20px">No bets placed today yet.</div>';
+    }
 }
 
 async function loadEquityCurve() {
@@ -321,7 +325,11 @@ async function loadEquityCurve() {
                 <span>${d.curve[d.curve.length-1].date}</span>
             </div>
         `;
-    } catch (err) { console.error('Equity curve error:', err); }
+    } catch (err) {
+        console.error('Equity curve error:', err);
+        const el = document.getElementById('equity-curve');
+        if (el) el.innerHTML = '<div class="text-dim" style="text-align:center;padding:20px">No settled bets yet — start tracking to see your equity curve.</div>';
+    }
 }
 
 async function loadDashAchievements() {
@@ -351,7 +359,11 @@ async function loadDashAchievements() {
                 ` : ''}
             </div>
         `;
-    } catch (err) { console.error('Achievements error:', err); }
+    } catch (err) {
+        console.error('Achievements error:', err);
+        const el = document.getElementById('dash-achievements');
+        if (el) el.innerHTML = '<div class="text-dim" style="text-align:center;padding:20px">Place bets to unlock achievements!</div>';
+    }
 }
 
 async function loadDashInsights() {
@@ -374,7 +386,11 @@ async function loadDashInsights() {
                 <div class="text-dim" style="font-size:11px;padding-left:14px">${i.action}</div>
             </div>
         `).join('') + `<div style="text-align:center;margin-top:8px"><a href="/insights" class="text-dim" style="font-size:11px">View all ${data.total} insights &rarr;</a></div>`;
-    } catch (err) { console.error('Insights error:', err); }
+    } catch (err) {
+        console.error('Insights error:', err);
+        const el = document.getElementById('dash-insights');
+        if (el) el.innerHTML = '<div class="text-dim" style="text-align:center;padding:20px">Track more bets to unlock insights.</div>';
+    }
 }
 
 document.addEventListener('DOMContentLoaded', () => {

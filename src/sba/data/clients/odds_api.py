@@ -110,6 +110,49 @@ class OddsAPIClient(BaseAPIClient):
                 ))
         return EventOdds(event=event, bookmakers=bookmakers)
 
+    # ── Async methods (for web endpoints) ───────────────────────────
+
+    async def aget_sports(self) -> list[Sport]:
+        data = await self.async_fetch("/sports", self._params())
+        return [Sport(key=s["key"], title=s["title"], active=s["active"]) for s in data]
+
+    async def aget_events(self, sport: str) -> list[Event]:
+        data = await self.async_fetch(f"/sports/{sport}/events", self._params())
+        return [self._parse_event(e, sport) for e in data]
+
+    async def aget_odds(self, sport: str, regions: str = "us",
+                        markets: str = "h2h", odds_format: str = "american") -> list[EventOdds]:
+        params = self._params(regions=regions, markets=markets, oddsFormat=odds_format)
+        data = await self.async_fetch(f"/sports/{sport}/odds", params)
+        return [self._parse_event_odds(e, sport) for e in data]
+
+    async def aget_event_odds(self, sport: str, event_id: str,
+                              markets: str = "player_points", regions: str = "us",
+                              odds_format: str = "american") -> EventOdds | None:
+        params = self._params(regions=regions, markets=markets, oddsFormat=odds_format)
+        try:
+            data = await self.async_fetch(f"/sports/{sport}/events/{event_id}/odds", params)
+            return self._parse_event_odds(data, sport)
+        except Exception:
+            return None
+
+    async def aget_scores(self, sport: str, days_from: int = 1) -> list[Event]:
+        params = self._params(daysFrom=days_from)
+        data = await self.async_fetch(f"/sports/{sport}/scores", params)
+        results = []
+        for s in data:
+            event = self._parse_event(s, sport)
+            event.completed = s.get("completed", False)
+            scores = s.get("scores")
+            if scores and event.completed:
+                for score in scores:
+                    if score["name"] == event.home_team:
+                        event.home_score = int(score["score"]) if score["score"] else None
+                    elif score["name"] == event.away_team:
+                        event.away_score = int(score["score"]) if score["score"] else None
+            results.append(event)
+        return results
+
     # Player prop market keys
     PROP_MARKETS = [
         "player_points", "player_rebounds", "player_assists",

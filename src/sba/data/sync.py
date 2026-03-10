@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from datetime import datetime
 
@@ -71,6 +72,40 @@ class DataSyncer:
             self.repo.upsert_player(conn, player)
 
         return self.sync_player_stats([player.id], seasons)
+
+    # ── Async methods (for web endpoints) ───────────────────────────
+
+    async def async_sync_odds(self, sport: str, markets: str = "h2h,spreads,totals") -> int:
+        """Async version of sync_odds for use from web endpoints."""
+        events_odds = await self.odds_client.aget_odds(
+            sport=sport,
+            regions=self.settings.DEFAULT_REGION,
+            markets=markets,
+        )
+        with get_connection() as conn:
+            self.repo.store_event_odds(conn, events_odds)
+        logger.info(f"Async synced odds for {len(events_odds)} events")
+        return len(events_odds)
+
+    async def async_sync_multi_sport(
+        self, sports: list[str], markets: str = "h2h,spreads,totals",
+    ) -> dict[str, int]:
+        """Fetch odds for multiple sports concurrently."""
+        tasks = [self.async_sync_odds(sport, markets) for sport in sports]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        summary = {}
+        for sport, result in zip(sports, results):
+            if isinstance(result, Exception):
+                logger.error(f"Failed to sync {sport}: {result}")
+                summary[sport] = 0
+            else:
+                summary[sport] = result
+        return summary
+
+    async def aclose(self) -> None:
+        """Close async HTTP clients."""
+        await self.odds_client.aclose()
+        await self.stats_client.aclose()
 
     def get_status(self) -> dict:
         return {

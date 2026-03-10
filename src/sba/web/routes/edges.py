@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 
+import httpx
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
@@ -33,6 +34,8 @@ class EdgeResponse(BaseModel):
     kelly_pct: float
     recommended_stake: float
     confidence: str
+    deep_link: str | None = None
+    scanned_at: str | None = None
 
 
 # ── Endpoints ────────────────────────────────────────────────────────
@@ -41,9 +44,13 @@ class EdgeResponse(BaseModel):
 def get_edges(
     sport: str = Query(None),
     market: str = Query("h2h,spreads,totals"),
-    min_ev: float = Query(None),
+    min_ev: float = Query(None, ge=0, le=1, description="Minimum EV threshold (0.03 = 3%)"),
 ):
     """Scan for +EV betting opportunities."""
+    from datetime import datetime
+
+    from sba.utils.deep_links import get_deep_link
+
     settings = get_settings()
     if not settings.ODDS_API_KEY:
         raise HTTPException(400, "ODDS_API_KEY not configured")
@@ -52,6 +59,7 @@ def get_edges(
 
     finder = EdgeFinder()
     opportunities = finder.scan(sport, market, min_ev)
+    scanned_at = datetime.now().isoformat()
 
     return [
         EdgeResponse(
@@ -71,6 +79,8 @@ def get_edges(
             kelly_pct=round(o.kelly_pct, 4),
             recommended_stake=round(o.recommended_stake, 2),
             confidence=o.confidence,
+            deep_link=get_deep_link(o.bookmaker, o.event.home_team, o.event.away_team),
+            scanned_at=scanned_at,
         )
         for o in opportunities
     ]
@@ -91,8 +101,8 @@ def scan_arbitrage(
 
     try:
         events_odds = finder.fetch_odds(sport)
-    except Exception as exc:
-        logger.error(f"Arb scan failed: {exc}")
+    except (httpx.HTTPError, ConnectionError, TimeoutError) as exc:
+        logger.warning(f"Arb scan failed (network): {exc}")
         return {"opportunities": [], "error": str(exc)}
 
     arbs = find_arbitrage(events_odds)
@@ -132,8 +142,8 @@ def scan_middles(
 
     try:
         events_odds = finder.fetch_odds(sport)
-    except Exception as exc:
-        logger.error(f"Middle scan failed: {exc}")
+    except (httpx.HTTPError, ConnectionError, TimeoutError) as exc:
+        logger.warning(f"Middle scan failed (network): {exc}")
         return {"opportunities": [], "error": str(exc)}
 
     middles = find_middles(events_odds)
@@ -174,8 +184,8 @@ def scan_low_holds(
 
     try:
         events_odds = finder.fetch_odds(sport)
-    except Exception as exc:
-        logger.error(f"Low-hold scan failed: {exc}")
+    except (httpx.HTTPError, ConnectionError, TimeoutError) as exc:
+        logger.warning(f"Low-hold scan failed (network): {exc}")
         return {"markets": [], "error": str(exc)}
 
     low_holds = find_low_holds(events_odds, max_hold=max_hold / 100.0)

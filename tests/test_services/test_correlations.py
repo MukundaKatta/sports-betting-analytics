@@ -42,8 +42,22 @@ class TestGetCorrelation:
         corr = get_correlation("total_rebounds", "over", "first_half", "over")
         assert corr == 0.0
 
-    def test_spread_team_win_high_correlation(self):
-        corr = get_correlation("spread", "cover", "team_win", "yes")
+    def test_spread_team_win_nba(self):
+        """NBA spread/team_win should be 0.85."""
+        corr = get_correlation("spread", "cover", "team_win", "yes", sport="nba")
+        assert corr == 0.85
+
+    def test_spread_team_win_nfl(self):
+        """NFL spread/team_win should be 0.90."""
+        corr = get_correlation("spread", "cover", "team_win", "yes", sport="nfl")
+        assert corr == 0.90
+
+    def test_sport_alias_normalization(self):
+        """API sport keys should resolve to short form."""
+        corr = get_correlation(
+            "spread", "cover", "team_win", "yes",
+            sport="basketball_nba",
+        )
         assert corr == 0.85
 
     def test_inverse_correlation(self):

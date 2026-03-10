@@ -1,0 +1,223 @@
+{% extends "base.html" %}
+{% block title %}Multi-Book Bankroll{% endblock %}
+
+{% block content %}
+<div class="frosted-panel reveal-up" style="padding:32px;margin-bottom:28px;position:relative;overflow:hidden">
+    <div style="position:absolute;top:0;right:0;width:300px;height:100%;opacity:0.05;background:linear-gradient(135deg,var(--accent-green),var(--accent-blue));border-radius:50%;filter:blur(60px);transform:translate(30%,-30%)"></div>
+    <h1 class="page-title" style="margin:0 0 8px">
+        <span class="gradient-text animated-gradient-text">Multi-Book Bankroll</span>
+        <span class="tag-elite" style="margin-left:12px">Premium</span>
+    </h1>
+    <p class="text-dim" style="margin:0;font-size:13px;max-width:520px">Track balances across all your sportsbooks in one unified dashboard. See total exposure, per-book P/L, and limiting status.</p>
+</div>
+
+<!-- Aggregate Stats -->
+<div class="stats-grid reveal-up" id="multibook-stats" style="animation-delay:0.1s">
+    <div class="stat-card green card-3d-tilt">
+        <div class="stat-label">Total Balance</div>
+        <div class="stat-value font-mono" id="mb-total-balance">--</div>
+        <div class="stat-sub">across all books</div>
+    </div>
+    <div class="stat-card blue card-3d-tilt">
+        <div class="stat-label">Total Profit</div>
+        <div class="stat-value font-mono" id="mb-total-profit">--</div>
+        <div class="stat-sub" id="mb-roi">-- ROI</div>
+    </div>
+    <div class="stat-card yellow card-3d-tilt">
+        <div class="stat-label">Active Books</div>
+        <div class="stat-value font-mono" id="mb-book-count">--</div>
+        <div class="stat-sub" id="mb-limited-count">-- limited</div>
+    </div>
+    <div class="stat-card purple card-3d-tilt">
+        <div class="stat-label">Total Deposited</div>
+        <div class="stat-value font-mono" id="mb-deposited">--</div>
+        <div class="stat-sub" id="mb-withdrawn">-- withdrawn</div>
+    </div>
+</div>
+
+<div class="dashboard-grid">
+    <!-- Add/Edit Book Form -->
+    <div class="card reveal-left" style="animation-delay:0.15s">
+        <div class="card-header">
+            <h3>
+                <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Add / Update Sportsbook
+            </h3>
+        </div>
+        <div class="card-body padded">
+            <form id="add-book-form" onsubmit="saveBook(event)">
+                <div style="display:grid;gap:12px">
+                    <div>
+                        <label class="form-label">Sportsbook Name</label>
+                        <select id="book-name" class="form-input" style="width:100%">
+                            <option value="">Select or type...</option>
+                            <option value="draftkings">DraftKings</option>
+                            <option value="fanduel">FanDuel</option>
+                            <option value="betmgm">BetMGM</option>
+                            <option value="caesars">Caesars</option>
+                            <option value="espnbet">ESPN BET</option>
+                            <option value="fanatics">Fanatics</option>
+                            <option value="betrivers">BetRivers</option>
+                            <option value="hard_rock">Hard Rock Bet</option>
+                            <option value="pointsbet">PointsBet</option>
+                            <option value="pinnacle">Pinnacle</option>
+                            <option value="bovada">Bovada</option>
+                            <option value="bet365">bet365</option>
+                        </select>
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                        <div>
+                            <label class="form-label">Current Balance ($)</label>
+                            <input type="number" step="0.01" id="book-balance" class="form-input" placeholder="0.00" required>
+                        </div>
+                        <div>
+                            <label class="form-label">Bonus Balance ($)</label>
+                            <input type="number" step="0.01" id="book-bonus" class="form-input" placeholder="0.00" value="0">
+                        </div>
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                        <div>
+                            <label class="form-label">Total Deposited ($)</label>
+                            <input type="number" step="0.01" id="book-deposited" class="form-input" placeholder="0.00">
+                        </div>
+                        <div>
+                            <label class="form-label">Total Withdrawn ($)</label>
+                            <input type="number" step="0.01" id="book-withdrawn" class="form-input" placeholder="0.00">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="form-label">Notes</label>
+                        <input type="text" id="book-notes" class="form-input" placeholder="Optional notes...">
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-block">Save Sportsbook</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Book List -->
+    <div class="card featured-card reveal-right" style="animation-delay:0.2s">
+        <div class="card-header">
+            <h3>
+                <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                Sportsbook Balances
+            </h3>
+            <button class="btn btn-outline btn-sm" onclick="loadMultibook()">Refresh</button>
+        </div>
+        <div class="card-body" id="books-list">
+            <div class="skeleton-loader">
+                <div class="skeleton-line" style="width:100%;height:48px;margin-bottom:8px"></div>
+                <div class="skeleton-line" style="width:100%;height:48px;margin-bottom:8px"></div>
+                <div class="skeleton-line" style="width:100%;height:48px"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Allocation Chart -->
+    <div class="card full-width reveal-up" style="animation-delay:0.25s">
+        <div class="card-header">
+            <h3>
+                <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 0 20"/></svg>
+                Balance Distribution
+            </h3>
+        </div>
+        <div class="card-body padded" id="allocation-chart">
+            <div class="text-dim" style="text-align:center;padding:20px">Add sportsbooks to see balance distribution.</div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function loadMultibook() {
+    try {
+        const resp = await fetch('/api/multibook/balances');
+        const d = await resp.json();
+
+        // Update stats
+        const profitColor = d.total_profit >= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
+        const profitSign = d.total_profit >= 0 ? '+' : '';
+        document.getElementById('mb-total-balance').textContent = '$' + d.total_balance.toLocaleString();
+        document.getElementById('mb-total-profit').textContent = profitSign + '$' + d.total_profit.toLocaleString();
+        document.getElementById('mb-total-profit').style.color = profitColor;
+        document.getElementById('mb-roi').textContent = d.overall_roi + '% ROI';
+        document.getElementById('mb-book-count').textContent = d.book_count;
+        document.getElementById('mb-limited-count').textContent = d.limited_count + ' limited';
+        document.getElementById('mb-deposited').textContent = '$' + d.total_deposited.toLocaleString();
+        document.getElementById('mb-withdrawn').textContent = '$' + d.total_withdrawn.toLocaleString() + ' withdrawn';
+
+        // Render book list
+        const el = document.getElementById('books-list');
+        if (d.books.length === 0) {
+            el.innerHTML = '<div class="text-dim" style="text-align:center;padding:30px">No sportsbooks added yet. Use the form to add your first book.</div>';
+            return;
+        }
+
+        el.innerHTML = '<table class="data-table"><thead><tr><th>Sportsbook</th><th class="right">Balance</th><th class="right">Deposited</th><th class="right">P/L</th><th class="right">ROI</th><th>Status</th><th></th></tr></thead><tbody>' +
+            d.books.map(b => {
+                const plColor = b.net_profit >= 0 ? 'text-green' : 'text-red';
+                const plSign = b.net_profit >= 0 ? '+' : '';
+                const limitBadge = b.is_limited ? '<span class="tag" style="background:#ff4d6a22;color:#ff4d6a;font-size:9px">LIMITED</span>' : '<span class="tag" style="background:#00e68a22;color:#00e68a;font-size:9px">ACTIVE</span>';
+                return `<tr>
+                    <td><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${b.color};margin-right:6px"></span>${b.display_name}</td>
+                    <td class="right font-mono font-bold">$${b.balance.toLocaleString()}</td>
+                    <td class="right font-mono text-dim">$${b.deposited.toLocaleString()}</td>
+                    <td class="right font-mono ${plColor}">${plSign}$${b.net_profit.toLocaleString()}</td>
+                    <td class="right font-mono ${plColor}">${b.roi_pct}%</td>
+                    <td>${limitBadge}</td>
+                    <td><button class="btn btn-outline btn-sm" onclick="deleteBook('${b.sportsbook}')" style="font-size:10px">Remove</button></td>
+                </tr>`;
+            }).join('') + '</tbody></table>';
+
+        // Allocation bars
+        const chartEl = document.getElementById('allocation-chart');
+        const maxBal = Math.max(...d.books.map(b => b.balance));
+        chartEl.innerHTML = '<div style="display:flex;flex-direction:column;gap:8px">' +
+            d.books.map(b => {
+                const pct = maxBal > 0 ? (b.balance / d.total_balance * 100) : 0;
+                return `<div style="display:flex;align-items:center;gap:12px">
+                    <span style="min-width:100px;font-size:12px;font-weight:600">${b.display_name}</span>
+                    <div style="flex:1;height:24px;border-radius:6px;background:rgba(255,255,255,0.04);overflow:hidden">
+                        <div style="height:100%;width:${pct}%;background:${b.color};border-radius:6px;transition:width 0.5s"></div>
+                    </div>
+                    <span class="font-mono" style="min-width:80px;text-align:right;font-size:12px">$${b.balance.toLocaleString()} (${pct.toFixed(0)}%)</span>
+                </div>`;
+            }).join('') + '</div>';
+
+    } catch (err) {
+        console.error('Multibook error:', err);
+        document.getElementById('books-list').innerHTML = '<div class="text-dim" style="text-align:center;padding:20px">Failed to load balances.</div>';
+    }
+}
+
+async function saveBook(e) {
+    e.preventDefault();
+    const body = {
+        sportsbook: document.getElementById('book-name').value,
+        balance: parseFloat(document.getElementById('book-balance').value) || 0,
+        bonus_balance: parseFloat(document.getElementById('book-bonus').value) || 0,
+        deposited: parseFloat(document.getElementById('book-deposited').value) || null,
+        withdrawn: parseFloat(document.getElementById('book-withdrawn').value) || null,
+        notes: document.getElementById('book-notes').value,
+    };
+    if (!body.sportsbook) { SBA.toast('Please select a sportsbook', 'warning'); return; }
+
+    await fetch('/api/multibook/balances', {
+        method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body)
+    });
+    SBA.toast('Sportsbook saved!', 'success');
+    loadMultibook();
+    document.getElementById('add-book-form').reset();
+}
+
+async function deleteBook(name) {
+    if (!confirm('Remove ' + name + '?')) return;
+    await fetch('/api/multibook/balances/' + name, { method: 'DELETE' });
+    SBA.toast('Sportsbook removed', 'success');
+    loadMultibook();
+}
+
+document.addEventListener('DOMContentLoaded', loadMultibook);
+</script>
+{% endblock %}

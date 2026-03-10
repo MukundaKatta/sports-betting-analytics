@@ -12,9 +12,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
+from sba import __version__
+from sba.config import get_settings
+from sba.config.logging import setup_logging
 from sba.data.db import init_db
 from sba.web.api import router as api_router
-from sba.web.middleware import RateLimitMiddleware
+from sba.web.errors import APIError, api_error_response
+from sba.web.middleware import APIKeyMiddleware, RateLimitMiddleware, RequestIDMiddleware
 from sba.web.sse import router as sse_router
 from sba.web.views import router as views_router
 
@@ -24,8 +28,11 @@ STATIC_DIR = Path(__file__).parent / "static"
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    _settings = get_settings()
+    log_fmt = "json" if _settings.LOG_LEVEL == "WARNING" else "text"
+    setup_logging(level=_settings.LOG_LEVEL, fmt=log_fmt)
     init_db()
-    logger.info("SBA Web Dashboard started")
+    logger.info("SBA Web Dashboard started (v%s)", app.version)
     yield
     logger.info("SBA Web Dashboard stopped")
 
@@ -33,21 +40,37 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="SBA — Sports Betting Analytics",
     description="Professional sports betting analytics platform with ML-powered predictions",
-    version="1.2.0",
+    version=__version__,
     lifespan=lifespan,
     docs_url="/api/docs",
     redoc_url="/api/redoc",
 )
 
-# CORS middleware
+# ── Middleware stack (executed bottom-to-top) ────────────────────────
+
+# CORS — loaded from settings so it works in production deployments
+settings = get_settings()
+cors_origins = [o.strip() for o in settings.CORS_ORIGINS.split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:8000", "http://127.0.0.1:8000"],
+    allow_origins=cors_origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-app.add_middleware(RateLimitMiddleware)
+# Rate limiting — configurable from env
+app.add_middleware(
+    RateLimitMiddleware,
+    max_requests=settings.RATE_LIMIT_MAX_REQUESTS,
+    window_seconds=settings.RATE_LIMIT_WINDOW_SECONDS,
+)
+
+# Request ID for tracing
+app.add_middleware(RequestIDMiddleware)
+
+# API key authentication (opt-in via SBA_API_KEY env var)
+if settings.API_KEY:
+    app.add_middleware(APIKeyMiddleware, api_key=settings.API_KEY)
 
 
 # Request timing middleware
@@ -60,13 +83,24 @@ async def add_timing_header(request: Request, call_next):
     return response
 
 
+# Structured API error handler
+@app.exception_handler(APIError)
+async def api_error_handler(request: Request, exc: APIError):
+    return api_error_response(exc)
+
+
 # Global exception handler
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    logger.error(f"Unhandled error on {request.method} {request.url.path}: {exc}", exc_info=True)
+    request_id = getattr(request.state, "request_id", "unknown")
+    logger.error(
+        "Unhandled error on %s %s [%s]: %s",
+        request.method, request.url.path, request_id, exc,
+        exc_info=True,
+    )
     return JSONResponse(
         status_code=500,
-        content={"error": "Internal server error"},
+        content={"error": "Internal server error", "request_id": request_id},
     )
 
 

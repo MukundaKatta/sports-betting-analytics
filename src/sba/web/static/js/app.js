@@ -20,6 +20,7 @@ const SBA = {
         this.updateStatus();
         this.highlightActiveNav();
         this.checkAlerts();
+        this._loadSlip();
         setInterval(() => this.updateStatus(), 60000);
         setInterval(() => this.checkAlerts(), 30000);
     },
@@ -333,6 +334,7 @@ const SBA = {
                     <td class="right font-mono">${(e.kelly_pct * 100).toFixed(1)}%</td>
                     <td class="right font-bold text-green">$${e.recommended_stake.toFixed(0)}</td>
                     <td class="center">${this.createConfidenceMeter(e.confidence)}<div style="font-size:10px;color:var(--text-tertiary);margin-top:2px">${e.confidence}</div></td>
+                    <td class="center">${e.deep_link ? `<a href="${e.deep_link}" target="_blank" rel="noopener" class="deep-link-btn" title="Open on ${e.bookmaker}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg> Bet</a>` : ''}</td>
                 </tr>
             `).join('');
         } catch (err) {
@@ -650,6 +652,7 @@ const SBA = {
         }
 
         this.betSlip.push({ eventId, selection, odds, market, bookmaker, eventName, stake: stake || 0 });
+        this._saveSlip();
         this.renderSlip();
         this.toast(`${selection} added to slip`, 'success');
 
@@ -662,17 +665,22 @@ const SBA = {
 
     removeFromSlip(index) {
         this.betSlip.splice(index, 1);
+        this._saveSlip();
         this.renderSlip();
         const headerCount = document.getElementById('slip-count-header');
         if (headerCount) headerCount.textContent = this.betSlip.length;
     },
 
     clearSlip() {
-        this.betSlip = [];
-        this.renderSlip();
-        document.getElementById('bet-slip').classList.remove('open');
-        const headerCount = document.getElementById('slip-count-header');
-        if (headerCount) headerCount.textContent = '0';
+        if (this.betSlip.length === 0) return;
+        this.confirmAction(`Clear all ${this.betSlip.length} bets from your slip?`, () => {
+            this.betSlip = [];
+            this._saveSlip();
+            this.renderSlip();
+            document.getElementById('bet-slip').classList.remove('open');
+            const headerCount = document.getElementById('slip-count-header');
+            if (headerCount) headerCount.textContent = '0';
+        });
     },
 
     calcPayout(odds, stake) {
@@ -1046,28 +1054,28 @@ const SBA = {
                             <div><div class="font-bold">Bankroll</div><div class="text-dim" style="font-size:12px">Total bankroll for Kelly criterion sizing</div></div>
                             <div style="display:flex;align-items:center;gap:8px">
                                 <span class="font-mono font-bold text-green" style="font-size:18px">$${settings.bankroll.toLocaleString()}</span>
-                                <button class="btn btn-outline btn-sm" onclick="const v=prompt('New bankroll:','${settings.bankroll}');if(v)SBA.updateSetting('bankroll',parseFloat(v))">Edit</button>
+                                <button class="btn btn-outline btn-sm" onclick="SBA.editSetting('Bankroll','bankroll','${settings.bankroll}','number')">Edit</button>
                             </div>
                         </div>
                         <div class="settings-row">
                             <div><div class="font-bold">Kelly Fraction</div><div class="text-dim" style="font-size:12px">Fractional Kelly multiplier (1.0 = full Kelly)</div></div>
                             <div style="display:flex;align-items:center;gap:8px">
                                 <span class="font-mono font-bold" style="font-size:18px">${settings.kelly_fraction}</span>
-                                <button class="btn btn-outline btn-sm" onclick="const v=prompt('New Kelly fraction:','${settings.kelly_fraction}');if(v)SBA.updateSetting('kelly_fraction',parseFloat(v))">Edit</button>
+                                <button class="btn btn-outline btn-sm" onclick="SBA.editSetting('Kelly Fraction','kelly_fraction','${settings.kelly_fraction}','number')">Edit</button>
                             </div>
                         </div>
                         <div class="settings-row">
                             <div><div class="font-bold">EV Threshold</div><div class="text-dim" style="font-size:12px">Minimum expected value to flag as +EV</div></div>
                             <div style="display:flex;align-items:center;gap:8px">
                                 <span class="font-mono font-bold" style="font-size:18px">${(settings.ev_threshold * 100).toFixed(1)}%</span>
-                                <button class="btn btn-outline btn-sm" onclick="const v=prompt('New EV threshold (decimal, e.g. 0.03):','${settings.ev_threshold}');if(v)SBA.updateSetting('ev_threshold',parseFloat(v))">Edit</button>
+                                <button class="btn btn-outline btn-sm" onclick="SBA.editSetting('EV Threshold','ev_threshold','${settings.ev_threshold}','number')">Edit</button>
                             </div>
                         </div>
                         <div class="settings-row" style="border-bottom:none">
                             <div><div class="font-bold">Default Sport</div><div class="text-dim" style="font-size:12px">Primary sport for scanning</div></div>
                             <div style="display:flex;align-items:center;gap:8px">
                                 <span class="market-tag">${settings.default_sport}</span>
-                                <button class="btn btn-outline btn-sm" onclick="const v=prompt('Default sport key:','${settings.default_sport}');if(v)SBA.updateSetting('default_sport',v)">Edit</button>
+                                <button class="btn btn-outline btn-sm" onclick="SBA.editSetting('Default Sport','default_sport','${settings.default_sport}','text')">Edit</button>
                             </div>
                         </div>
                     </div>
@@ -1132,13 +1140,15 @@ const SBA = {
 
     // ── Delete Bet ────────────────────────────────────────────────────
     async deleteBet(betId) {
-        try {
-            await fetch(`/api/bets/${betId}`, { method: 'DELETE' });
-            this.toast('Bet deleted', 'success');
-            this.loadBets();
-        } catch {
-            this.toast('Failed to delete bet', 'error');
-        }
+        this.confirmAction('Are you sure you want to delete this bet? This cannot be undone.', async () => {
+            try {
+                await fetch(`/api/bets/${betId}`, { method: 'DELETE' });
+                this.toast('Bet deleted', 'success');
+                this.loadBets();
+            } catch {
+                this.toast('Failed to delete bet', 'error');
+            }
+        });
     },
 
     // ── Settle Bet ────────────────────────────────────────────────────
@@ -2664,6 +2674,15 @@ const SBA = {
                     <div class="edge-sum-value" style="color:var(--accent-purple)">$${totalStake.toFixed(0)}</div>
                     <div class="edge-sum-label">Total Stake</div>
                 </div>
+                <div class="edge-summary-item">
+                    ${edges[0] && edges[0].scanned_at ? (() => {
+                        const age = Math.round((Date.now() - new Date(edges[0].scanned_at).getTime()) / 1000);
+                        const cls = age < 60 ? 'fresh' : age < 300 ? 'stale' : 'expired';
+                        const label = age < 60 ? 'Fresh' : age < 300 ? Math.round(age/60) + 'm ago' : Math.round(age/60) + 'm old';
+                        return `<div class="freshness-badge ${cls}"><span class="freshness-dot"></span>${label}</div>`;
+                    })() : ''}
+                    <div class="edge-sum-label">Odds Age</div>
+                </div>
             </div>
         `;
     },
@@ -2976,6 +2995,88 @@ const SBA = {
         }
     },
 
+    // ── Modal System ───────────────────────────────────────────────────
+    showModal(title, bodyHTML, onConfirm, confirmText = 'Confirm') {
+        let modal = document.getElementById('sba-modal');
+        if (modal) modal.remove();
+        modal = document.createElement('div');
+        modal.id = 'sba-modal';
+        modal.className = 'sba-modal-overlay';
+        modal.innerHTML = `
+            <div class="sba-modal-card">
+                <div class="sba-modal-header">
+                    <h3>${title}</h3>
+                    <button class="sba-modal-close" onclick="SBA.closeModal()">&times;</button>
+                </div>
+                <div class="sba-modal-body">${bodyHTML}</div>
+                <div class="sba-modal-footer">
+                    <button class="btn btn-outline" onclick="SBA.closeModal()">Cancel</button>
+                    <button class="btn btn-primary" id="sba-modal-confirm">${confirmText}</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+        requestAnimationFrame(() => modal.classList.add('open'));
+        modal.onclick = (e) => { if (e.target === modal) this.closeModal(); };
+        document.getElementById('sba-modal-confirm').onclick = () => {
+            if (onConfirm) onConfirm();
+            this.closeModal();
+        };
+        // Focus the confirm button
+        document.getElementById('sba-modal-confirm').focus();
+    },
+
+    closeModal() {
+        const modal = document.getElementById('sba-modal');
+        if (modal) {
+            modal.classList.remove('open');
+            setTimeout(() => modal.remove(), 200);
+        }
+    },
+
+    confirmAction(message, onConfirm) {
+        this.showModal('Confirm', `<p style="color:var(--text-secondary)">${message}</p>`, onConfirm, 'Confirm');
+    },
+
+    // ── Bet Slip Persistence ──────────────────────────────────────────
+    _saveSlip() {
+        try { localStorage.setItem('sba-betslip', JSON.stringify(this.betSlip)); } catch {}
+    },
+
+    _loadSlip() {
+        try {
+            const saved = localStorage.getItem('sba-betslip');
+            if (saved) {
+                this.betSlip = JSON.parse(saved);
+                if (this.betSlip.length > 0) {
+                    this.renderSlip();
+                    const headerCount = document.getElementById('slip-count-header');
+                    if (headerCount) headerCount.textContent = this.betSlip.length;
+                }
+            }
+        } catch {}
+    },
+
+    editSetting(label, key, currentValue, type) {
+        const inputType = type === 'number' ? 'number' : 'text';
+        const step = type === 'number' ? 'step="any"' : '';
+        this.showModal(
+            `Edit ${label}`,
+            `<label style="display:block;margin-bottom:8px;color:var(--text-secondary);font-size:13px">New value for ${label}:</label>
+             <input id="sba-modal-input" type="${inputType}" ${step} value="${currentValue}"
+                    class="form-input" style="width:100%;padding:10px 12px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);font-size:15px">`,
+            () => {
+                const v = document.getElementById('sba-modal-input').value;
+                if (v) this.updateSetting(key, type === 'number' ? parseFloat(v) : v);
+            },
+            'Save'
+        );
+        setTimeout(() => {
+            const inp = document.getElementById('sba-modal-input');
+            if (inp) { inp.focus(); inp.select(); }
+        }, 50);
+    },
+
     // ── Enhanced Notification Bell ────────────────────────────────────
     ringBell() {
         const bell = document.getElementById('notification-bell');
@@ -3203,10 +3304,10 @@ function setupScrollProgressBarV2() {
 
 // ── v4.0: Enhanced Reveal Animations ───────────────────────────
 function setupRevealAnimationsV2() {
+    const allRevealEls = document.querySelectorAll('.reveal-up, .reveal-left, .reveal-scale');
+
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-        document.querySelectorAll('.reveal-up, .reveal-left, .reveal-scale').forEach(el => {
-            el.classList.add('revealed');
-        });
+        allRevealEls.forEach(el => el.classList.add('revealed'));
         return;
     }
 
@@ -3221,11 +3322,18 @@ function setupRevealAnimationsV2() {
                 observer.unobserve(entry.target);
             }
         });
-    }, { threshold: 0.1, rootMargin: '0px 0px -30px 0px' });
+    }, { threshold: 0.05, rootMargin: '0px 0px 50px 0px' });
 
-    document.querySelectorAll('.reveal-up, .reveal-left, .reveal-scale').forEach(el => {
-        observer.observe(el);
-    });
+    allRevealEls.forEach(el => observer.observe(el));
+
+    // Safety fallback: ensure all cards become visible after 2s even if observer fails
+    setTimeout(() => {
+        allRevealEls.forEach(el => {
+            if (!el.classList.contains('revealed')) {
+                el.classList.add('revealed');
+            }
+        });
+    }, 2000);
 }
 
 // Initialize on DOM ready
@@ -3239,14 +3347,14 @@ document.addEventListener('DOMContentLoaded', () => {
     SBA.setupScrollProgressBar();
 
     // v4.0 enhancements
-    setupCursorSpotlight();
-    setupScrollProgressBarV2();
+    try { setupCursorSpotlight(); } catch (e) { console.warn('Cursor spotlight init failed:', e); }
+    try { setupScrollProgressBarV2(); } catch (e) { console.warn('Scroll progress init failed:', e); }
 
     // Setup reveal animations after a brief delay
     setTimeout(() => {
-        setupRevealAnimationsV2();
-        SBA.setup3DCardTilt();
-        SBA.setupParticles();
+        try { setupRevealAnimationsV2(); } catch (e) { console.warn('Reveal animations failed:', e); }
+        try { SBA.setup3DCardTilt(); } catch (e) { console.warn('3D tilt init failed:', e); }
+        try { SBA.setupParticles(); } catch (e) { console.warn('Particles init failed:', e); }
     }, 100);
 
     // Animate counters, chart paths, and apply heat colors after content loads

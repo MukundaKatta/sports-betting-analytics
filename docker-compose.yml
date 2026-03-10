@@ -1,0 +1,15 @@
+services:
+  sba:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - sba-data:/app/data
+    env_file:
+      - .env
+    environment:
+      - SBA_DB_PATH=/app/data/sba.db
+    restart: unless-stopped
+
+volumes:
+  sba-data:

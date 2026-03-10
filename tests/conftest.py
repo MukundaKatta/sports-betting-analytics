@@ -7,6 +7,30 @@ import pytest
 
 from sba.data.db.repository import Repository
 from sba.data.db.schema import SCHEMA_SQL
+
+
+def _find_rate_limiter():
+    """Walk the ASGI middleware stack to find the RateLimitMiddleware instance."""
+    from sba.web.app import app
+    from sba.web.middleware import RateLimitMiddleware
+    obj = app.middleware_stack
+    while obj is not None:
+        if isinstance(obj, RateLimitMiddleware):
+            return obj
+        obj = getattr(obj, 'app', None)
+    return None
+
+
+@pytest.fixture(autouse=True)
+def _reset_rate_limiter():
+    """Reset rate limiter state between tests to prevent cross-test 429s."""
+    rl = _find_rate_limiter()
+    if rl:
+        rl._hits.clear()
+    yield
+    rl = _find_rate_limiter()
+    if rl:
+        rl._hits.clear()
 from sba.models.domain import (
     BookmakerOdds,
     Event,

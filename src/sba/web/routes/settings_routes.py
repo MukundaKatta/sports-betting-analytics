@@ -8,6 +8,7 @@ from datetime import datetime
 from fastapi import APIRouter, Query
 from pydantic import BaseModel
 
+from sba import __version__
 from sba.config import get_settings
 from sba.data.db import get_connection
 
@@ -71,11 +72,63 @@ def health_check():
         db_status = "unhealthy"
 
     return HealthResponse(
-        status="ok",
-        version="2.0.0",
+        status="ok" if db_status == "healthy" else "degraded",
+        version=__version__,
         uptime=f"{hours}h {minutes}m {seconds}s",
         database=db_status,
     )
+
+
+@router.get("/health/deep")
+def deep_health_check():
+    """Deep health check with dependency status and database metrics."""
+    import time as _time
+
+    uptime = datetime.now() - _start_time
+    settings = get_settings()
+    checks = {}
+
+    # Database connectivity + response time
+    try:
+        start = _time.monotonic()
+        with get_connection() as conn:
+            conn.execute("SELECT 1")
+            row_count = conn.execute("SELECT COUNT(*) as c FROM bets").fetchone()["c"]
+        db_ms = round((_time.monotonic() - start) * 1000, 1)
+        checks["database"] = {"status": "healthy", "response_ms": db_ms, "bet_count": row_count}
+    except Exception as e:
+        checks["database"] = {"status": "unhealthy", "error": str(e)}
+
+    # Odds API key configured
+    checks["odds_api"] = {
+        "status": "configured" if settings.ODDS_API_KEY else "not_configured",
+    }
+
+    # Cache stats
+    from sba.utils.cache import cache
+    checks["cache"] = cache.stats
+
+    # Rate limiter status
+    checks["rate_limit"] = {
+        "max_requests": settings.RATE_LIMIT_MAX_REQUESTS,
+        "window_seconds": settings.RATE_LIMIT_WINDOW_SECONDS,
+    }
+
+    # Auth status
+    checks["authentication"] = "enabled" if settings.API_KEY else "disabled"
+
+    all_healthy = all(
+        c.get("status") in ("healthy", "configured", "enabled", "disabled")
+        for c in checks.values()
+        if isinstance(c, dict) and "status" in c
+    )
+
+    return {
+        "status": "healthy" if all_healthy else "degraded",
+        "version": __version__,
+        "uptime_seconds": int(uptime.total_seconds()),
+        "checks": checks,
+    }
 
 
 @router.get("/status", response_model=StatusResponse)

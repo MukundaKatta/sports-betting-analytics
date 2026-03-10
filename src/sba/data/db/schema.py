@@ -243,4 +243,90 @@ CREATE TABLE IF NOT EXISTS clv_records (
     UNIQUE(bet_id)
 );
 CREATE INDEX IF NOT EXISTS idx_clv_bet ON clv_records(bet_id);
+
+CREATE TABLE IF NOT EXISTS book_balances (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    sportsbook TEXT NOT NULL,
+    balance REAL NOT NULL DEFAULT 0,
+    deposited REAL NOT NULL DEFAULT 0,
+    withdrawn REAL NOT NULL DEFAULT 0,
+    bonus_balance REAL NOT NULL DEFAULT 0,
+    notes TEXT DEFAULT '',
+    is_limited INTEGER DEFAULT 0,
+    updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(sportsbook)
+);
+
+CREATE TABLE IF NOT EXISTS book_balance_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    sportsbook TEXT NOT NULL,
+    balance REAL NOT NULL,
+    change REAL NOT NULL DEFAULT 0,
+    reason TEXT DEFAULT '',
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_book_balance_history ON book_balance_history(sportsbook, created_at);
+
+CREATE TABLE IF NOT EXISTS account_limits (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    sportsbook TEXT NOT NULL,
+    limit_type TEXT NOT NULL DEFAULT 'none',
+    max_stake REAL,
+    severity TEXT NOT NULL DEFAULT 'none',
+    notes TEXT DEFAULT '',
+    detected_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(sportsbook)
+);
+
+CREATE INDEX IF NOT EXISTS idx_account_limits_book ON account_limits(sportsbook);
+
+-- Performance indexes for common query patterns
+CREATE INDEX IF NOT EXISTS idx_bets_market ON bets(market);
+CREATE INDEX IF NOT EXISTS idx_bets_bookmaker ON bets(bookmaker);
+CREATE INDEX IF NOT EXISTS idx_bets_settled ON bets(status, profit_loss) WHERE status IN ('won', 'lost', 'push');
+CREATE INDEX IF NOT EXISTS idx_bets_placed_date ON bets(DATE(placed_at));
+CREATE INDEX IF NOT EXISTS idx_odds_event_book ON odds_snapshots(event_id, bookmaker);
+CREATE INDEX IF NOT EXISTS idx_odds_market_time ON odds_snapshots(market, snapshot_time);
+CREATE INDEX IF NOT EXISTS idx_events_active ON events(completed, commence_time) WHERE completed = 0;
+CREATE INDEX IF NOT EXISTS idx_player_logs_opponent ON player_game_logs(player_id, opponent);
+CREATE INDEX IF NOT EXISTS idx_clv_recorded ON clv_records(recorded_at);
+
+CREATE TABLE IF NOT EXISTS notification_rules (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    rule_type TEXT NOT NULL,
+    sport TEXT DEFAULT '',
+    min_ev REAL DEFAULT 0,
+    min_odds INTEGER DEFAULT -1000,
+    max_odds INTEGER DEFAULT 1000,
+    bookmakers TEXT DEFAULT '',
+    webhook_url TEXT DEFAULT '',
+    enabled INTEGER DEFAULT 1,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Responsible gambling: configurable limits
+CREATE TABLE IF NOT EXISTS rg_limits (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    limit_type TEXT NOT NULL,
+    amount REAL NOT NULL,
+    period TEXT NOT NULL DEFAULT 'daily',
+    updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(limit_type, period)
+);
+
+-- Responsible gambling: session tracking
+CREATE TABLE IF NOT EXISTS rg_sessions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    started_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    ended_at TEXT,
+    duration_minutes REAL DEFAULT 0
+);
+
+CREATE INDEX IF NOT EXISTS idx_rg_sessions_date ON rg_sessions(DATE(started_at));
+
+-- v2.5: Composite indexes for optimized JOIN queries
+CREATE INDEX IF NOT EXISTS idx_odds_event_market_book ON odds_snapshots(event_id, market, bookmaker, outcome_name);
+CREATE INDEX IF NOT EXISTS idx_bets_event ON bets(event_id, status);
 """

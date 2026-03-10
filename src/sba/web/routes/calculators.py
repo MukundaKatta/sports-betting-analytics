@@ -76,6 +76,7 @@ class SGPLegRequest(BaseModel):
 class SGPRequest(BaseModel):
     legs: list[SGPLegRequest]
     stake: float = 100.0
+    sport: str = "nba"
 
 
 class PromoRequest(BaseModel):
@@ -399,7 +400,7 @@ def sgp_builder(req: SGPRequest):
             player_name=leg.player_name,
         ))
 
-    analysis = build_sgp(legs)
+    analysis = build_sgp(legs, sport=req.sport)
 
     payout = round(req.stake * analysis.correlated_odds_decimal, 2)
     profit = round(payout - req.stake, 2)

@@ -76,44 +76,73 @@ class AddNoteRequest(BaseModel):
 # ── Endpoints ────────────────────────────────────────────────────────
 
 @router.get("/bets", response_model=BetSummaryResponse)
-def get_bets():
-    """Get bet history and summary stats."""
-    with get_connection() as conn:
-        bets = repo.get_bet_history(conn)
+def get_bets(
+    page: int = Query(1, ge=1, description="Page number"),
+    per_page: int = Query(50, ge=1, le=500, description="Results per page"),
+    status_filter: str = Query(None, alias="status", description="Filter: pending, won, lost, push"),
+):
+    """Get bet history and summary stats with pagination."""
+    offset = (page - 1) * per_page
 
-    settled = [b for b in bets if b.status in ("won", "lost", "push")]
-    pending = [b for b in bets if b.status == "pending"]
-    wins = sum(1 for b in settled if b.status == "won")
-    losses = sum(1 for b in settled if b.status == "lost")
-    pushes = sum(1 for b in settled if b.status == "push")
-    total_staked = sum(b.recommended_stake for b in settled)
-    total_profit = sum(b.profit_loss for b in settled)
+    with get_connection() as conn:
+        # Compute summary stats in SQL (avoids loading all rows into Python)
+        status_clause = "AND status = ?" if status_filter else ""
+        params: list = []
+        if status_filter:
+            params.append(status_filter)
+
+        stats = conn.execute(f"""
+            SELECT
+                SUM(CASE WHEN status IN ('won','lost','push') THEN 1 ELSE 0 END) as settled,
+                SUM(CASE WHEN status = 'won' THEN 1 ELSE 0 END) as wins,
+                SUM(CASE WHEN status = 'lost' THEN 1 ELSE 0 END) as losses,
+                SUM(CASE WHEN status = 'push' THEN 1 ELSE 0 END) as pushes,
+                SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,
+                COALESCE(SUM(CASE WHEN status IN ('won','lost','push') THEN recommended_stake ELSE 0 END), 0) as total_staked,
+                COALESCE(SUM(CASE WHEN status IN ('won','lost','push') THEN profit_loss ELSE 0 END), 0) as total_profit
+            FROM bets WHERE 1=1 {status_clause}
+        """, params).fetchone()
+
+        # Paginated rows via SQL LIMIT/OFFSET
+        page_rows = conn.execute(f"""
+            SELECT * FROM bets WHERE 1=1 {status_clause}
+            ORDER BY placed_at DESC LIMIT ? OFFSET ?
+        """, params + [per_page, offset]).fetchall()
+
+    settled = stats["settled"] or 0
+    wins = stats["wins"] or 0
+    losses = stats["losses"] or 0
+    pushes = stats["pushes"] or 0
+    pending_count = stats["pending"] or 0
+    total_staked = stats["total_staked"] or 0
+    total_profit = stats["total_profit"] or 0
     roi = (total_profit / total_staked * 100) if total_staked > 0 else 0
 
     return BetSummaryResponse(
-        total_bets=len(settled),
+        total_bets=settled,
         wins=wins,
         losses=losses,
         pushes=pushes,
-        pending=len(pending),
-        win_rate=wins / max(len(settled), 1),
+        pending=pending_count,
+        win_rate=wins / max(settled, 1),
         total_staked=round(total_staked, 2),
         total_profit=round(total_profit, 2),
         roi=round(roi, 2),
         bets=[
             BetResponse(
-                id=b.id, event_id=b.event_id, market=b.market,
-                selection=b.selection, line=b.line,
-                odds_american=b.odds_american, odds_decimal=b.odds_decimal,
-                model_probability=b.model_probability,
-                expected_value=b.expected_value,
-                kelly_fraction=b.kelly_fraction,
-                recommended_stake=b.recommended_stake,
-                bookmaker=b.bookmaker, status=b.status,
-                profit_loss=b.profit_loss,
-                placed_at=b.placed_at.isoformat() if b.placed_at else None,
+                id=r["id"], event_id=r["event_id"], market=r["market"],
+                selection=r["selection"], line=r["line"],
+                odds_american=r["odds_american"],
+                odds_decimal=r["odds_decimal"],
+                model_probability=r["model_probability"],
+                expected_value=r["expected_value"],
+                kelly_fraction=r["kelly_fraction"],
+                recommended_stake=r["recommended_stake"],
+                bookmaker=r["bookmaker"], status=r["status"],
+                profit_loss=r["profit_loss"] or 0,
+                placed_at=r["placed_at"],
             )
-            for b in bets
+            for r in page_rows
         ],
     )
 
@@ -223,13 +252,15 @@ def export_bets_json():
 @router.post("/bets/{bet_id}/tags")
 def add_bet_tag(bet_id: int, req: AddTagRequest):
     """Add a tag to a bet."""
+    import sqlite3
+
     with get_connection() as conn:
         try:
             conn.execute(
                 "INSERT INTO bet_tags (bet_id, tag) VALUES (?, ?)",
                 (bet_id, req.tag),
             )
-        except Exception:
+        except sqlite3.IntegrityError:
             return {"status": "already_exists"}
     return {"bet_id": bet_id, "tag": req.tag, "status": "added"}
 

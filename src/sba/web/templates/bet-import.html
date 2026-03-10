@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+{% block title %}Import Bets{% endblock %}
+
+{% block content %}
+<div class="frosted-panel reveal-up" style="padding:32px;margin-bottom:28px;position:relative;overflow:hidden">
+    <h1 class="page-title" style="margin:0 0 8px">
+        <span class="gradient-text animated-gradient-text">Import Bets</span>
+    </h1>
+    <p class="text-dim" style="margin:0;font-size:13px;max-width:520px">Import your historical bets from CSV files or JSON. Migrating from a spreadsheet or another tool? Bring your data here.</p>
+</div>
+
+<div class="dashboard-grid">
+    <!-- CSV Import -->
+    <div class="card featured-card reveal-left" style="animation-delay:0.1s">
+        <div class="card-header">
+            <h3>
+                <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                Import from CSV
+            </h3>
+        </div>
+        <div class="card-body padded">
+            <div style="border:2px dashed rgba(255,255,255,0.1);border-radius:12px;padding:32px;text-align:center;cursor:pointer" onclick="document.getElementById('csv-file').click()" id="csv-drop-zone">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="36" height="36"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                <p style="margin:8px 0 0;font-weight:600">Drop CSV file here or click to browse</p>
+                <p class="text-dim" style="font-size:11px;margin:4px 0 0">Columns: date, event_id, market, selection, odds_american, stake, bookmaker, status, profit_loss</p>
+            </div>
+            <input type="file" id="csv-file" accept=".csv" style="display:none" onchange="uploadCSV(this)">
+            <div id="csv-result" style="margin-top:16px"></div>
+        </div>
+    </div>
+
+    <!-- JSON Import -->
+    <div class="card reveal-right" style="animation-delay:0.15s">
+        <div class="card-header">
+            <h3>
+                <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+                Import from JSON
+            </h3>
+        </div>
+        <div class="card-body padded">
+            <label class="form-label">Paste JSON array of bets</label>
+            <textarea id="json-input" class="form-input" rows="8" placeholder='[
+  {
+    "selection": "Lakers ML",
+    "odds_american": 150,
+    "stake": 25,
+    "bookmaker": "draftkings",
+    "status": "won",
+    "profit_loss": 37.50,
+    "market": "h2h"
+  }
+]' style="font-family:var(--font-mono);font-size:12px"></textarea>
+            <button class="btn btn-primary btn-block" style="margin-top:12px" onclick="importJSON()">Import JSON</button>
+            <div id="json-result" style="margin-top:16px"></div>
+        </div>
+    </div>
+
+    <!-- CSV Template -->
+    <div class="card full-width reveal-up" style="animation-delay:0.2s">
+        <div class="card-header">
+            <h3>
+                <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+                CSV Template
+            </h3>
+            <button class="btn btn-outline btn-sm" onclick="downloadTemplate()">Download Template</button>
+        </div>
+        <div class="card-body padded">
+            <div style="overflow-x:auto">
+                <table class="data-table" style="font-size:12px">
+                    <thead><tr><th>date</th><th>event_id</th><th>market</th><th>selection</th><th>odds_american</th><th>stake</th><th>bookmaker</th><th>status</th><th>profit_loss</th></tr></thead>
+                    <tbody>
+                        <tr class="text-dim"><td>2025-01-15</td><td>nba_lakers_celtics</td><td>h2h</td><td>Lakers ML</td><td>150</td><td>25.00</td><td>draftkings</td><td>won</td><td>37.50</td></tr>
+                        <tr class="text-dim"><td>2025-01-15</td><td>nba_warriors_suns</td><td>spreads</td><td>Warriors -3.5</td><td>-110</td><td>50.00</td><td>fanduel</td><td>lost</td><td>-50.00</td></tr>
+                        <tr class="text-dim"><td>2025-01-16</td><td>nba_bucks_heat</td><td>totals</td><td>Over 215.5</td><td>-105</td><td>30.00</td><td>betmgm</td><td>pending</td><td>0</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function uploadCSV(input) {
+    const file = input.files[0];
+    if (!file) return;
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const el = document.getElementById('csv-result');
+    el.innerHTML = '<div class="loading-spinner"><div class="spinner"></div> Importing...</div>';
+
+    try {
+        const resp = await fetch('/api/bets/import/csv', { method: 'POST', body: formData });
+        const d = await resp.json();
+        el.innerHTML = `<div class="frosted-panel" style="padding:16px">
+            <div class="text-green font-bold">${d.imported} bets imported successfully</div>
+            ${d.errors.length ? '<div class="text-dim" style="margin-top:8px;font-size:11px">Errors: ' + d.errors.join('; ') + '</div>' : ''}
+        </div>`;
+        SBA.toast(d.imported + ' bets imported!', 'success');
+    } catch (err) {
+        el.innerHTML = '<div class="text-red">Import failed: ' + err.message + '</div>';
+    }
+    input.value = '';
+}
+
+async function importJSON() {
+    const text = document.getElementById('json-input').value.trim();
+    if (!text) { SBA.toast('Paste JSON data first', 'warning'); return; }
+    const el = document.getElementById('json-result');
+
+    try {
+        const bets = JSON.parse(text);
+        if (!Array.isArray(bets)) { SBA.toast('JSON must be an array', 'error'); return; }
+
+        const resp = await fetch('/api/bets/import', {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ bets }),
+        });
+        const d = await resp.json();
+        el.innerHTML = `<div class="frosted-panel" style="padding:16px">
+            <div class="text-green font-bold">${d.imported} bets imported</div>
+            ${d.errors.length ? '<div class="text-dim" style="margin-top:8px;font-size:11px">' + d.errors.join('; ') + '</div>' : ''}
+        </div>`;
+        SBA.toast(d.imported + ' bets imported!', 'success');
+    } catch (err) {
+        el.innerHTML = '<div class="text-red">Invalid JSON: ' + err.message + '</div>';
+    }
+}
+
+function downloadTemplate() {
+    const csv = 'date,event_id,market,selection,odds_american,stake,bookmaker,status,profit_loss\n2025-01-15,game_001,h2h,Lakers ML,150,25.00,draftkings,won,37.50\n2025-01-15,game_002,spreads,Warriors -3.5,-110,50.00,fanduel,lost,-50.00\n';
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'sba_import_template.csv';
+    a.click();
+}
+</script>
+{% endblock %}

@@ -27,17 +27,55 @@
     </div>
 </div>
 
+<!-- Advanced Performance Metrics -->
+<div class="stats-grid" id="advanced-metrics">
+    <div class="stat-card green"><div class="stat-label">Sharpe Ratio</div><div class="stat-value">—</div></div>
+    <div class="stat-card blue"><div class="stat-label">Max Drawdown</div><div class="stat-value">—</div></div>
+    <div class="stat-card yellow"><div class="stat-label">Profit Factor</div><div class="stat-value">—</div></div>
+    <div class="stat-card purple"><div class="stat-label">Win Streaks</div><div class="stat-value">—</div></div>
+</div>
+
 <div class="dashboard-grid">
-    <!-- P/L Timeline Chart -->
+    <!-- SVG P/L Chart -->
     <div class="card full-width">
         <div class="card-header">
             <h3>
                 <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
                 Cumulative P/L Over Time
             </h3>
+            <div style="display:flex;gap:8px">
+                <a href="/api/bets/export" class="btn btn-outline btn-sm" download>Export CSV</a>
+                <a href="/api/bets/export/json" class="btn btn-outline btn-sm" target="_blank">Export JSON</a>
+            </div>
+        </div>
+        <div class="card-body padded" id="advanced-pnl-chart">
+            <div class="loading-spinner"><div class="spinner"></div> Loading chart data...</div>
+        </div>
+    </div>
+
+    <!-- Drawdown Chart -->
+    <div class="card full-width">
+        <div class="card-header">
+            <h3>
+                <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                Drawdown Analysis
+            </h3>
+        </div>
+        <div class="card-body padded" id="drawdown-chart">
+            <div class="loading-spinner"><div class="spinner"></div> Loading...</div>
+        </div>
+    </div>
+
+    <!-- Legacy P/L bar chart -->
+    <div class="card full-width">
+        <div class="card-header">
+            <h3>
+                <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/></svg>
+                Daily P/L Bars
+            </h3>
         </div>
         <div class="card-body padded" id="pnl-chart-container">
-            <div class="loading-spinner"><div class="spinner"></div> Loading chart data...</div>
+            <div class="loading-spinner"><div class="spinner"></div> Loading...</div>
         </div>
     </div>
 
@@ -67,8 +105,21 @@
         </div>
     </div>
 
+    <!-- Monthly Breakdown -->
+    <div class="card">
+        <div class="card-header">
+            <h3>
+                <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                Monthly Breakdown
+            </h3>
+        </div>
+        <div class="card-body" id="monthly-breakdown">
+            <div class="loading-spinner"><div class="spinner"></div> Loading...</div>
+        </div>
+    </div>
+
     <!-- Best & Worst Bets -->
-    <div class="card full-width">
+    <div class="card">
         <div class="card-header">
             <h3>
                 <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
@@ -84,6 +135,9 @@
 
 {% block scripts %}
 <script>
-document.addEventListener('DOMContentLoaded', () => SBA.loadAnalytics());
+document.addEventListener('DOMContentLoaded', () => {
+    SBA.loadAnalytics();
+    SBA.loadAdvancedAnalytics();
+});
 </script>
 {% endblock %}

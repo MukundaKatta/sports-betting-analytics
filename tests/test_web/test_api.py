@@ -50,7 +50,7 @@ class TestHealthEndpoint:
         assert resp.status_code == 200
         data = resp.json()
         assert data["status"] == "ok"
-        assert data["version"] == "0.4.0"
+        assert data["version"] == "0.5.0"
         assert data["database"] == "healthy"
         assert "uptime" in data
 
@@ -359,6 +359,97 @@ class TestLiveOddsEndpoint:
         assert resp.status_code == 200
 
 
+class TestAdvancedAnalytics:
+    def test_advanced_analytics_returns_metrics(self, client):
+        resp = client.get("/api/analytics/advanced")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "sharpe_ratio" in data
+        assert "max_drawdown" in data
+        assert "profit_factor" in data
+        assert "longest_win_streak" in data
+        assert "cumulative_pnl" in data
+        assert isinstance(data["cumulative_pnl"], list)
+
+
+class TestWatchlistEndpoint:
+    def test_get_watchlist(self, client):
+        resp = client.get("/api/watchlist")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "items" in data
+        assert "count" in data
+
+    def test_add_and_remove_watchlist(self, client):
+        # Add
+        resp = client.post("/api/watchlist?event_id=test123&label=Test+Game")
+        assert resp.status_code == 200
+        assert resp.json()["status"] == "added"
+
+        # Duplicate
+        resp = client.post("/api/watchlist?event_id=test123&label=Test+Game")
+        assert resp.json()["status"] == "already_exists"
+
+        # Remove
+        resp = client.delete("/api/watchlist/test123")
+        assert resp.status_code == 200
+        assert resp.json()["status"] == "removed"
+
+
+class TestCalculatorEndpoint:
+    def test_calculator_default(self, client):
+        resp = client.post("/api/calculator", json={})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "odds_american" in data
+        assert "odds_decimal" in data
+        assert "odds_fractional" in data
+        assert "implied_probability" in data
+        assert "payout" in data
+
+    def test_calculator_with_probability(self, client):
+        resp = client.post("/api/calculator", json={
+            "odds_american": -110,
+            "stake": 100,
+            "win_probability": 0.55,
+        })
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["ev_pct"] is not None
+        assert data["kelly_pct"] is not None
+
+    def test_calculator_positive_odds(self, client):
+        resp = client.post("/api/calculator", json={
+            "odds_american": 200,
+            "stake": 50,
+        })
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["payout"] == 100.0
+        assert data["total_return"] == 150.0
+
+
+class TestHedgeCalculator:
+    def test_hedge_calc(self, client):
+        resp = client.post("/api/calculator/hedge", json={
+            "original_odds": 200,
+            "original_stake": 100,
+            "hedge_odds": -150,
+        })
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "hedge_stake" in data
+        assert "total_invested" in data
+        assert "guaranteed_profit" in data
+
+
+class TestBetsExportJson:
+    def test_export_json_returns_list(self, client):
+        resp = client.get("/api/bets/export/json")
+        assert resp.status_code == 200
+        assert isinstance(resp.json(), list)
+
+
 class TestNewPages:
     def test_simulator_page_loads(self, client):
         resp = client.get("/simulator")
@@ -369,3 +460,8 @@ class TestNewPages:
         resp = client.get("/live-feed")
         assert resp.status_code == 200
         assert "Live" in resp.text
+
+    def test_calculator_page_loads(self, client):
+        resp = client.get("/calculator")
+        assert resp.status_code == 200
+        assert "Calculator" in resp.text

@@ -63,6 +63,11 @@ def live_feed_page(request: Request):
     return templates.TemplateResponse(request, "live-feed.html")
 
 
+@router.get("/calculator")
+def calculator_page(request: Request):
+    return templates.TemplateResponse(request, "calculator.html")
+
+
 @router.get("/player/{name}")
 def player_page(request: Request, name: str):
     return templates.TemplateResponse(request, "player.html", {"player_name": name})

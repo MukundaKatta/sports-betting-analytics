@@ -112,6 +112,44 @@ body::before {
 a { color: var(--accent-blue); text-decoration: none; transition: color var(--transition-fast); }
 a:hover { color: #7db3ff; }
 
+/* ── Skip Link (Accessibility) ───────────────────────────────────── */
+.skip-link {
+    position: absolute;
+    top: -100%;
+    left: 16px;
+    z-index: 10000;
+    padding: 8px 16px;
+    background: var(--accent-green);
+    color: var(--text-inverse);
+    border-radius: var(--radius-sm);
+    font-weight: 600;
+    font-size: 13px;
+    transition: top 0.2s;
+}
+.skip-link:focus { top: 16px; color: var(--text-inverse); }
+
+/* ── SVG Line Chart ──────────────────────────────────────────────── */
+.svg-line-chart { overflow: visible; }
+.svg-line-chart .chart-dot { transition: opacity var(--transition-fast), r var(--transition-fast); }
+.svg-line-chart:hover .chart-dot { opacity: 0.6; }
+.svg-line-chart .chart-dot:hover { opacity: 1 !important; r: 5; }
+.svg-line-chart .chart-endpoint { animation: pulse-dot 2s ease-in-out infinite; }
+@keyframes pulse-dot {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+/* ── Focus Visible ───────────────────────────────────────────────── */
+:focus-visible {
+    outline: 2px solid var(--accent-green);
+    outline-offset: 2px;
+    border-radius: 4px;
+}
+input:focus-visible, select:focus-visible, button:focus-visible {
+    outline: 2px solid var(--accent-green);
+    outline-offset: 2px;
+}
+
 /* ── Sidebar ───────────────────────────────────────────────────────── */
 
 .sidebar {

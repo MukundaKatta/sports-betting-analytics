@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+{% block title %}Arbitrage Scanner{% endblock %}
+
+{% block content %}
+<h1 class="page-title reveal-up">
+    <span class="gradient-text animated-gradient-text">Arbitrage Scanner</span>
+    <span class="tag-elite">Pro</span>
+</h1>
+
+<div class="filters-bar reveal-up" style="animation-delay:0.1s">
+    <select class="filter-select" id="arb-sport-filter">
+        <option value="basketball_nba">NBA</option>
+        <option value="basketball_ncaab">NCAAB</option>
+        <option value="americanfootball_nfl">NFL</option>
+        <option value="baseball_mlb">MLB</option>
+        <option value="icehockey_nhl">NHL</option>
+    </select>
+
+    <div class="btn-group" style="display:flex;gap:4px">
+        <button class="btn btn-scan" onclick="scanArb('arbitrage')" id="arb-scan-btn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/></svg>
+            Arbs
+        </button>
+        <button class="btn btn-outline btn-sm" onclick="scanArb('middles')" id="mid-scan-btn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+            Middles
+        </button>
+        <button class="btn btn-outline btn-sm" onclick="scanArb('low-holds')" id="lh-scan-btn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+            Low-Hold
+        </button>
+    </div>
+</div>
+
+<!-- Arbitrage Opportunities -->
+<div class="card featured-card reveal-up" style="animation-delay:0.15s" id="arb-section">
+    <div class="card-header">
+        <h3>
+            <svg class="header-icon icon-bounce" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+            <span id="arb-section-title">Arbitrage Opportunities</span>
+            <span class="badge" id="arb-count">0</span>
+        </h3>
+    </div>
+    <div class="card-body">
+        <div style="overflow-x:auto">
+            <table class="data-table" id="arb-table">
+                <thead id="arb-thead">
+                    <tr>
+                        <th>Event</th>
+                        <th>Market</th>
+                        <th>Side A</th>
+                        <th>Side B</th>
+                        <th class="right">Profit %</th>
+                        <th class="right">Stake A</th>
+                        <th class="right">Stake B</th>
+                    </tr>
+                </thead>
+                <tbody id="arb-table-body">
+                    <tr><td colspan="7" class="empty-state">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+                        <p>Click a scan button to search for opportunities</p>
+                        <p class="text-dim" style="font-size:12px">Scans live odds across multiple bookmakers</p>
+                    </td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function scanArb(type) {
+    const sport = document.getElementById('arb-sport-filter').value;
+    const btnId = type === 'arbitrage' ? 'arb-scan-btn' : type === 'middles' ? 'mid-scan-btn' : 'lh-scan-btn';
+    const btn = document.getElementById(btnId);
+    const origHTML = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<div class="spinner" style="width:14px;height:14px;border-width:2px"></div> Scanning...';
+
+    try {
+        const url = type === 'low-holds'
+            ? `/api/low-holds?sport=${sport}`
+            : `/api/${type}?sport=${sport}`;
+        const resp = await fetch(url);
+        const data = await resp.json();
+
+        if (data.error) {
+            SBA.toast(data.error, 'error');
+            return;
+        }
+
+        const tbody = document.getElementById('arb-table-body');
+        const thead = document.getElementById('arb-thead');
+        const title = document.getElementById('arb-section-title');
+        const items = data.opportunities || data.markets || [];
+        document.getElementById('arb-count').textContent = items.length;
+
+        if (type === 'arbitrage') {
+            title.textContent = 'Arbitrage Opportunities';
+            thead.innerHTML = '<tr><th>Event</th><th>Market</th><th>Side A</th><th>Side B</th><th class="right">Profit %</th><th class="right">Stake A</th><th class="right">Stake B</th></tr>';
+            if (items.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="empty-state"><p>No arbitrage opportunities found</p><p class="text-dim" style="font-size:12px">Arbs are rare — check back frequently</p></td></tr>';
+            } else {
+                tbody.innerHTML = items.map(a => `
+                    <tr>
+                        <td class="font-bold">${a.event}</td>
+                        <td><span class="tag">${a.market}</span></td>
+                        <td>${a.outcome_a}<br><span class="text-dim">${a.book_a}</span> <span class="font-mono ${a.odds_a > 0 ? 'text-green' : 'text-red'}">${a.odds_a > 0 ? '+' : ''}${a.odds_a}</span></td>
+                        <td>${a.outcome_b}<br><span class="text-dim">${a.book_b}</span> <span class="font-mono ${a.odds_b > 0 ? 'text-green' : 'text-red'}">${a.odds_b > 0 ? '+' : ''}${a.odds_b}</span></td>
+                        <td class="right font-bold text-green glow-green">+${a.profit_pct}%</td>
+                        <td class="right font-mono">${a.stake_a_pct}%</td>
+                        <td class="right font-mono">${a.stake_b_pct}%</td>
+                    </tr>
+                `).join('');
+            }
+        } else if (type === 'middles') {
+            title.textContent = 'Middle Opportunities';
+            thead.innerHTML = '<tr><th>Event</th><th>Market</th><th>Selection</th><th>Book A</th><th>Book B</th><th class="right">Gap</th><th>Description</th></tr>';
+            if (items.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="empty-state"><p>No middle opportunities found</p></td></tr>';
+            } else {
+                tbody.innerHTML = items.map(m => `
+                    <tr>
+                        <td class="font-bold">${m.event}</td>
+                        <td><span class="tag">${m.market}</span></td>
+                        <td>${m.selection}</td>
+                        <td>${m.book_a}<br><span class="font-mono">${m.line_a} (${m.odds_a > 0 ? '+' : ''}${m.odds_a})</span></td>
+                        <td>${m.book_b}<br><span class="font-mono">${m.line_b} (${m.odds_b > 0 ? '+' : ''}${m.odds_b})</span></td>
+                        <td class="right font-bold text-green">${m.gap} pts</td>
+                        <td class="text-dim" style="font-size:12px">${m.description}</td>
+                    </tr>
+                `).join('');
+            }
+        } else {
+            title.textContent = 'Low-Hold Markets';
+            thead.innerHTML = '<tr><th>Event</th><th>Market</th><th>Book A</th><th>Odds A</th><th>Book B</th><th>Odds B</th><th class="right">Hold %</th></tr>';
+            if (items.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="empty-state"><p>No low-hold markets found</p></td></tr>';
+            } else {
+                tbody.innerHTML = items.map(lh => `
+                    <tr>
+                        <td class="font-bold">${lh.event}</td>
+                        <td><span class="tag">${lh.market}</span></td>
+                        <td>${lh.best_book_a}</td>
+                        <td class="font-mono ${lh.odds_a > 0 ? 'text-green' : 'text-red'}">${lh.odds_a > 0 ? '+' : ''}${lh.odds_a}</td>
+                        <td>${lh.best_book_b}</td>
+                        <td class="font-mono ${lh.odds_b > 0 ? 'text-green' : 'text-red'}">${lh.odds_b > 0 ? '+' : ''}${lh.odds_b}</td>
+                        <td class="right font-bold ${lh.hold_pct <= 1 ? 'text-green' : 'text-yellow'}">${lh.hold_pct}%</td>
+                    </tr>
+                `).join('');
+            }
+        }
+
+        SBA.toast(`Found ${items.length} ${type} results`, 'success');
+    } catch (err) {
+        SBA.toast('Scan failed: ' + err.message, 'error');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = origHTML;
+    }
+}
+</script>
+{% endblock %}

@@ -678,22 +678,54 @@ def get_odds_comparison(event_id: str, market: str = Query("h2h")):
     }
 
 
-# ── Notifications / Alerts ──────────────────────────────────────────
-
-_alerts: list[dict] = []
-
+# ── Notifications / Alerts (DB-persisted) ──────────────────────────
 
 @router.get("/alerts")
 def get_alerts():
-    """Get pending edge alerts."""
-    return {"alerts": _alerts, "count": len(_alerts)}
+    """Get pending edge alerts from database."""
+    init_db()
+    with get_connection() as conn:
+        rows = conn.execute(
+            "SELECT * FROM alerts WHERE read = 0 ORDER BY created_at DESC LIMIT 50"
+        ).fetchall()
+    alerts = [
+        {
+            "id": r["id"], "type": r["alert_type"], "title": r["title"],
+            "message": r["message"], "created_at": r["created_at"],
+        }
+        for r in rows
+    ]
+    return {"alerts": alerts, "count": len(alerts)}
+
+
+@router.post("/alerts")
+def create_alert(alert_type: str = Query("info"), title: str = Query(...), message: str = Query("")):
+    """Create a new alert."""
+    init_db()
+    with get_connection() as conn:
+        conn.execute(
+            "INSERT INTO alerts (alert_type, title, message) VALUES (?, ?, ?)",
+            (alert_type, title, message),
+        )
+    return {"status": "created"}
 
 
 @router.delete("/alerts")
 def clear_alerts():
-    """Clear all alerts."""
-    _alerts.clear()
+    """Mark all alerts as read."""
+    init_db()
+    with get_connection() as conn:
+        conn.execute("UPDATE alerts SET read = 1")
     return {"cleared": True}
+
+
+@router.delete("/alerts/{alert_id}")
+def dismiss_alert(alert_id: int):
+    """Dismiss a single alert."""
+    init_db()
+    with get_connection() as conn:
+        conn.execute("UPDATE alerts SET read = 1 WHERE id = ?", (alert_id,))
+    return {"dismissed": True}
 
 
 # ── Bankroll Simulator ─────────────────────────────────────────────
@@ -929,36 +961,49 @@ def get_advanced_analytics():
     }
 
 
-# ── Favorites / Watchlist ─────────────────────────────────────────
-
-_watchlist: list[dict] = []
-
+# ── Favorites / Watchlist (DB-persisted) ──────────────────────────
 
 @router.get("/watchlist")
 def get_watchlist():
-    """Get user's watchlisted events."""
-    return {"items": _watchlist, "count": len(_watchlist)}
+    """Get user's watchlisted events from database."""
+    init_db()
+    with get_connection() as conn:
+        rows = conn.execute(
+            "SELECT * FROM watchlist ORDER BY added_at DESC"
+        ).fetchall()
+    items = [
+        {"event_id": r["event_id"], "label": r["label"], "added_at": r["added_at"]}
+        for r in rows
+    ]
+    return {"items": items, "count": len(items)}
 
 
 @router.post("/watchlist")
 def add_to_watchlist(event_id: str = Query(...), label: str = Query("")):
-    """Add an event to watchlist."""
-    if any(w["event_id"] == event_id for w in _watchlist):
-        return {"status": "already_exists"}
-    _watchlist.append({
-        "event_id": event_id,
-        "label": label,
-        "added_at": datetime.now().isoformat(),
-    })
-    return {"status": "added", "count": len(_watchlist)}
+    """Add an event to watchlist (persisted to DB)."""
+    init_db()
+    with get_connection() as conn:
+        existing = conn.execute(
+            "SELECT id FROM watchlist WHERE event_id = ?", (event_id,)
+        ).fetchone()
+        if existing:
+            return {"status": "already_exists"}
+        conn.execute(
+            "INSERT INTO watchlist (event_id, label) VALUES (?, ?)",
+            (event_id, label),
+        )
+        count = conn.execute("SELECT COUNT(*) as c FROM watchlist").fetchone()["c"]
+    return {"status": "added", "count": count}
 
 
 @router.delete("/watchlist/{event_id}")
 def remove_from_watchlist(event_id: str):
     """Remove event from watchlist."""
-    global _watchlist
-    _watchlist = [w for w in _watchlist if w["event_id"] != event_id]
-    return {"status": "removed", "count": len(_watchlist)}
+    init_db()
+    with get_connection() as conn:
+        conn.execute("DELETE FROM watchlist WHERE event_id = ?", (event_id,))
+        count = conn.execute("SELECT COUNT(*) as c FROM watchlist").fetchone()["c"]
+    return {"status": "removed", "count": count}
 
 
 # ── Bet Calculator ────────────────────────────────────────────────
@@ -1060,6 +1105,279 @@ def hedge_calculator(req: HedgeRequest):
         "profit_if_original_wins": profit_if_original_wins,
         "profit_if_hedge_wins": profit_if_hedge_wins,
         "guaranteed_profit": guaranteed,
+    }
+
+
+# ── Parlay Calculator ────────────────────────────────────────────
+
+class ParlayLeg(BaseModel):
+    odds_american: int
+    description: str = ""
+
+
+class ParlayRequest(BaseModel):
+    legs: list[ParlayLeg]
+    stake: float = 100.0
+
+
+@router.post("/calculator/parlay")
+def parlay_calculator(req: ParlayRequest):
+    """Calculate parlay odds and payout from multiple legs."""
+    from sba.utils.odds_math import american_to_decimal, decimal_to_american
+
+    if len(req.legs) < 2:
+        raise HTTPException(400, "Parlay requires at least 2 legs")
+
+    combined_decimal = 1.0
+    leg_details = []
+    for leg in req.legs:
+        dec = american_to_decimal(leg.odds_american)
+        combined_decimal *= dec
+        imp_prob = 1.0 / dec
+        leg_details.append({
+            "description": leg.description,
+            "odds_american": leg.odds_american,
+            "odds_decimal": round(dec, 4),
+            "implied_probability": round(imp_prob, 4),
+        })
+
+    combined_american = decimal_to_american(combined_decimal)
+    payout = round(req.stake * combined_decimal, 2)
+    profit = round(payout - req.stake, 2)
+    combined_prob = 1.0 / combined_decimal
+
+    return {
+        "legs": leg_details,
+        "num_legs": len(req.legs),
+        "combined_odds_decimal": round(combined_decimal, 4),
+        "combined_odds_american": combined_american,
+        "combined_probability": round(combined_prob, 4),
+        "stake": req.stake,
+        "payout": payout,
+        "profit": profit,
+    }
+
+
+# ── Free Bet Converter ───────────────────────────────────────────
+
+class FreeBetRequest(BaseModel):
+    free_bet_amount: float
+    free_bet_odds: int
+    hedge_odds: int
+
+
+@router.post("/calculator/freebet")
+def free_bet_converter(req: FreeBetRequest):
+    """Calculate optimal hedge to convert a free bet into guaranteed cash.
+
+    Free bets typically don't return the stake, so the profit calculation
+    differs from a normal hedge.
+    """
+    from sba.utils.odds_math import american_to_decimal
+
+    fb_dec = american_to_decimal(req.free_bet_odds)
+    hedge_dec = american_to_decimal(req.hedge_odds)
+
+    # Free bet profit if it wins = amount * (decimal - 1) since stake isn't returned
+    fb_profit = req.free_bet_amount * (fb_dec - 1.0)
+
+    # Hedge stake so that hedge_profit = fb_profit - hedge_stake
+    # hedge_stake * hedge_dec = fb_profit  =>  hedge_stake = fb_profit / hedge_dec
+    hedge_stake = fb_profit / hedge_dec
+    hedge_payout = hedge_stake * hedge_dec
+
+    # If free bet wins: profit = fb_profit - hedge_stake
+    profit_if_fb_wins = round(fb_profit - hedge_stake, 2)
+    # If hedge wins: profit = hedge_payout - hedge_stake (net, since free bet loses = $0)
+    profit_if_hedge_wins = round(hedge_payout - hedge_stake, 2)
+    guaranteed = round(min(profit_if_fb_wins, profit_if_hedge_wins), 2)
+    conversion_rate = round(guaranteed / req.free_bet_amount * 100, 1)
+
+    return {
+        "free_bet_amount": req.free_bet_amount,
+        "free_bet_odds": req.free_bet_odds,
+        "hedge_odds": req.hedge_odds,
+        "hedge_stake": round(hedge_stake, 2),
+        "profit_if_free_bet_wins": profit_if_fb_wins,
+        "profit_if_hedge_wins": profit_if_hedge_wins,
+        "guaranteed_profit": guaranteed,
+        "conversion_rate": conversion_rate,
+    }
+
+
+# ── No-Vig Fair Odds Calculator ──────────────────────────────────
+
+class NoVigOutcome(BaseModel):
+    name: str
+    odds_american: int
+
+
+class NoVigRequest(BaseModel):
+    outcomes: list[NoVigOutcome]
+
+
+@router.post("/calculator/novig")
+def novig_calculator(req: NoVigRequest):
+    """Remove vig to calculate fair/true probabilities and no-vig odds."""
+    from sba.utils.odds_math import (
+        american_to_decimal,
+        decimal_to_american,
+        decimal_to_implied_prob,
+    )
+
+    if len(req.outcomes) < 2:
+        raise HTTPException(400, "Need at least 2 outcomes")
+
+    raw = []
+    for o in req.outcomes:
+        dec = american_to_decimal(o.odds_american)
+        imp = decimal_to_implied_prob(dec)
+        raw.append({"name": o.name, "decimal": dec, "implied": imp})
+
+    total_implied = sum(r["implied"] for r in raw)
+    vig_pct = round((total_implied - 1.0) * 100, 2)
+
+    results = []
+    for r in raw:
+        fair_prob = r["implied"] / total_implied
+        fair_decimal = 1.0 / fair_prob if fair_prob > 0 else 0
+        fair_american = decimal_to_american(fair_decimal) if fair_decimal > 1 else 0
+        results.append({
+            "name": r["name"],
+            "original_odds": decimal_to_american(r["decimal"]),
+            "original_implied_prob": round(r["implied"] * 100, 2),
+            "fair_probability": round(fair_prob * 100, 2),
+            "fair_odds_decimal": round(fair_decimal, 4),
+            "fair_odds_american": fair_american,
+        })
+
+    return {
+        "total_implied_probability": round(total_implied * 100, 2),
+        "vig_percentage": vig_pct,
+        "outcomes": results,
+    }
+
+
+# ── Arbitrage / Middles / Low-Hold Scanning ───────────────────────
+
+@router.get("/arbitrage")
+def scan_arbitrage(
+    sport: str = Query("basketball_nba"),
+):
+    """Scan live odds for arbitrage opportunities."""
+    from sba.services.arbitrage import find_arbitrage
+    from sba.services.edge_finder import EdgeFinder
+
+    settings = get_settings()
+    finder = EdgeFinder(api_key=settings.odds_api_key)
+
+    try:
+        events_odds = finder.fetch_odds(sport)
+    except Exception as exc:
+        logger.error(f"Arb scan failed: {exc}")
+        return {"opportunities": [], "error": str(exc)}
+
+    arbs = find_arbitrage(events_odds)
+    return {
+        "sport": sport,
+        "scanned_events": len(events_odds),
+        "opportunities": [
+            {
+                "event": f"{a.event_away} @ {a.event_home}",
+                "event_id": a.event_id,
+                "market": a.market,
+                "outcome_a": a.outcome_a,
+                "outcome_b": a.outcome_b,
+                "book_a": a.book_a,
+                "book_b": a.book_b,
+                "odds_a": a.odds_a_american,
+                "odds_b": a.odds_b_american,
+                "profit_pct": a.profit_pct,
+                "stake_a_pct": a.stake_a_pct,
+                "stake_b_pct": a.stake_b_pct,
+            }
+            for a in arbs
+        ],
+    }
+
+
+@router.get("/middles")
+def scan_middles(
+    sport: str = Query("basketball_nba"),
+):
+    """Scan for middle betting opportunities."""
+    from sba.services.arbitrage import find_middles
+    from sba.services.edge_finder import EdgeFinder
+
+    settings = get_settings()
+    finder = EdgeFinder(api_key=settings.odds_api_key)
+
+    try:
+        events_odds = finder.fetch_odds(sport)
+    except Exception as exc:
+        logger.error(f"Middle scan failed: {exc}")
+        return {"opportunities": [], "error": str(exc)}
+
+    middles = find_middles(events_odds)
+    return {
+        "sport": sport,
+        "scanned_events": len(events_odds),
+        "opportunities": [
+            {
+                "event": f"{m.event_away} @ {m.event_home}",
+                "event_id": m.event_id,
+                "market": m.market,
+                "selection": m.selection,
+                "book_a": m.book_a,
+                "book_b": m.book_b,
+                "line_a": m.line_a,
+                "line_b": m.line_b,
+                "odds_a": m.odds_a_american,
+                "odds_b": m.odds_b_american,
+                "gap": m.gap,
+                "description": m.description,
+            }
+            for m in middles
+        ],
+    }
+
+
+@router.get("/low-holds")
+def scan_low_holds(
+    sport: str = Query("basketball_nba"),
+    max_hold: float = Query(3.0, description="Max hold % to include"),
+):
+    """Scan for low-hold/low-vig markets."""
+    from sba.services.arbitrage import find_low_holds
+    from sba.services.edge_finder import EdgeFinder
+
+    settings = get_settings()
+    finder = EdgeFinder(api_key=settings.odds_api_key)
+
+    try:
+        events_odds = finder.fetch_odds(sport)
+    except Exception as exc:
+        logger.error(f"Low-hold scan failed: {exc}")
+        return {"markets": [], "error": str(exc)}
+
+    low_holds = find_low_holds(events_odds, max_hold=max_hold / 100.0)
+    return {
+        "sport": sport,
+        "scanned_events": len(events_odds),
+        "max_hold_pct": max_hold,
+        "markets": [
+            {
+                "event": f"{lh.event_away} @ {lh.event_home}",
+                "event_id": lh.event_id,
+                "market": lh.market,
+                "best_book_a": lh.best_book_a,
+                "best_book_b": lh.best_book_b,
+                "odds_a": lh.best_odds_a_american,
+                "odds_b": lh.best_odds_b_american,
+                "hold_pct": lh.hold_pct,
+            }
+            for lh in low_holds
+        ],
     }
 
 

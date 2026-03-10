@@ -92,4 +92,23 @@ CREATE TABLE IF NOT EXISTS model_versions (
     trained_at TEXT DEFAULT CURRENT_TIMESTAMP,
     is_active INTEGER DEFAULT 1
 );
+
+CREATE TABLE IF NOT EXISTS watchlist (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    event_id TEXT NOT NULL UNIQUE,
+    label TEXT DEFAULT '',
+    added_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS alerts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    alert_type TEXT NOT NULL,
+    title TEXT NOT NULL,
+    message TEXT DEFAULT '',
+    data TEXT DEFAULT '{}',
+    read INTEGER DEFAULT 0,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_alerts_read ON alerts(read, created_at);
 """

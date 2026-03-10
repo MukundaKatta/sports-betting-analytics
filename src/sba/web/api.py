@@ -961,6 +961,131 @@ def get_advanced_analytics():
     }
 
 
+# ── Advanced Analytics Breakdowns ─────────────────────────────────
+
+def _get_settled_bets_dicts() -> list[dict]:
+    """Helper to get settled bets as dicts for analytics service."""
+    init_db()
+    with get_connection() as conn:
+        rows = conn.execute("""
+            SELECT b.*, e.sport, e.home_team, e.away_team
+            FROM bets b
+            LEFT JOIN events e ON e.id = b.event_id
+            WHERE b.status IN ('won', 'lost', 'push')
+            ORDER BY b.placed_at
+        """).fetchall()
+    return [
+        {
+            "status": r["status"],
+            "profit_loss": r["profit_loss"] or 0,
+            "stake": r["recommended_stake"] or 0,
+            "odds_american": r["odds_american"] or 0,
+            "market": r["market"],
+            "bookmaker": r["bookmaker"],
+            "sport": r["sport"] if "sport" in r.keys() else "unknown",
+            "placed_at": r["placed_at"],
+            "selection": r["selection"],
+        }
+        for r in rows
+    ]
+
+
+def _row_to_dict(r) -> dict:
+    return {
+        "label": r.label, "bets": r.bets, "wins": r.wins, "losses": r.losses,
+        "pushes": r.pushes, "profit": r.profit, "wagered": r.wagered,
+        "win_rate": r.win_rate, "roi_pct": r.roi_pct, "avg_odds": r.avg_odds,
+    }
+
+
+@router.get("/analytics/by-sport")
+def analytics_by_sport():
+    """Performance breakdown by sport (NBA, NFL, MLB, etc.)."""
+    from sba.services.analytics import breakdown_by_sport
+    bets = _get_settled_bets_dicts()
+    rows = breakdown_by_sport(bets)
+    return {"breakdown": [_row_to_dict(r) for r in rows], "total_bets": len(bets)}
+
+
+@router.get("/analytics/by-day")
+def analytics_by_day_of_week():
+    """Performance breakdown by day of week."""
+    from sba.services.analytics import breakdown_by_day_of_week
+    bets = _get_settled_bets_dicts()
+    rows = breakdown_by_day_of_week(bets)
+    return {"breakdown": [_row_to_dict(r) for r in rows], "total_bets": len(bets)}
+
+
+@router.get("/analytics/by-odds-range")
+def analytics_by_odds_range():
+    """Performance breakdown by odds range bucket."""
+    from sba.services.analytics import breakdown_by_odds_range
+    bets = _get_settled_bets_dicts()
+    rows = breakdown_by_odds_range(bets)
+    return {"breakdown": [_row_to_dict(r) for r in rows], "total_bets": len(bets)}
+
+
+@router.get("/analytics/by-market")
+def analytics_by_market_type():
+    """Performance breakdown by market type."""
+    from sba.services.analytics import breakdown_by_market
+    bets = _get_settled_bets_dicts()
+    rows = breakdown_by_market(bets)
+    return {"breakdown": [_row_to_dict(r) for r in rows], "total_bets": len(bets)}
+
+
+@router.get("/analytics/by-book")
+def analytics_by_bookmaker():
+    """Performance breakdown by bookmaker."""
+    from sba.services.analytics import breakdown_by_bookmaker
+    bets = _get_settled_bets_dicts()
+    rows = breakdown_by_bookmaker(bets)
+    return {"breakdown": [_row_to_dict(r) for r in rows], "total_bets": len(bets)}
+
+
+@router.get("/analytics/trends")
+def analytics_trends(window: int = Query(7)):
+    """Rolling performance trends over time."""
+    from sba.services.analytics import rolling_trends
+    bets = _get_settled_bets_dicts()
+    points = rolling_trends(bets, window=window)
+    return {
+        "window": window,
+        "points": [
+            {"date": p.date, "profit": p.profit, "cumulative": p.cumulative,
+             "win_rate": p.win_rate, "roi": p.roi, "bets": p.bets}
+            for p in points
+        ],
+    }
+
+
+@router.get("/analytics/streaks")
+def analytics_streaks():
+    """Detailed streak analysis with recovery metrics."""
+    from sba.services.analytics import analyze_streaks
+    bets = _get_settled_bets_dicts()
+    s = analyze_streaks(bets)
+    return {
+        "current_type": s.current_type,
+        "current_length": s.current_length,
+        "longest_win": s.longest_win,
+        "longest_loss": s.longest_loss,
+        "avg_win_streak": s.avg_win_streak,
+        "avg_loss_streak": s.avg_loss_streak,
+        "win_streaks": s.win_streaks,
+        "loss_streaks": s.loss_streaks,
+        "recovery_avg": s.recovery_avg,
+    }
+
+
+@router.get("/analytics/heatmap")
+def analytics_heatmap():
+    """Day-of-week × hour performance heatmap."""
+    from sba.services.analytics import performance_heatmap
+    bets = _get_settled_bets_dicts()
+    return {"heatmap": performance_heatmap(bets), "total_bets": len(bets)}
+
+
 # ── Favorites / Watchlist (DB-persisted) ──────────────────────────
 
 @router.get("/watchlist")

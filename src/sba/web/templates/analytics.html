@@ -156,14 +156,124 @@
             <div class="loading-spinner"><div class="spinner"></div> Loading...</div>
         </div>
     </div>
+
+    <!-- By Sport -->
+    <div class="card frosted-panel reveal-up" style="animation-delay:0.35s">
+        <div class="card-header">
+            <h3>
+                <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+                By Sport
+            </h3>
+        </div>
+        <div class="card-body" id="sport-breakdown">
+            <div class="loading-spinner"><div class="spinner"></div> Loading...</div>
+        </div>
+    </div>
+
+    <!-- By Day of Week -->
+    <div class="card frosted-panel reveal-up" style="animation-delay:0.35s">
+        <div class="card-header">
+            <h3>
+                <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/></svg>
+                By Day of Week
+            </h3>
+        </div>
+        <div class="card-body" id="day-breakdown">
+            <div class="loading-spinner"><div class="spinner"></div> Loading...</div>
+        </div>
+    </div>
+
+    <!-- By Odds Range -->
+    <div class="card frosted-panel reveal-up" style="animation-delay:0.4s">
+        <div class="card-header">
+            <h3>
+                <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
+                By Odds Range
+            </h3>
+        </div>
+        <div class="card-body" id="odds-range-breakdown">
+            <div class="loading-spinner"><div class="spinner"></div> Loading...</div>
+        </div>
+    </div>
+
+    <!-- Streak Analysis -->
+    <div class="card frosted-panel reveal-up" style="animation-delay:0.4s">
+        <div class="card-header">
+            <h3>
+                <svg class="header-icon icon-bounce" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+                Streak Analysis
+            </h3>
+        </div>
+        <div class="card-body padded" id="streak-analysis">
+            <div class="loading-spinner"><div class="spinner"></div> Loading...</div>
+        </div>
+    </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
+function renderBreakdownTable(data, elementId) {
+    const el = document.getElementById(elementId);
+    if (!data.breakdown || !data.breakdown.length) {
+        el.innerHTML = '<div class="empty-state" style="padding:16px"><p>No data available</p></div>';
+        return;
+    }
+    el.innerHTML = '<table class="data-table"><thead><tr><th>Category</th><th class="right">Bets</th><th class="right">Win Rate</th><th class="right">Profit</th><th class="right">ROI</th></tr></thead><tbody>' +
+        data.breakdown.map(r => `
+            <tr>
+                <td class="font-bold">${r.label}</td>
+                <td class="right font-mono">${r.bets}</td>
+                <td class="right font-mono ${r.win_rate >= 55 ? 'text-green' : r.win_rate <= 45 ? 'text-red' : ''}">${r.win_rate}%</td>
+                <td class="right font-mono font-bold ${r.profit >= 0 ? 'text-green' : 'text-red'}">${r.profit >= 0 ? '+' : ''}$${r.profit.toFixed(2)}</td>
+                <td class="right font-mono ${r.roi_pct >= 0 ? 'text-green' : 'text-red'}">${r.roi_pct}%</td>
+            </tr>
+        `).join('') + '</tbody></table>';
+}
+
+async function loadAdvancedBreakdowns() {
+    try {
+        const [sport, day, odds, streaks] = await Promise.all([
+            fetch('/api/analytics/by-sport').then(r => r.json()),
+            fetch('/api/analytics/by-day').then(r => r.json()),
+            fetch('/api/analytics/by-odds-range').then(r => r.json()),
+            fetch('/api/analytics/streaks').then(r => r.json()),
+        ]);
+        renderBreakdownTable(sport, 'sport-breakdown');
+        renderBreakdownTable(day, 'day-breakdown');
+        renderBreakdownTable(odds, 'odds-range-breakdown');
+
+        const sEl = document.getElementById('streak-analysis');
+        sEl.innerHTML = `
+            <div class="stats-grid" style="margin:0 0 12px 0">
+                <div class="stat-card ${streaks.current_type === 'win' ? 'green' : streaks.current_type === 'loss' ? 'red' : ''} card-3d-tilt">
+                    <div class="stat-label">Current</div>
+                    <div class="stat-value">${streaks.current_length} ${streaks.current_type}</div>
+                </div>
+                <div class="stat-card green card-3d-tilt">
+                    <div class="stat-label">Best Win Streak</div>
+                    <div class="stat-value text-green">${streaks.longest_win}</div>
+                </div>
+                <div class="stat-card red card-3d-tilt">
+                    <div class="stat-label">Worst Loss Streak</div>
+                    <div class="stat-value text-red">${streaks.longest_loss}</div>
+                </div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;font-size:12px">
+                <div style="padding:6px 10px;background:var(--bg-secondary);border-radius:6px"><span class="text-dim">Avg Win Streak:</span> <strong>${streaks.avg_win_streak}</strong></div>
+                <div style="padding:6px 10px;background:var(--bg-secondary);border-radius:6px"><span class="text-dim">Avg Loss Streak:</span> <strong>${streaks.avg_loss_streak}</strong></div>
+                <div style="padding:6px 10px;background:var(--bg-secondary);border-radius:6px"><span class="text-dim">Avg Recovery:</span> <strong>${streaks.recovery_avg} bets</strong></div>
+            </div>
+        `;
+    } catch (err) {
+        console.error('Failed to load breakdowns:', err);
+    }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     SBA.loadAnalytics();
     SBA.loadAdvancedAnalytics();
+    loadAdvancedBreakdowns();
 });
 </script>
 {% endblock %}

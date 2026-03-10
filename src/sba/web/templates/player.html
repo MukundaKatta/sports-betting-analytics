@@ -2,21 +2,85 @@
 {% block title %}{{ player_name }}{% endblock %}
 
 {% block content %}
-<div class="breadcrumb">
+<div class="breadcrumb reveal-up">
     <a href="/">Dashboard</a>
     <span class="breadcrumb-sep">/</span>
     <a href="/props">Player Props</a>
     <span class="breadcrumb-sep">/</span>
     <span>{{ player_name }}</span>
 </div>
-<div id="player-content">
-    <div style="display:grid;gap:16px">
-        <div class="skeleton" style="height:120px;border-radius:var(--radius-lg)"></div>
-        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px">
-            <div class="skeleton skeleton-card"></div>
-            <div class="skeleton skeleton-card"></div>
-            <div class="skeleton skeleton-card"></div>
-            <div class="skeleton skeleton-card"></div>
+
+<h1 class="page-title reveal-up" style="animation-delay:0.05s">
+    <span class="gradient-text animated-gradient-text">{{ player_name }}</span>
+    <span class="tag-elite">ML</span>
+</h1>
+
+<div class="dashboard-grid">
+    <!-- Player Overview -->
+    <div class="card full-width featured-card frosted-panel reveal-up" style="animation-delay:0.1s" id="player-header">
+        <div class="card-body padded">
+            <div style="display:flex;gap:20px;align-items:center;flex-wrap:wrap">
+                <div style="width:64px;height:64px;border-radius:16px;background:linear-gradient(135deg,var(--accent-green),var(--accent-blue));display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;color:var(--bg-primary)">
+                    {{ player_name[0] }}
+                </div>
+                <div style="flex:1">
+                    <h2 style="margin:0 0 4px 0" class="font-bold">{{ player_name }}</h2>
+                    <div class="text-dim" id="player-subtitle">Loading player data...</div>
+                </div>
+                <div class="stats-grid" style="margin:0;flex:2" id="player-stats">
+                    <div class="stat-card card-3d-tilt skeleton skeleton-card"></div>
+                    <div class="stat-card card-3d-tilt skeleton skeleton-card"></div>
+                    <div class="stat-card card-3d-tilt skeleton skeleton-card"></div>
+                    <div class="stat-card card-3d-tilt skeleton skeleton-card"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Game Log -->
+    <div class="card full-width reveal-up" style="animation-delay:0.15s">
+        <div class="card-header">
+            <h3>
+                <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+                Recent Game Log
+                <span class="badge" id="games-count">0</span>
+            </h3>
+        </div>
+        <div class="card-body">
+            <table class="data-table">
+                <thead>
+                    <tr><th>Date</th><th>Opponent</th><th class="right">PTS</th><th class="right">REB</th><th class="right">AST</th><th class="right">3PM</th><th class="right">MIN</th><th>Performance</th></tr>
+                </thead>
+                <tbody id="game-log-table">
+                    <tr><td colspan="8" class="empty-state"><p>Loading game log...</p></td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Prop Hit Rates -->
+    <div class="card frosted-panel reveal-left" style="animation-delay:0.2s">
+        <div class="card-header">
+            <h3>
+                <svg class="header-icon icon-bounce" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                Prop Hit Rates
+            </h3>
+        </div>
+        <div class="card-body padded" id="hit-rates">
+            <div class="empty-state"><p>Loading hit rates...</p></div>
+        </div>
+    </div>
+
+    <!-- Performance Trends -->
+    <div class="card frosted-panel reveal-scale" style="animation-delay:0.25s">
+        <div class="card-header">
+            <h3>
+                <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                Performance Trends
+            </h3>
+        </div>
+        <div class="card-body padded" id="player-trends">
+            <div class="empty-state"><p>Loading trends...</p></div>
         </div>
     </div>
 </div>
@@ -24,6 +88,120 @@
 
 {% block scripts %}
 <script>
-document.addEventListener('DOMContentLoaded', () => SBA.loadPlayerEnhanced('{{ player_name }}'));
+async function loadPlayerData(name) {
+    try {
+        const resp = await fetch(`/api/players/${encodeURIComponent(name)}`);
+        if (resp.status !== 200) {
+            document.getElementById('player-subtitle').textContent = 'No data available — backfill player data first';
+            return;
+        }
+        const p = await resp.json();
+        if (!p) return;
+
+        document.getElementById('player-subtitle').textContent = `${p.team || 'Unknown Team'} | ${p.position || 'Unknown Position'} | ${p.games || 0} games tracked`;
+
+        const stats = document.getElementById('player-stats');
+        stats.innerHTML = `
+            <div class="stat-card green card-3d-tilt">
+                <div class="stat-label">PPG</div>
+                <div class="stat-value">${(p.avg_points || 0).toFixed(1)}</div>
+            </div>
+            <div class="stat-card blue card-3d-tilt">
+                <div class="stat-label">RPG</div>
+                <div class="stat-value">${(p.avg_rebounds || 0).toFixed(1)}</div>
+            </div>
+            <div class="stat-card yellow card-3d-tilt">
+                <div class="stat-label">APG</div>
+                <div class="stat-value">${(p.avg_assists || 0).toFixed(1)}</div>
+            </div>
+            <div class="stat-card card-3d-tilt">
+                <div class="stat-label">MPG</div>
+                <div class="stat-value">${(p.avg_minutes || 0).toFixed(1)}</div>
+            </div>
+        `;
+
+        // Game log
+        if (p.recent_games && p.recent_games.length) {
+            document.getElementById('games-count').textContent = p.recent_games.length;
+            const avg_pts = p.avg_points || 0;
+            document.getElementById('game-log-table').innerHTML = p.recent_games.map(g => {
+                const perf = (g.points || 0) >= avg_pts * 1.2 ? 'text-green' : (g.points || 0) <= avg_pts * 0.7 ? 'text-red' : '';
+                const bar_w = Math.min(100, ((g.points || 0) / (avg_pts * 1.5)) * 100);
+                return `<tr>
+                    <td class="text-dim" style="font-size:12px">${g.date || '—'}</td>
+                    <td class="font-bold">${g.opponent || '—'}</td>
+                    <td class="right font-mono ${perf}">${g.points || 0}</td>
+                    <td class="right font-mono">${g.rebounds || 0}</td>
+                    <td class="right font-mono">${g.assists || 0}</td>
+                    <td class="right font-mono">${g.threes || 0}</td>
+                    <td class="right font-mono">${g.minutes || 0}</td>
+                    <td><div style="background:var(--bg-secondary);border-radius:4px;overflow:hidden;height:12px;width:80px"><div style="width:${bar_w}%;height:100%;background:${perf === 'text-green' ? 'var(--accent-green)' : perf === 'text-red' ? 'var(--accent-red)' : 'var(--accent-blue)'};border-radius:4px"></div></div></td>
+                </tr>`;
+            }).join('');
+        }
+
+        // Hit rates
+        const hitEl = document.getElementById('hit-rates');
+        const markets = [
+            { key: 'points', label: 'Points', line: p.avg_points },
+            { key: 'rebounds', label: 'Rebounds', line: p.avg_rebounds },
+            { key: 'assists', label: 'Assists', line: p.avg_assists },
+        ];
+        if (p.recent_games && p.recent_games.length >= 3) {
+            hitEl.innerHTML = markets.map(m => {
+                const games = p.recent_games || [];
+                const hits = games.filter(g => (g[m.key] || 0) >= (m.line || 0)).length;
+                const rate = games.length > 0 ? (hits / games.length * 100) : 0;
+                const color = rate >= 60 ? 'var(--accent-green)' : rate <= 40 ? 'var(--accent-red)' : 'var(--accent-yellow)';
+                return `<div style="margin-bottom:10px">
+                    <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
+                        <span>${m.label} Over ${(m.line || 0).toFixed(1)}</span>
+                        <span class="font-bold">${rate.toFixed(0)}% (${hits}/${games.length})</span>
+                    </div>
+                    <div style="background:var(--bg-secondary);border-radius:6px;overflow:hidden;height:20px">
+                        <div style="width:${rate}%;height:100%;background:${color};border-radius:6px;transition:width 0.5s"></div>
+                    </div>
+                </div>`;
+            }).join('');
+        } else {
+            hitEl.innerHTML = '<div class="empty-state"><p>Not enough games for hit rate analysis</p></div>';
+        }
+
+        // Trends
+        const trendEl = document.getElementById('player-trends');
+        if (p.recent_games && p.recent_games.length >= 3) {
+            const last5 = p.recent_games.slice(0, 5);
+            const last10 = p.recent_games.slice(0, 10);
+            const l5avg = last5.reduce((s, g) => s + (g.points || 0), 0) / last5.length;
+            const l10avg = last10.reduce((s, g) => s + (g.points || 0), 0) / last10.length;
+            const trend = l5avg > l10avg ? 'Trending Up' : l5avg < l10avg ? 'Trending Down' : 'Stable';
+            const tColor = l5avg > l10avg ? 'text-green' : l5avg < l10avg ? 'text-red' : 'text-dim';
+            trendEl.innerHTML = `
+                <div class="stats-grid" style="margin:0">
+                    <div class="stat-card card-3d-tilt">
+                        <div class="stat-label">Last 5 Avg</div>
+                        <div class="stat-value">${l5avg.toFixed(1)}</div>
+                    </div>
+                    <div class="stat-card card-3d-tilt">
+                        <div class="stat-label">Last 10 Avg</div>
+                        <div class="stat-value">${l10avg.toFixed(1)}</div>
+                    </div>
+                </div>
+                <div style="text-align:center;margin-top:12px;font-size:14px" class="${tColor} font-bold">${trend}</div>
+            `;
+        } else {
+            trendEl.innerHTML = '<div class="empty-state"><p>Not enough data for trend analysis</p></div>';
+        }
+    } catch (err) {
+        console.error('Failed to load player:', err);
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    loadPlayerData('{{ player_name }}');
+    if (typeof SBA !== 'undefined' && SBA.loadPlayerEnhanced) {
+        SBA.loadPlayerEnhanced('{{ player_name }}');
+    }
+});
 </script>
 {% endblock %}

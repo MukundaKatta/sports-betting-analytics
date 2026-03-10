@@ -12,6 +12,9 @@
     <select class="filter-select" id="props-sport-filter">
         <option value="basketball_nba">NBA</option>
         <option value="basketball_ncaab">NCAAB</option>
+        <option value="americanfootball_nfl">NFL</option>
+        <option value="baseball_mlb">MLB</option>
+        <option value="icehockey_nhl">NHL</option>
     </select>
 
     <select class="filter-select" id="props-market-filter">
@@ -25,13 +28,32 @@
         <option value="player_points_rebounds_assists">PRA Combined</option>
     </select>
 
+    <select class="filter-select" id="props-ev-filter">
+        <option value="0">All Props</option>
+        <option value="2">EV > 2%</option>
+        <option value="5">EV > 5%</option>
+        <option value="8">EV > 8%</option>
+    </select>
+
     <button class="btn btn-scan" onclick="scanProps()" id="props-scan-btn">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
         Analyze Props
     </button>
 </div>
 
+<!-- Prop Alerts -->
+<div class="card full-width frosted-panel reveal-up" style="animation-delay:0.12s" id="prop-alerts" hidden>
+    <div class="card-body padded" id="prop-alerts-content"></div>
+</div>
+
 <div class="card featured-card reveal-up" style="animation-delay:0.15s">
+    <div class="card-header">
+        <h3>
+            <svg class="header-icon icon-bounce" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+            ML Prop Analysis
+        </h3>
+        <span class="text-dim" style="font-size:11px">Click player name for detailed profile</span>
+    </div>
     <div class="card-body">
         <div style="overflow-x:auto">
             <table class="data-table">
@@ -57,6 +79,29 @@
                     </td></tr>
                 </tbody>
             </table>
+        </div>
+    </div>
+</div>
+
+<!-- Correlation Warnings -->
+<div class="card reveal-up" style="animation-delay:0.2s">
+    <div class="card-header">
+        <h3>
+            <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            Prop Correlation Warnings
+        </h3>
+    </div>
+    <div class="card-body padded">
+        <div style="display:grid;gap:8px;font-size:12px">
+            <div style="padding:8px 12px;background:var(--bg-secondary);border-radius:6px;border-left:3px solid var(--accent-yellow)">
+                <span class="font-bold">Points + Threes</span> — correlation: 0.45. Taking both overs on the same player inflates joint probability.
+            </div>
+            <div style="padding:8px 12px;background:var(--bg-secondary);border-radius:6px;border-left:3px solid var(--accent-blue)">
+                <span class="font-bold">Points + Team Win</span> — correlation: 0.20. Players score more in wins — consider game script.
+            </div>
+            <div style="padding:8px 12px;background:var(--bg-secondary);border-radius:6px;border-left:3px solid var(--accent-red)">
+                <span class="font-bold">Spread + Team Win</span> — correlation: 0.85. Almost identical markets — avoid parlaying.
+            </div>
         </div>
     </div>
 </div>

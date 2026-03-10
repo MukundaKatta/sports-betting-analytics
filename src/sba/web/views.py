@@ -93,6 +93,26 @@ def community_page(request: Request):
     return templates.TemplateResponse(request, "community.html")
 
 
+@router.get("/sgp-builder")
+def sgp_builder_page(request: Request):
+    return templates.TemplateResponse(request, "sgp-builder.html")
+
+
+@router.get("/power-ratings")
+def power_ratings_page(request: Request):
+    return templates.TemplateResponse(request, "power-ratings.html")
+
+
+@router.get("/odds-screen")
+def odds_screen_page(request: Request):
+    return templates.TemplateResponse(request, "odds-screen.html")
+
+
+@router.get("/promo-optimizer")
+def promo_optimizer_page(request: Request):
+    return templates.TemplateResponse(request, "promo-optimizer.html")
+
+
 @router.get("/player/{name}")
 def player_page(request: Request, name: str):
     return templates.TemplateResponse(request, "player.html", {"player_name": name})

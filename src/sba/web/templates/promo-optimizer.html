@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+{% block title %}Promo Optimizer{% endblock %}
+
+{% block content %}
+<h1 class="page-title reveal-up">
+    <span class="gradient-text animated-gradient-text">Promo &amp; Bonus Optimizer</span>
+    <span class="tag-elite">Pro</span>
+</h1>
+
+<div class="dashboard-grid">
+    <!-- Promo Calculator -->
+    <div class="card frosted-panel reveal-left" style="animation-delay:0.1s">
+        <div class="card-header">
+            <h3>
+                <svg class="header-icon icon-bounce" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4"/><path d="M4 6v12c0 1.1.9 2 2 2h14v-4"/><path d="M18 12a2 2 0 0 0-2 2c0 1.1.9 2 2 2h4v-4h-4z"/></svg>
+                Calculate Promo Value
+            </h3>
+        </div>
+        <div class="card-body padded">
+            <div style="display:grid;gap:10px">
+                <div>
+                    <label class="stat-label" style="margin-bottom:6px;display:block">Promo Type</label>
+                    <select class="filter-select" id="promo-type" style="width:100%" onchange="updatePromoFields()">
+                        <option value="risk_free">Risk-Free Bet</option>
+                        <option value="deposit_match">Deposit Match</option>
+                        <option value="profit_boost">Profit Boost</option>
+                        <option value="free_bet">Free Bet</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="stat-label" style="margin-bottom:6px;display:block">Promo Amount ($)</label>
+                    <input type="number" id="promo-amount" value="1000" class="premium-input" style="width:100%">
+                </div>
+                <div id="promo-odds-group">
+                    <label class="stat-label" style="margin-bottom:6px;display:block">Odds (American)</label>
+                    <input type="number" id="promo-odds" value="200" class="premium-input" style="width:100%">
+                </div>
+                <div id="promo-hedge-group">
+                    <label class="stat-label" style="margin-bottom:6px;display:block">Hedge Odds (American)</label>
+                    <input type="number" id="promo-hedge" value="-220" class="premium-input" style="width:100%">
+                </div>
+                <div id="promo-boost-group" style="display:none">
+                    <label class="stat-label" style="margin-bottom:6px;display:block">Boost Percentage (%)</label>
+                    <input type="number" id="promo-boost-pct" value="50" class="premium-input" style="width:100%">
+                </div>
+                <div id="promo-rollover-group">
+                    <label class="stat-label" style="margin-bottom:6px;display:block">Rollover Requirement (×)</label>
+                    <input type="number" id="promo-rollover" value="1" class="premium-input" style="width:100%">
+                </div>
+                <button class="btn btn-primary btn-block" onclick="calculatePromo()">Calculate Optimal Strategy</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Result -->
+    <div class="card featured-card frosted-panel reveal-scale" style="animation-delay:0.15s">
+        <div class="card-header">
+            <h3>
+                <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 18V6"/></svg>
+                Optimal Strategy
+            </h3>
+        </div>
+        <div class="card-body padded" id="promo-result">
+            <div class="empty-state" style="padding:30px">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48"><circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 18V6"/></svg>
+                <p>Configure your promo and click Calculate</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Strategy Guide -->
+    <div class="card full-width reveal-up" style="animation-delay:0.2s">
+        <div class="card-header">
+            <h3>
+                <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                Promo Strategy Guide
+            </h3>
+        </div>
+        <div class="card-body padded">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px">
+                <div style="padding:12px;background:var(--bg-secondary);border-radius:8px;border-left:3px solid var(--accent-green)">
+                    <div class="font-bold" style="margin-bottom:4px">Risk-Free Bets</div>
+                    <p class="text-dim" style="font-size:12px;margin:0">Place on a large underdog (+300 or higher), then hedge the other side. Expected value: 60-75% of the free bet amount.</p>
+                </div>
+                <div style="padding:12px;background:var(--bg-secondary);border-radius:8px;border-left:3px solid var(--accent-blue)">
+                    <div class="font-bold" style="margin-bottom:4px">Deposit Matches</div>
+                    <p class="text-dim" style="font-size:12px;margin:0">Check rollover requirements. Low rollover (1x) is nearly free money. Higher rollover requires hedging strategy.</p>
+                </div>
+                <div style="padding:12px;background:var(--bg-secondary);border-radius:8px;border-left:3px solid var(--accent-yellow)">
+                    <div class="font-bold" style="margin-bottom:4px">Profit Boosts</div>
+                    <p class="text-dim" style="font-size:12px;margin:0">Calculate the boosted EV. If boost pushes odds above fair value, it's always +EV to bet. Max bet for maximum value.</p>
+                </div>
+                <div style="padding:12px;background:var(--bg-secondary);border-radius:8px;border-left:3px solid var(--accent-red)">
+                    <div class="font-bold" style="margin-bottom:4px">Free Bets</div>
+                    <p class="text-dim" style="font-size:12px;margin:0">Stake is NOT returned on win. Use the free bet converter to find the optimal hedge amount. Target +250 to +400 odds.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function updatePromoFields() {
+    const type = document.getElementById('promo-type').value;
+    document.getElementById('promo-boost-group').style.display = type === 'profit_boost' ? '' : 'none';
+    document.getElementById('promo-hedge-group').style.display = type !== 'profit_boost' ? '' : 'none';
+}
+
+async function calculatePromo() {
+    const body = {
+        promo_type: document.getElementById('promo-type').value,
+        amount: parseFloat(document.getElementById('promo-amount').value),
+        odds_american: parseInt(document.getElementById('promo-odds').value),
+        hedge_odds_american: parseInt(document.getElementById('promo-hedge').value) || null,
+        boost_percentage: parseFloat(document.getElementById('promo-boost-pct').value) || null,
+        rollover: parseFloat(document.getElementById('promo-rollover').value) || 1,
+    };
+    if (!body.amount) { SBA.toast('Enter a promo amount', 'error'); return; }
+
+    try {
+        const resp = await fetch('/api/calculator/promo', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+        });
+        const d = await resp.json();
+        if (resp.status !== 200) { SBA.toast(d.detail || 'Error', 'error'); return; }
+
+        const el = document.getElementById('promo-result');
+        el.innerHTML = `
+            <div class="stats-grid" style="margin:0 0 16px 0">
+                <div class="stat-card green card-3d-tilt">
+                    <div class="stat-label">Expected Value</div>
+                    <div class="stat-value text-green">$${d.expected_value.toFixed(2)}</div>
+                    <div class="stat-sub">${d.ev_percentage.toFixed(1)}% of promo</div>
+                </div>
+                <div class="stat-card blue card-3d-tilt">
+                    <div class="stat-label">Guaranteed Profit</div>
+                    <div class="stat-value">${d.guaranteed_profit >= 0 ? '+' : ''}$${d.guaranteed_profit.toFixed(2)}</div>
+                    <div class="stat-sub">${d.strategy}</div>
+                </div>
+            </div>
+            ${d.hedge_amount ? `
+            <div style="padding:12px;background:var(--bg-secondary);border-radius:8px;margin-bottom:12px">
+                <div class="font-bold" style="margin-bottom:8px">Recommended Plays</div>
+                <div style="display:grid;gap:6px;font-size:13px">
+                    <div style="display:flex;justify-content:space-between">
+                        <span>Promo Bet</span>
+                        <span class="font-mono font-bold">$${d.promo_bet.toFixed(2)} @ ${d.odds_american > 0 ? '+' : ''}${d.odds_american}</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between">
+                        <span>Hedge Bet</span>
+                        <span class="font-mono font-bold">$${d.hedge_amount.toFixed(2)} @ ${d.hedge_odds > 0 ? '+' : ''}${d.hedge_odds}</span>
+                    </div>
+                    <hr style="border-color:var(--border);margin:4px 0">
+                    <div style="display:flex;justify-content:space-between">
+                        <span>If Promo Wins</span>
+                        <span class="font-mono text-green">+$${d.profit_if_win.toFixed(2)}</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between">
+                        <span>If Promo Loses</span>
+                        <span class="font-mono ${d.profit_if_lose >= 0 ? 'text-green' : 'text-red'}">${d.profit_if_lose >= 0 ? '+' : ''}$${d.profit_if_lose.toFixed(2)}</span>
+                    </div>
+                </div>
+            </div>` : ''}
+            <div style="padding:8px 12px;background:var(--bg-secondary);border-radius:6px;font-size:12px" class="text-dim">
+                ${d.notes || 'Optimal strategy calculated based on current odds and promo type.'}
+            </div>
+        `;
+        SBA.toast('Strategy calculated!', 'success');
+    } catch (err) {
+        SBA.toast('Error: ' + err.message, 'error');
+    }
+}
+
+document.addEventListener('DOMContentLoaded', updatePromoFields);
+</script>
+{% endblock %}

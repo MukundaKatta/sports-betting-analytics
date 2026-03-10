@@ -15,9 +15,12 @@ const SBA = {
         this.setupClock();
         this.setupSearch();
         this.setupKeyboardShortcuts();
+        this.setupCommandPalette();
         this.updateStatus();
         this.highlightActiveNav();
+        this.checkAlerts();
         setInterval(() => this.updateStatus(), 60000);
+        setInterval(() => this.checkAlerts(), 30000);
     },
 
     // ── Clock ─────────────────────────────────────────────────────────
@@ -47,10 +50,40 @@ const SBA = {
     },
 
     // ── Keyboard Shortcuts ────────────────────────────────────────────
+    _gKeyPending: false,
     setupKeyboardShortcuts() {
         document.addEventListener('keydown', (e) => {
-            // Don't fire shortcuts when typing in inputs
-            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+            // Ctrl+K: Command palette
+            if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+                e.preventDefault();
+                this.cmdPaletteOpen ? this.closeCommandPalette() : this.openCommandPalette();
+                return;
+            }
+
+            // Don't fire shortcuts when typing in inputs or command palette
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+                if (e.key === 'Escape') {
+                    e.target.blur();
+                    this.closeCommandPalette();
+                }
+                return;
+            }
+
+            // Handle Escape first
+            if (e.key === 'Escape') {
+                document.getElementById('bet-slip')?.classList.remove('open');
+                document.getElementById('shortcuts-modal')?.classList.remove('open');
+                this.closeCommandPalette();
+                this._gKeyPending = false;
+                return;
+            }
+
+            // G-key prefix navigation (g then d/e/p/b/a/l/o/s)
+            if (this._gKeyPending) {
+                this._gKeyPending = false;
+                const navMap = {d:'/',e:'/edges',p:'/props',b:'/my-bets',a:'/analytics',l:'/line-movement',o:'/odds-comparison',s:'/settings'};
+                if (navMap[e.key]) { location.href = navMap[e.key]; return; }
+            }
 
             switch(e.key) {
                 case '/':
@@ -63,9 +96,12 @@ const SBA = {
                 case 't':
                     this.toggleTheme();
                     break;
-                case 'Escape':
-                    document.getElementById('bet-slip')?.classList.remove('open');
-                    document.getElementById('player-search')?.blur();
+                case 'g':
+                    this._gKeyPending = true;
+                    setTimeout(() => { this._gKeyPending = false; }, 800);
+                    break;
+                case '?':
+                    this.showShortcutsModal();
                     break;
             }
         });
@@ -257,7 +293,7 @@ const SBA = {
             }
 
             container.innerHTML = edges.map((e, i) => `
-                <tr class="new-row" style="animation-delay:${i * 0.03}s">
+                <tr class="new-row ${this.getEvHeatClass(e.ev)}" style="animation-delay:${i * 0.03}s">
                     <td>
                         <div class="matchup-teams">
                             <span class="team-name away">${e.event_away}</span>
@@ -276,10 +312,10 @@ const SBA = {
                     <td class="text-dim">${e.bookmaker}</td>
                     <td class="right font-mono">${(e.model_prob * 100).toFixed(1)}%</td>
                     <td class="right font-mono">${(e.implied_prob * 100).toFixed(1)}%</td>
-                    <td class="right"><span class="ev-badge ${e.ev >= 0.08 ? 'high' : e.ev >= 0.04 ? 'medium' : 'low'}">${e.ev_pct}</span></td>
+                    <td class="right"><span class="ev-badge ${e.ev >= 0.08 ? 'high' : e.ev >= 0.04 ? 'medium' : 'low'} ${e.ev >= 0.08 ? 'glow-green' : ''}">${e.ev_pct}</span></td>
                     <td class="right font-mono">${(e.kelly_pct * 100).toFixed(1)}%</td>
                     <td class="right font-bold text-green">$${e.recommended_stake.toFixed(0)}</td>
-                    <td class="center"><span class="confidence-badge ${e.confidence}">${e.confidence}</span></td>
+                    <td class="center">${this.createConfidenceMeter(e.confidence)}<div style="font-size:10px;color:var(--text-tertiary);margin-top:2px">${e.confidence}</div></td>
                 </tr>
             `).join('');
         } catch (err) {
@@ -497,6 +533,9 @@ const SBA = {
 
     // ── Dashboard ─────────────────────────────────────────────────────
     async loadDashboard() {
+        // Populate live ticker
+        this.loadTicker();
+
         // Load status with count-up animations
         try {
             const resp = await fetch('/api/status');
@@ -534,10 +573,14 @@ const SBA = {
             }
         } catch {}
 
-        // Load recent bets summary
+        // Load recent bets summary with sparkline
         try {
-            const resp = await fetch('/api/bets');
-            const bets = await resp.json();
+            const [betsResp, analyticsResp] = await Promise.all([
+                fetch('/api/bets'),
+                fetch('/api/analytics'),
+            ]);
+            const bets = await betsResp.json();
+            const analytics = await analyticsResp.json();
             const betEl = document.getElementById('dashboard-bets');
             if (betEl) {
                 if (bets.total_bets === 0 && bets.pending === 0) {
@@ -547,15 +590,22 @@ const SBA = {
                     </div>`;
                 } else {
                     const plColor = bets.total_profit >= 0 ? 'text-green' : 'text-red';
+                    const plGlow = bets.total_profit >= 0 ? 'glow-green' : 'glow-red';
                     const roiColor = bets.roi >= 0 ? 'text-green' : 'text-red';
+                    // Generate sparkline from daily P/L
+                    const pnlData = analytics.daily_pnl?.map(d => d.pnl) || [];
+                    const sparkline = this.createSparkline(pnlData);
+                    const winGauge = this.createGauge(bets.win_rate * 100, 100, `${(bets.win_rate * 100).toFixed(0)}%`);
+
                     betEl.innerHTML = `
-                        <div style="padding:24px;display:grid;grid-template-columns:repeat(4,1fr);gap:16px;text-align:center">
+                        <div style="padding:24px;display:grid;grid-template-columns:repeat(4,1fr);gap:16px;text-align:center;align-items:center">
                             <div>
-                                <div class="stat-value ${plColor}" style="font-size:22px">$${bets.total_profit >= 0 ? '+' : ''}${bets.total_profit.toFixed(2)}</div>
+                                <div class="stat-value ${plColor} ${plGlow}" style="font-size:22px">$${bets.total_profit >= 0 ? '+' : ''}${bets.total_profit.toFixed(2)}</div>
                                 <div class="stat-label" style="margin-top:6px">Total P/L</div>
+                                ${sparkline}
                             </div>
                             <div>
-                                <div class="stat-value" style="font-size:22px">${(bets.win_rate * 100).toFixed(0)}%</div>
+                                ${winGauge}
                                 <div class="stat-label" style="margin-top:6px">Win Rate</div>
                             </div>
                             <div>
@@ -660,6 +710,20 @@ const SBA = {
             </div>`;
         }).join('');
 
+        // Parlay calculation
+        const parlay = this.calcParlayOdds();
+        const parlayHtml = parlay ? `
+            <div class="slip-parlay">
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-top:1px solid var(--border-light);margin-top:4px">
+                    <span style="font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-tertiary)">Parlay Odds</span>
+                    <span class="font-mono font-bold" style="color:var(--accent-purple)">${parlay.american > 0 ? '+' : ''}${parlay.american}</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0">
+                    <span style="font-size:11px;color:var(--text-tertiary)">Parlay Multiplier</span>
+                    <span class="font-mono" style="font-size:12px">${parlay.decimal.toFixed(2)}x</span>
+                </div>
+            </div>` : '';
+
         // Update footer with totals
         footer.innerHTML = `
             <div class="slip-total">
@@ -670,6 +734,7 @@ const SBA = {
                 <span>Total Payout</span>
                 <span class="slip-total-value">$${totalPayout.toFixed(2)}</span>
             </div>
+            ${parlayHtml}
             <button class="btn btn-primary btn-block" onclick="SBA.placeBets()" style="margin-top:8px">Track All Bets</button>
             <button class="btn btn-outline btn-block" onclick="SBA.clearSlip()">Clear Slip</button>
         `;
@@ -735,22 +800,25 @@ const SBA = {
             const analytics = await analyticsResp.json();
             const bets = await betsResp.json();
 
-            // Summary stats
+            // Summary stats with gauges
             const summary = document.getElementById('analytics-summary');
             if (summary) {
-                const streakIcon = analytics.streak.type === 'won' ? '&#9650;' : analytics.streak.type === 'lost' ? '&#9660;' : '—';
                 const streakColor = analytics.streak.type === 'won' ? 'text-green' : analytics.streak.type === 'lost' ? 'text-red' : '';
+                const plGlow = bets.total_profit >= 0 ? 'glow-green' : 'glow-red';
+                const pnlSparkData = analytics.daily_pnl?.map(d => d.pnl) || [];
+                const sparkline = this.createSparkline(pnlSparkData);
+                const winGauge = this.createGauge(bets.win_rate * 100, 100, `${(bets.win_rate * 100).toFixed(1)}%`);
                 summary.innerHTML = `
                     <div class="stat-card green">
                         <div class="stat-label">Total P/L</div>
-                        <div class="stat-value ${bets.total_profit >= 0 ? 'text-green' : 'text-red'}">$${bets.total_profit >= 0 ? '+' : ''}${bets.total_profit.toFixed(2)}</div>
+                        <div class="stat-value ${bets.total_profit >= 0 ? 'text-green' : 'text-red'} ${plGlow}">$${bets.total_profit >= 0 ? '+' : ''}${bets.total_profit.toFixed(2)}</div>
                         <div class="stat-sub">${bets.total_bets} settled bets</div>
+                        ${sparkline}
                     </div>
                     <div class="stat-card blue">
                         <div class="stat-label">Win Rate</div>
-                        <div class="stat-value">${(bets.win_rate * 100).toFixed(1)}%</div>
-                        <div class="stat-sub">${bets.wins}W - ${bets.losses}L - ${bets.pushes}P</div>
-                        <div class="progress-bar"><div class="progress-fill green" style="width:${bets.win_rate * 100}%"></div></div>
+                        ${winGauge}
+                        <div class="stat-sub" style="margin-top:8px">${bets.wins}W - ${bets.losses}L - ${bets.pushes}P</div>
                     </div>
                     <div class="stat-card yellow">
                         <div class="stat-label">ROI</div>
@@ -891,26 +959,38 @@ const SBA = {
             const health = await healthResp.json();
             const status = await statusResp.json();
 
-            // Bankroll settings
+            // Bankroll settings (editable)
             const bankrollEl = document.getElementById('bankroll-settings');
             if (bankrollEl) {
                 bankrollEl.innerHTML = `
                     <div style="display:grid;gap:16px">
-                        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--border-light)">
+                        <div class="settings-row">
                             <div><div class="font-bold">Bankroll</div><div class="text-dim" style="font-size:12px">Total bankroll for Kelly criterion sizing</div></div>
-                            <div class="font-mono font-bold text-green" style="font-size:18px">$${settings.bankroll.toLocaleString()}</div>
+                            <div style="display:flex;align-items:center;gap:8px">
+                                <span class="font-mono font-bold text-green" style="font-size:18px">$${settings.bankroll.toLocaleString()}</span>
+                                <button class="btn btn-outline btn-sm" onclick="const v=prompt('New bankroll:','${settings.bankroll}');if(v)SBA.updateSetting('bankroll',parseFloat(v))">Edit</button>
+                            </div>
                         </div>
-                        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--border-light)">
+                        <div class="settings-row">
                             <div><div class="font-bold">Kelly Fraction</div><div class="text-dim" style="font-size:12px">Fractional Kelly multiplier (1.0 = full Kelly)</div></div>
-                            <div class="font-mono font-bold" style="font-size:18px">${settings.kelly_fraction}</div>
+                            <div style="display:flex;align-items:center;gap:8px">
+                                <span class="font-mono font-bold" style="font-size:18px">${settings.kelly_fraction}</span>
+                                <button class="btn btn-outline btn-sm" onclick="const v=prompt('New Kelly fraction:','${settings.kelly_fraction}');if(v)SBA.updateSetting('kelly_fraction',parseFloat(v))">Edit</button>
+                            </div>
                         </div>
-                        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--border-light)">
+                        <div class="settings-row">
                             <div><div class="font-bold">EV Threshold</div><div class="text-dim" style="font-size:12px">Minimum expected value to flag as +EV</div></div>
-                            <div class="font-mono font-bold" style="font-size:18px">${(settings.ev_threshold * 100).toFixed(1)}%</div>
+                            <div style="display:flex;align-items:center;gap:8px">
+                                <span class="font-mono font-bold" style="font-size:18px">${(settings.ev_threshold * 100).toFixed(1)}%</span>
+                                <button class="btn btn-outline btn-sm" onclick="const v=prompt('New EV threshold (decimal, e.g. 0.03):','${settings.ev_threshold}');if(v)SBA.updateSetting('ev_threshold',parseFloat(v))">Edit</button>
+                            </div>
                         </div>
-                        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0">
+                        <div class="settings-row" style="border-bottom:none">
                             <div><div class="font-bold">Default Sport</div><div class="text-dim" style="font-size:12px">Primary sport for scanning</div></div>
-                            <span class="market-tag">${settings.default_sport}</span>
+                            <div style="display:flex;align-items:center;gap:8px">
+                                <span class="market-tag">${settings.default_sport}</span>
+                                <button class="btn btn-outline btn-sm" onclick="const v=prompt('Default sport key:','${settings.default_sport}');if(v)SBA.updateSetting('default_sport',v)">Edit</button>
+                            </div>
                         </div>
                     </div>
                     <p class="text-dim" style="font-size:11px;margin-top:16px">Settings are configured via environment variables or .env file</p>
@@ -1103,6 +1183,407 @@ const SBA = {
     loadTheme() {
         const saved = localStorage.getItem('sba-theme');
         if (saved) document.documentElement.setAttribute('data-theme', saved);
+    },
+
+    // ── Odds Comparison ──────────────────────────────────────────────
+    async loadOddsComparisonEvents() {
+        const select = document.getElementById('oc-event-select');
+        if (!select) return;
+        try {
+            const resp = await fetch('/api/events');
+            const events = await resp.json();
+            events.forEach(e => {
+                const opt = document.createElement('option');
+                opt.value = e.id;
+                opt.textContent = `${e.away_team} @ ${e.home_team}`;
+                select.appendChild(opt);
+            });
+        } catch {}
+    },
+
+    async loadOddsComparison(eventId) {
+        const matrixEl = document.getElementById('oc-matrix');
+        const bestEl = document.getElementById('oc-best-odds');
+        const timeEl = document.getElementById('oc-snapshot-time');
+        if (!eventId || !matrixEl) return;
+
+        const market = document.getElementById('oc-market-select')?.value || 'h2h';
+        matrixEl.innerHTML = '<div class="loading-spinner"><div class="spinner"></div> Loading odds matrix...</div>';
+
+        try {
+            const resp = await fetch(`/api/odds-comparison/${eventId}?market=${market}`);
+            const data = await resp.json();
+
+            if (data.bookmakers.length === 0) {
+                matrixEl.innerHTML = '<div class="empty-state" style="padding:40px"><p>No odds data for this event. Run <code class="step-code" style="display:inline">sba data sync</code> first.</p></div>';
+                return;
+            }
+
+            if (timeEl) timeEl.textContent = `${data.total_snapshots} snapshots`;
+
+            // Find best odds per outcome
+            const bestOdds = {};
+            Object.entries(data.outcomes).forEach(([outcome, entries]) => {
+                bestOdds[outcome] = entries.reduce((best, e) =>
+                    e.odds_american > (best?.odds_american ?? -9999) ? e : best, null);
+            });
+
+            // Best odds cards
+            if (bestEl) {
+                bestEl.innerHTML = Object.entries(bestOdds).map(([outcome, best]) => `
+                    <div class="stat-card green">
+                        <div class="stat-label">${outcome}</div>
+                        <div class="stat-value">${best.odds_american > 0 ? '+' : ''}${best.odds_american}</div>
+                        <div class="stat-sub">Best at <span class="font-bold">${best.bookmaker}</span></div>
+                    </div>
+                `).join('');
+            }
+
+            // Build matrix table
+            const outcomes = Object.keys(data.outcomes);
+            matrixEl.innerHTML = `
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Bookmaker</th>
+                            ${outcomes.map(o => `<th class="right">${o}</th>`).join('')}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${data.bookmakers.map((bk, i) => {
+                            return `<tr class="new-row" style="animation-delay:${i * 0.03}s">
+                                <td class="font-bold">${bk}</td>
+                                ${outcomes.map(o => {
+                                    const entry = data.outcomes[o]?.find(e => e.bookmaker === bk);
+                                    if (!entry) return '<td class="right text-dim">—</td>';
+                                    const isBest = bestOdds[o]?.bookmaker === bk;
+                                    return `<td class="right">
+                                        <span class="odds-badge ${entry.odds_american > 0 ? 'positive' : 'negative'} ${isBest ? 'selected' : ''}"
+                                              onclick="SBA.addToSlip('${eventId}', '${o}', ${entry.odds_american}, '${market}', '${bk}', '${o}', 0)"
+                                              data-tooltip="Click to add to slip">
+                                            ${entry.odds_american > 0 ? '+' : ''}${entry.odds_american}
+                                        </span>
+                                    </td>`;
+                                }).join('')}
+                            </tr>`;
+                        }).join('')}
+                    </tbody>
+                </table>
+            `;
+        } catch (err) {
+            matrixEl.innerHTML = `<div class="empty-state text-red">Error: ${err.message}</div>`;
+        }
+    },
+
+    // ── Notifications / Alerts ───────────────────────────────────────
+    async checkAlerts() {
+        try {
+            const resp = await fetch('/api/alerts');
+            const data = await resp.json();
+            const countEl = document.getElementById('notification-count');
+            const bellEl = document.getElementById('notification-bell');
+            if (countEl && data.count > 0) {
+                countEl.textContent = data.count;
+                countEl.style.display = 'flex';
+                bellEl?.classList.add('has-alerts');
+            } else if (countEl) {
+                countEl.style.display = 'none';
+                bellEl?.classList.remove('has-alerts');
+            }
+        } catch {}
+    },
+
+    toggleNotifications() {
+        const panel = document.getElementById('notification-panel');
+        if (panel) {
+            panel.classList.toggle('open');
+        } else {
+            this.toast('No new edge alerts', 'info');
+        }
+    },
+
+    // ── Parlay Calculator ────────────────────────────────────────────
+    calcParlayOdds() {
+        if (this.betSlip.length < 2) return null;
+        let parlayDecimal = 1;
+        this.betSlip.forEach(b => {
+            const dec = b.odds > 0 ? (b.odds / 100) + 1 : (100 / Math.abs(b.odds)) + 1;
+            parlayDecimal *= dec;
+        });
+        // Convert back to American
+        let parlayAmerican;
+        if (parlayDecimal >= 2) {
+            parlayAmerican = Math.round((parlayDecimal - 1) * 100);
+        } else {
+            parlayAmerican = Math.round(-100 / (parlayDecimal - 1));
+        }
+        return { decimal: parlayDecimal, american: parlayAmerican };
+    },
+
+    // ── Editable Settings ────────────────────────────────────────────
+    async updateSetting(field, value) {
+        try {
+            const body = {};
+            body[field] = value;
+            const resp = await fetch('/api/settings', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+            });
+            if (resp.ok) {
+                this.toast(`${field} updated`, 'success');
+                this.loadSettings();
+            } else {
+                this.toast('Failed to update setting', 'error');
+            }
+        } catch {
+            this.toast('Failed to update setting', 'error');
+        }
+    },
+
+    // ── Sparkline Generator ──────────────────────────────────────────
+    createSparkline(data, color = 'var(--accent-green)') {
+        if (!data || data.length === 0) return '';
+        const max = Math.max(...data.map(Math.abs), 1);
+        return `<div class="sparkline-container">${data.map((v, i) => {
+            const h = Math.max(Math.abs(v) / max * 28, 2);
+            const c = v >= 0 ? color : 'var(--accent-red)';
+            return `<div class="sparkline-bar${v < 0 ? ' negative' : ''}" style="height:${h}px;background:${c};opacity:${0.4 + (i / data.length) * 0.6}"></div>`;
+        }).join('')}</div>`;
+    },
+
+    // ── Circular Gauge ───────────────────────────────────────────────
+    createGauge(value, max = 100, label = '', color = 'var(--accent-green)') {
+        const pct = Math.min(Math.max(value / max, 0), 1);
+        const circumference = 2 * Math.PI * 34;
+        const offset = circumference * (1 - pct);
+        const cls = pct > 0.6 ? '' : pct > 0.35 ? 'warn' : 'danger';
+        return `<div class="gauge">
+            <svg viewBox="0 0 80 80">
+                <circle class="gauge-bg" cx="40" cy="40" r="34"/>
+                <circle class="gauge-fill ${cls}" cx="40" cy="40" r="34"
+                    stroke-dasharray="${circumference}" stroke-dashoffset="${offset}"
+                    style="stroke:${cls ? '' : color}"/>
+            </svg>
+            <div class="gauge-value">${label || Math.round(value) + '%'}</div>
+        </div>`;
+    },
+
+    // ── Confidence Meter (5 bars) ────────────────────────────────────
+    createConfidenceMeter(level) {
+        const bars = 5;
+        const filled = level === 'high' ? 5 : level === 'medium' ? 3 : 2;
+        return `<div class="confidence-meter ${level}">${
+            Array.from({length: bars}, (_, i) =>
+                `<div class="confidence-meter-bar"></div>`
+            ).join('')
+        }</div>`;
+    },
+
+    // ── Command Palette ──────────────────────────────────────────────
+    cmdPaletteOpen: false,
+    cmdPaletteIdx: 0,
+
+    commands: [
+        { name: 'Go to Dashboard', icon: 'home', action: () => location.href = '/', keys: 'G D' },
+        { name: 'Go to Edge Finder', icon: 'trending', action: () => location.href = '/edges', keys: 'G E' },
+        { name: 'Go to Player Props', icon: 'users', action: () => location.href = '/props', keys: 'G P' },
+        { name: 'Go to My Bets', icon: 'table', action: () => location.href = '/my-bets', keys: 'G B' },
+        { name: 'Go to Analytics', icon: 'chart', action: () => location.href = '/analytics', keys: 'G A' },
+        { name: 'Go to Line Movement', icon: 'activity', action: () => location.href = '/line-movement', keys: 'G L' },
+        { name: 'Go to Odds Comparison', icon: 'grid', action: () => location.href = '/odds-comparison', keys: 'G O' },
+        { name: 'Go to Settings', icon: 'settings', action: () => location.href = '/settings', keys: 'G S' },
+        { name: 'Toggle Dark/Light Theme', icon: 'theme', action: () => SBA.toggleTheme(), keys: 'T' },
+        { name: 'Toggle Bet Slip', icon: 'slip', action: () => SBA.toggleSlip(), keys: 'B' },
+        { name: 'Focus Search', icon: 'search', action: () => document.getElementById('player-search')?.focus(), keys: '/' },
+        { name: 'Show Keyboard Shortcuts', icon: 'keyboard', action: () => SBA.showShortcutsModal(), keys: '?' },
+    ],
+
+    setupCommandPalette() {
+        // Create command palette DOM
+        const palette = document.createElement('div');
+        palette.className = 'cmd-palette';
+        palette.id = 'cmd-palette';
+        palette.innerHTML = `
+            <input class="cmd-palette-input" placeholder="Type a command..." id="cmd-input">
+            <div class="cmd-palette-results" id="cmd-results"></div>
+        `;
+        document.body.appendChild(palette);
+
+        const input = document.getElementById('cmd-input');
+        const results = document.getElementById('cmd-results');
+
+        input.addEventListener('input', () => {
+            this.cmdPaletteIdx = 0;
+            this.renderCommandResults(input.value);
+        });
+
+        input.addEventListener('keydown', (e) => {
+            const items = results.querySelectorAll('.cmd-palette-item');
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                this.cmdPaletteIdx = Math.min(this.cmdPaletteIdx + 1, items.length - 1);
+                this.highlightCmd(items);
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                this.cmdPaletteIdx = Math.max(this.cmdPaletteIdx - 1, 0);
+                this.highlightCmd(items);
+            } else if (e.key === 'Enter') {
+                e.preventDefault();
+                const active = items[this.cmdPaletteIdx];
+                if (active) active.click();
+            } else if (e.key === 'Escape') {
+                this.closeCommandPalette();
+            }
+        });
+
+        this.renderCommandResults('');
+    },
+
+    renderCommandResults(query) {
+        const results = document.getElementById('cmd-results');
+        if (!results) return;
+        const q = query.toLowerCase();
+        const filtered = this.commands.filter(c =>
+            c.name.toLowerCase().includes(q)
+        );
+        results.innerHTML = filtered.map((c, i) => `
+            <div class="cmd-palette-item${i === this.cmdPaletteIdx ? ' active' : ''}"
+                 onclick="SBA.executeCommand(${this.commands.indexOf(c)})">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+                    ${this.getCmdIcon(c.icon)}
+                </svg>
+                <span>${c.name}</span>
+                <span class="cmd-kbd">${c.keys}</span>
+            </div>
+        `).join('');
+    },
+
+    highlightCmd(items) {
+        items.forEach((item, i) => {
+            item.classList.toggle('active', i === this.cmdPaletteIdx);
+        });
+    },
+
+    getCmdIcon(type) {
+        const icons = {
+            home: '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
+            trending: '<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>',
+            users: '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>',
+            table: '<rect x="2" y="3" width="20" height="18" rx="2"/><line x1="2" y1="9" x2="22" y2="9"/>',
+            chart: '<path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/>',
+            activity: '<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>',
+            grid: '<rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="3" x2="9" y2="21"/>',
+            settings: '<circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>',
+            theme: '<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/>',
+            slip: '<rect x="2" y="3" width="20" height="18" rx="2"/><line x1="2" y1="9" x2="22" y2="9"/>',
+            search: '<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>',
+            keyboard: '<rect x="2" y="4" width="20" height="16" rx="2"/><line x1="6" y1="8" x2="6.01" y2="8"/>',
+        };
+        return icons[type] || icons.home;
+    },
+
+    executeCommand(index) {
+        const cmd = this.commands[index];
+        if (cmd) {
+            this.closeCommandPalette();
+            cmd.action();
+        }
+    },
+
+    openCommandPalette() {
+        const el = document.getElementById('cmd-palette');
+        const bd = document.getElementById('cmd-backdrop');
+        if (!el) return;
+        el.classList.add('open');
+        if (bd) { bd.style.opacity = '1'; bd.style.pointerEvents = 'all'; bd.onclick = () => this.closeCommandPalette(); }
+        this.cmdPaletteOpen = true;
+        this.cmdPaletteIdx = 0;
+        const input = document.getElementById('cmd-input');
+        if (input) { input.value = ''; input.focus(); }
+        this.renderCommandResults('');
+    },
+
+    closeCommandPalette() {
+        const el = document.getElementById('cmd-palette');
+        const bd = document.getElementById('cmd-backdrop');
+        if (el) el.classList.remove('open');
+        if (bd) { bd.style.opacity = '0'; bd.style.pointerEvents = 'none'; }
+        this.cmdPaletteOpen = false;
+    },
+
+    // ── Keyboard Shortcuts Modal ─────────────────────────────────────
+    showShortcutsModal() {
+        let modal = document.getElementById('shortcuts-modal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.className = 'shortcuts-modal';
+            modal.id = 'shortcuts-modal';
+            modal.onclick = (e) => { if (e.target === modal) modal.classList.remove('open'); };
+            modal.innerHTML = `
+                <div class="shortcuts-modal-body">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                        <h2 style="font-size:18px;font-weight:700">Keyboard Shortcuts</h2>
+                        <button onclick="document.getElementById('shortcuts-modal').classList.remove('open')" style="background:none;border:none;color:var(--text-tertiary);font-size:20px;cursor:pointer">&times;</button>
+                    </div>
+                    <p class="text-dim" style="font-size:13px;margin-bottom:4px">Navigate like a pro</p>
+                    <div class="shortcuts-grid">
+                        <div class="shortcut-item"><span class="shortcut-label">Search</span><span class="kbd">/</span></div>
+                        <div class="shortcut-item"><span class="shortcut-label">Bet Slip</span><span class="kbd">B</span></div>
+                        <div class="shortcut-item"><span class="shortcut-label">Theme</span><span class="kbd">T</span></div>
+                        <div class="shortcut-item"><span class="shortcut-label">Close</span><span class="kbd">Esc</span></div>
+                        <div class="shortcut-item"><span class="shortcut-label">Command</span><span class="kbd">Ctrl+K</span></div>
+                        <div class="shortcut-item"><span class="shortcut-label">Shortcuts</span><span class="kbd">?</span></div>
+                        <div class="shortcut-item"><span class="shortcut-label">Dashboard</span><span class="kbd">G D</span></div>
+                        <div class="shortcut-item"><span class="shortcut-label">Edges</span><span class="kbd">G E</span></div>
+                        <div class="shortcut-item"><span class="shortcut-label">Props</span><span class="kbd">G P</span></div>
+                        <div class="shortcut-item"><span class="shortcut-label">My Bets</span><span class="kbd">G B</span></div>
+                        <div class="shortcut-item"><span class="shortcut-label">Analytics</span><span class="kbd">G A</span></div>
+                        <div class="shortcut-item"><span class="shortcut-label">Settings</span><span class="kbd">G S</span></div>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+        setTimeout(() => modal.classList.add('open'), 10);
+    },
+
+    // ── Live Ticker ────────────────────────────────────────────────────
+    async loadTicker() {
+        const el = document.getElementById('ticker-content');
+        if (!el) return;
+        try {
+            const [statusResp, betsResp] = await Promise.all([
+                fetch('/api/status'),
+                fetch('/api/bets'),
+            ]);
+            const status = await statusResp.json();
+            const bets = await betsResp.json();
+            const items = [];
+            items.push(`<span class="ticker-item">${status.events} events tracked across all sportsbooks</span>`);
+            items.push(`<span class="ticker-item">${status.odds_snapshots.toLocaleString()} odds snapshots in database</span>`);
+            items.push(`<span class="ticker-item">${status.players} players with ML models</span>`);
+            if (bets.total_bets > 0) {
+                items.push(`<span class="ticker-item">P/L: <span class="ticker-odds ${bets.total_profit >= 0 ? 'positive' : 'negative'}">$${bets.total_profit >= 0 ? '+' : ''}${bets.total_profit.toFixed(2)}</span></span>`);
+                items.push(`<span class="ticker-item">Win Rate: ${(bets.win_rate * 100).toFixed(0)}% (${bets.wins}W-${bets.losses}L)</span>`);
+                items.push(`<span class="ticker-item">ROI: <span class="ticker-odds ${bets.roi >= 0 ? 'positive' : 'negative'}">${bets.roi >= 0 ? '+' : ''}${bets.roi.toFixed(1)}%</span></span>`);
+            }
+            if (bets.pending > 0) {
+                items.push(`<span class="ticker-item">${bets.pending} pending bets awaiting results</span>`);
+            }
+            // Duplicate for seamless scroll
+            el.innerHTML = items.join('') + items.join('');
+        } catch {}
+    },
+
+    // ── EV Heatmap Class ─────────────────────────────────────────────
+    getEvHeatClass(ev) {
+        if (ev >= 0.10) return 'ev-heat-5';
+        if (ev >= 0.08) return 'ev-heat-4';
+        if (ev >= 0.06) return 'ev-heat-3';
+        if (ev >= 0.04) return 'ev-heat-2';
+        if (ev > 0) return 'ev-heat-1';
+        return '';
     },
 };
 

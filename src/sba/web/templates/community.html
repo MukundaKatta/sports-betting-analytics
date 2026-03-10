@@ -86,6 +86,50 @@
         </div>
     </div>
 
+    <!-- Achievement Showcase -->
+    <div class="card full-width frosted-panel reveal-up" style="animation-delay:0.22s">
+        <div class="card-header">
+            <h3>
+                <svg class="header-icon icon-bounce" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5C7 4 6 9 6 9z"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5C17 4 18 9 18 9z"/><path d="M4 22h16"/><path d="M10 22V2h4v20"/></svg>
+                Achievement Showcase
+            </h3>
+            <a href="/achievements" class="btn btn-outline btn-sm">View All</a>
+        </div>
+        <div class="card-body padded" id="community-achievements">
+            <div class="loading-spinner"><div class="spinner"></div> Loading achievements...</div>
+        </div>
+    </div>
+
+    <!-- Community Stats -->
+    <div class="card full-width frosted-panel reveal-up" style="animation-delay:0.23s">
+        <div class="card-header">
+            <h3>
+                <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/></svg>
+                Community Stats
+            </h3>
+        </div>
+        <div class="card-body padded">
+            <div class="stats-grid" style="grid-template-columns:repeat(auto-fill,minmax(140px,1fr))">
+                <div class="stat-card green card-3d-tilt" style="padding:16px">
+                    <div class="stat-label">Total Picks</div>
+                    <div class="stat-value" id="cs-picks" style="font-size:22px">—</div>
+                </div>
+                <div class="stat-card blue card-3d-tilt" style="padding:16px">
+                    <div class="stat-label">Members</div>
+                    <div class="stat-value" id="cs-members" style="font-size:22px">—</div>
+                </div>
+                <div class="stat-card yellow card-3d-tilt" style="padding:16px">
+                    <div class="stat-label">Win Rate</div>
+                    <div class="stat-value" id="cs-winrate" style="font-size:22px">—</div>
+                </div>
+                <div class="stat-card purple card-3d-tilt" style="padding:16px">
+                    <div class="stat-label">Total Profit</div>
+                    <div class="stat-value" id="cs-profit" style="font-size:22px">—</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Recent Picks -->
     <div class="card full-width reveal-up" style="animation-delay:0.25s">
         <div class="card-header">
@@ -208,9 +252,59 @@ async function submitPick() {
     }
 }
 
+async function loadCommunityAchievements() {
+    try {
+        const resp = await fetch('/api/achievements/summary');
+        const d = await resp.json();
+        const el = document.getElementById('community-achievements');
+        const tierColors = {bronze:'#cd7f32',silver:'#c0c0c0',gold:'#ffd700',diamond:'#b9f2ff'};
+        el.innerHTML = `
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px">
+                <div>
+                    <div style="font-size:28px;font-weight:800;color:var(--accent-yellow)">${d.rank}</div>
+                    <div class="text-dim">${d.total_points} points earned</div>
+                </div>
+                <div style="display:flex;gap:16px">
+                    <div style="text-align:center"><div class="font-mono font-bold" style="font-size:20px">${d.total_unlocked}</div><div class="text-dim" style="font-size:11px">Unlocked</div></div>
+                    <div style="text-align:center"><div class="font-mono font-bold" style="font-size:20px">${d.total_achievements - d.total_unlocked}</div><div class="text-dim" style="font-size:11px">Locked</div></div>
+                </div>
+                ${d.recent_unlocked.length > 0 ? `
+                <div style="display:flex;gap:6px;flex-wrap:wrap">
+                    ${d.recent_unlocked.map(a => `<span class="tag" style="background:${tierColors[a.tier]}22;color:${tierColors[a.tier]};font-size:11px">&#127942; ${a.name}</span>`).join('')}
+                </div>
+                ` : ''}
+            </div>
+        `;
+    } catch (err) { console.error('Community achievements error:', err); }
+}
+
+async function loadCommunityStats() {
+    try {
+        const [lbResp, picksResp] = await Promise.all([
+            fetch('/api/leaderboard'),
+            fetch('/api/picks?limit=999'),
+        ]);
+        const lb = await lbResp.json();
+        const picks = await picksResp.json();
+
+        document.getElementById('cs-members').textContent = lb.length;
+        document.getElementById('cs-picks').textContent = picks.length;
+
+        const totalWins = lb.reduce((s, u) => s + u.wins, 0);
+        const totalBets = lb.reduce((s, u) => s + u.total_bets, 0);
+        document.getElementById('cs-winrate').textContent = totalBets > 0 ? (totalWins / totalBets * 100).toFixed(1) + '%' : '—';
+
+        const totalProfit = lb.reduce((s, u) => s + u.total_profit, 0);
+        document.getElementById('cs-profit').textContent = (totalProfit >= 0 ? '+' : '') + '$' + totalProfit.toFixed(0);
+        document.getElementById('cs-profit').style.color = totalProfit >= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
+    } catch (err) { console.error('Community stats error:', err); }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     loadLeaderboard();
     loadPicks();
+    loadCommunityAchievements();
+    loadCommunityStats();
 });
 </script>
 {% endblock %}

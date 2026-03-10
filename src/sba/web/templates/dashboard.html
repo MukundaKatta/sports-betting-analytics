@@ -154,8 +154,65 @@
         </div>
     </div>
 
+    <!-- Today's Performance Widget -->
+    <div class="card featured-card reveal-up" style="animation-delay:0.35s">
+        <div class="card-header">
+            <h3>
+                <svg class="header-icon icon-bounce" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                Today's P/L
+                <span class="tag-live" style="margin-left:8px"><span class="realtime-dot"></span> Live</span>
+            </h3>
+        </div>
+        <div class="card-body padded" id="today-pnl">
+            <div class="loading-spinner"><div class="spinner"></div> Loading...</div>
+        </div>
+    </div>
+
+    <!-- Equity Curve Widget -->
+    <div class="card featured-card reveal-up" style="animation-delay:0.38s">
+        <div class="card-header">
+            <h3>
+                <svg class="header-icon icon-bounce" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                Bankroll Equity Curve
+            </h3>
+            <a href="/analytics" class="btn btn-outline btn-sm">Details</a>
+        </div>
+        <div class="card-body padded" id="equity-curve">
+            <div class="loading-spinner"><div class="spinner"></div> Loading...</div>
+        </div>
+    </div>
+
+    <!-- Achievements Widget -->
+    <div class="card reveal-scale" style="animation-delay:0.4s">
+        <div class="card-header">
+            <h3>
+                <svg class="header-icon icon-bounce" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5C7 4 6 9 6 9z"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5C17 4 18 9 18 9z"/><path d="M4 22h16"/><path d="M10 22V2h4v20"/></svg>
+                Achievements
+            </h3>
+            <a href="/achievements" class="btn btn-outline btn-sm">View All</a>
+        </div>
+        <div class="card-body padded" id="dash-achievements">
+            <div class="loading-spinner"><div class="spinner"></div> Loading...</div>
+        </div>
+    </div>
+
+    <!-- Smart Insights Widget -->
+    <div class="card reveal-scale" style="animation-delay:0.42s">
+        <div class="card-header">
+            <h3>
+                <svg class="header-icon icon-bounce" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+                Smart Insights
+                <span class="tag-elite" style="margin-left:8px">AI</span>
+            </h3>
+            <a href="/insights" class="btn btn-outline btn-sm">View All</a>
+        </div>
+        <div class="card-body padded" id="dash-insights">
+            <div class="loading-spinner"><div class="spinner"></div> Loading...</div>
+        </div>
+    </div>
+
     <!-- Getting Started -->
-    <div class="card full-width reveal-up" style="animation-delay:0.4s">
+    <div class="card full-width reveal-up" style="animation-delay:0.45s">
         <div class="card-header">
             <h3>
                 <svg class="header-icon icon-bounce" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
@@ -204,9 +261,129 @@
 
 {% block scripts %}
 <script>
+async function loadTodayPnl() {
+    try {
+        const resp = await fetch('/api/performance/today');
+        const d = await resp.json();
+        const el = document.getElementById('today-pnl');
+        const color = d.profit >= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
+        const sign = d.profit >= 0 ? '+' : '';
+        el.innerHTML = `
+            <div style="text-align:center;padding:8px 0">
+                <div style="font-size:36px;font-weight:800;color:${color};font-family:var(--font-mono)">${sign}$${d.profit.toFixed(2)}</div>
+                <div class="text-dim" style="font-size:13px;margin-top:4px">${d.date}</div>
+                <div style="display:flex;justify-content:center;gap:20px;margin-top:16px">
+                    <div><div class="stat-label">Bets</div><div class="font-mono font-bold">${d.total_bets}</div></div>
+                    <div><div class="stat-label">Wins</div><div class="font-mono font-bold text-green">${d.wins}</div></div>
+                    <div><div class="stat-label">Losses</div><div class="font-mono font-bold text-red">${d.losses}</div></div>
+                    <div><div class="stat-label">Win Rate</div><div class="font-mono font-bold">${d.win_rate}%</div></div>
+                    <div><div class="stat-label">ROI</div><div class="font-mono font-bold" style="color:${color}">${d.roi}%</div></div>
+                </div>
+                ${d.pending > 0 ? `<div class="text-dim" style="font-size:11px;margin-top:8px">${d.pending} pending bet${d.pending > 1 ? 's' : ''} today</div>` : ''}
+            </div>
+        `;
+    } catch (err) { console.error('Today P/L error:', err); }
+}
+
+async function loadEquityCurve() {
+    try {
+        const resp = await fetch('/api/performance/equity-curve');
+        const d = await resp.json();
+        const el = document.getElementById('equity-curve');
+        if (d.curve.length === 0) {
+            el.innerHTML = '<div class="text-dim" style="text-align:center;padding:20px">No settled bets yet — start tracking to see your equity curve.</div>';
+            return;
+        }
+        const color = d.total_pnl >= 0 ? '#00e68a' : '#ff4d6a';
+        const sign = d.total_pnl >= 0 ? '+' : '';
+        const maxVal = Math.max(...d.curve.map(p => p.cumulative));
+        const minVal = Math.min(...d.curve.map(p => p.cumulative));
+        const range = maxVal - minVal || 1;
+        const w = 400, h = 100;
+        const points = d.curve.map((p, i) => {
+            const x = (i / (d.curve.length - 1 || 1)) * w;
+            const y = h - ((p.cumulative - minVal) / range) * h;
+            return `${x},${y}`;
+        }).join(' ');
+
+        el.innerHTML = `
+            <div style="display:flex;justify-content:space-between;margin-bottom:12px">
+                <div><span class="stat-label">Current Value</span><div class="font-mono font-bold" style="font-size:20px;color:${color}">$${d.current_value.toLocaleString()}</div></div>
+                <div style="text-align:right"><span class="stat-label">Total P/L</span><div class="font-mono font-bold" style="color:${color}">${sign}$${d.total_pnl.toLocaleString()} (${d.total_roi}%)</div></div>
+            </div>
+            <svg viewBox="0 0 ${w} ${h}" style="width:100%;height:100px">
+                <defs><linearGradient id="eqGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="${color}" stop-opacity="0.3"/><stop offset="100%" stop-color="${color}" stop-opacity="0"/></linearGradient></defs>
+                <polygon points="0,${h} ${points} ${w},${h}" fill="url(#eqGrad)" />
+                <polyline points="${points}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+            <div style="display:flex;justify-content:space-between;margin-top:6px" class="text-dim" style="font-size:11px">
+                <span>${d.curve[0].date}</span>
+                <span>${d.curve[d.curve.length-1].date}</span>
+            </div>
+        `;
+    } catch (err) { console.error('Equity curve error:', err); }
+}
+
+async function loadDashAchievements() {
+    try {
+        const resp = await fetch('/api/achievements/summary');
+        const d = await resp.json();
+        const el = document.getElementById('dash-achievements');
+        const tierColors = {bronze:'#cd7f32',silver:'#c0c0c0',gold:'#ffd700',diamond:'#b9f2ff'};
+        el.innerHTML = `
+            <div style="text-align:center">
+                <div style="font-size:22px;font-weight:800;color:var(--accent-yellow)">${d.rank}</div>
+                <div class="text-dim" style="font-size:12px">${d.total_points} points &middot; ${d.total_unlocked}/${d.total_achievements} unlocked</div>
+                ${d.recent_unlocked.length > 0 ? `
+                    <div style="margin-top:12px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+                        ${d.recent_unlocked.map(a => `
+                            <span class="tag" style="background:${tierColors[a.tier]}22;color:${tierColors[a.tier]};font-size:10px">&#127942; ${a.name}</span>
+                        `).join('')}
+                    </div>
+                ` : ''}
+                ${d.next_unlock ? `
+                    <div style="margin-top:12px">
+                        <div class="text-dim" style="font-size:11px">Next: ${d.next_unlock.name} (${d.next_unlock.progress_pct}%)</div>
+                        <div style="height:4px;border-radius:2px;background:rgba(255,255,255,0.06);margin-top:4px">
+                            <div style="height:100%;width:${d.next_unlock.progress_pct}%;background:var(--accent-yellow);border-radius:2px"></div>
+                        </div>
+                    </div>
+                ` : ''}
+            </div>
+        `;
+    } catch (err) { console.error('Achievements error:', err); }
+}
+
+async function loadDashInsights() {
+    try {
+        const resp = await fetch('/api/insights');
+        const data = await resp.json();
+        const el = document.getElementById('dash-insights');
+        if (data.insights.length === 0) {
+            el.innerHTML = '<div class="text-dim" style="text-align:center;padding:12px">Track more bets to unlock insights.</div>';
+            return;
+        }
+        const sevColors = {critical:'#ff4d6a',warning:'#ffc234',success:'#00e68a',info:'#5b9aff'};
+        // Show top 3
+        el.innerHTML = data.insights.slice(0, 3).map(i => `
+            <div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.04)">
+                <div style="display:flex;align-items:center;gap:6px;margin-bottom:2px">
+                    <span style="width:8px;height:8px;border-radius:50%;background:${sevColors[i.severity]};display:inline-block"></span>
+                    <span style="font-weight:600;font-size:13px">${i.title}</span>
+                </div>
+                <div class="text-dim" style="font-size:11px;padding-left:14px">${i.action}</div>
+            </div>
+        `).join('') + `<div style="text-align:center;margin-top:8px"><a href="/insights" class="text-dim" style="font-size:11px">View all ${data.total} insights &rarr;</a></div>`;
+    } catch (err) { console.error('Insights error:', err); }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     SBA.loadDashboard();
     SBA.loadDashboardRisk();
+    loadTodayPnl();
+    loadEquityCurve();
+    loadDashAchievements();
+    loadDashInsights();
 });
 </script>
 {% endblock %}

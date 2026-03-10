@@ -137,3 +137,80 @@ class TrackedBet:
     placed_at: datetime | None = None
     settled_at: datetime | None = None
     id: int | None = None
+
+
+@dataclass
+class BankrollEntry:
+    amount: float
+    change: float = 0.0
+    reason: str = ""
+    bet_id: int | None = None
+    created_at: datetime | None = None
+    id: int | None = None
+
+
+@dataclass
+class ClosingLine:
+    bet_id: int
+    closing_odds_american: int
+    closing_odds_decimal: float
+    clv_american: int = 0
+    clv_percentage: float = 0.0
+    captured_at: datetime | None = None
+
+
+@dataclass
+class SharpMove:
+    event_id: str
+    market: str
+    outcome: str
+    move_type: str
+    bookmaker: str
+    odds_before: int
+    odds_after: int
+    line_before: float | None = None
+    line_after: float | None = None
+    magnitude: float = 0.0
+    detected_at: datetime | None = None
+    id: int | None = None
+
+
+@dataclass
+class LeaderboardEntry:
+    username: str
+    display_name: str = ""
+    total_bets: int = 0
+    wins: int = 0
+    losses: int = 0
+    total_profit: float = 0.0
+    roi_pct: float = 0.0
+    win_rate: float = 0.0
+    avg_odds: int = 0
+    best_streak: int = 0
+    rank_score: float = 0.0
+    id: int | None = None
+
+
+@dataclass
+class PublicPick:
+    username: str
+    event_id: str
+    market: str
+    selection: str
+    odds_american: int
+    line: float | None = None
+    confidence: str = "medium"
+    analysis: str = ""
+    status: str = "pending"
+    profit_loss: float = 0.0
+    created_at: datetime | None = None
+    id: int | None = None
+
+
+@dataclass
+class AlertRule:
+    rule_type: str
+    condition_json: str = "{}"
+    enabled: bool = True
+    last_triggered: datetime | None = None
+    id: int | None = None

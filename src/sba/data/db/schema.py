@@ -111,4 +111,98 @@ CREATE TABLE IF NOT EXISTS alerts (
 );
 
 CREATE INDEX IF NOT EXISTS idx_alerts_read ON alerts(read, created_at);
+
+CREATE TABLE IF NOT EXISTS bankroll_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    amount REAL NOT NULL,
+    change REAL NOT NULL DEFAULT 0,
+    reason TEXT DEFAULT '',
+    bet_id INTEGER REFERENCES bets(id),
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_bankroll_log_date ON bankroll_log(created_at);
+
+CREATE TABLE IF NOT EXISTS bet_tags (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    bet_id INTEGER NOT NULL REFERENCES bets(id),
+    tag TEXT NOT NULL,
+    UNIQUE(bet_id, tag)
+);
+
+CREATE TABLE IF NOT EXISTS bet_notes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    bet_id INTEGER NOT NULL REFERENCES bets(id),
+    note TEXT NOT NULL,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS closing_lines (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    bet_id INTEGER NOT NULL UNIQUE REFERENCES bets(id),
+    closing_odds_american INTEGER NOT NULL,
+    closing_odds_decimal REAL NOT NULL,
+    clv_american INTEGER DEFAULT 0,
+    clv_percentage REAL DEFAULT 0,
+    captured_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS sharp_moves (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    event_id TEXT NOT NULL,
+    market TEXT NOT NULL,
+    outcome TEXT NOT NULL,
+    move_type TEXT NOT NULL,
+    bookmaker TEXT NOT NULL,
+    odds_before INTEGER NOT NULL,
+    odds_after INTEGER NOT NULL,
+    line_before REAL,
+    line_after REAL,
+    magnitude REAL DEFAULT 0,
+    detected_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_sharp_moves_event ON sharp_moves(event_id, detected_at);
+
+CREATE TABLE IF NOT EXISTS leaderboard (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT NOT NULL UNIQUE,
+    display_name TEXT DEFAULT '',
+    total_bets INTEGER DEFAULT 0,
+    wins INTEGER DEFAULT 0,
+    losses INTEGER DEFAULT 0,
+    total_profit REAL DEFAULT 0,
+    roi_pct REAL DEFAULT 0,
+    win_rate REAL DEFAULT 0,
+    avg_odds INTEGER DEFAULT 0,
+    best_streak INTEGER DEFAULT 0,
+    rank_score REAL DEFAULT 0,
+    updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS public_picks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT NOT NULL,
+    event_id TEXT NOT NULL,
+    market TEXT NOT NULL,
+    selection TEXT NOT NULL,
+    odds_american INTEGER NOT NULL,
+    line REAL,
+    confidence TEXT DEFAULT 'medium',
+    analysis TEXT DEFAULT '',
+    status TEXT DEFAULT 'pending',
+    profit_loss REAL DEFAULT 0,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_public_picks_user ON public_picks(username, created_at);
+
+CREATE TABLE IF NOT EXISTS alert_rules (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    rule_type TEXT NOT NULL,
+    condition_json TEXT NOT NULL DEFAULT '{}',
+    enabled INTEGER DEFAULT 1,
+    last_triggered TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
 """

@@ -188,7 +188,7 @@ def health_check():
 
     return HealthResponse(
         status="ok",
-        version="1.2.0",
+        version="2.0.0",
         uptime=f"{hours}h {minutes}m {seconds}s",
         database=db_status,
     )
@@ -1409,4 +1409,598 @@ def export_bets_json():
             "kelly_fraction": round(b.kelly_fraction, 4),
         }
         for b in bets
+    ]
+
+
+# ── Bankroll Management ──────────────────────────────────────────
+
+class BankrollActionRequest(BaseModel):
+    amount: float
+    reason: str = ""
+
+
+@router.get("/bankroll")
+def get_bankroll():
+    """Get bankroll history and current balance."""
+    init_db()
+    with get_connection() as conn:
+        rows = conn.execute(
+            "SELECT * FROM bankroll_log ORDER BY created_at DESC LIMIT 200"
+        ).fetchall()
+    if not rows:
+        settings = get_settings()
+        return {
+            "current_balance": settings.BANKROLL,
+            "starting_balance": settings.BANKROLL,
+            "total_deposited": settings.BANKROLL,
+            "total_withdrawn": 0,
+            "total_profit": 0,
+            "roi_pct": 0,
+            "history": [],
+        }
+
+    entries = [
+        {
+            "id": r["id"],
+            "amount": r["amount"],
+            "change": r["change"],
+            "reason": r["reason"],
+            "bet_id": r["bet_id"],
+            "created_at": r["created_at"],
+        }
+        for r in rows
+    ]
+    current = entries[0]["amount"]
+    deposits = sum(e["change"] for e in entries if e["reason"] in ("deposit", "initial"))
+    withdrawals = abs(sum(e["change"] for e in entries if e["reason"] == "withdrawal"))
+    starting = entries[-1]["amount"] - entries[-1]["change"]
+    total_profit = current - starting - deposits + withdrawals
+    roi = round(total_profit / max(starting + deposits, 0.01) * 100, 2)
+
+    return {
+        "current_balance": round(current, 2),
+        "starting_balance": round(starting, 2),
+        "total_deposited": round(deposits, 2),
+        "total_withdrawn": round(withdrawals, 2),
+        "total_profit": round(total_profit, 2),
+        "roi_pct": roi,
+        "history": entries[:100],
+    }
+
+
+@router.post("/bankroll/deposit")
+def bankroll_deposit(req: BankrollActionRequest):
+    """Record a bankroll deposit."""
+    init_db()
+    with get_connection() as conn:
+        last = conn.execute(
+            "SELECT amount FROM bankroll_log ORDER BY created_at DESC LIMIT 1"
+        ).fetchone()
+        current = last["amount"] if last else get_settings().BANKROLL
+        new_balance = current + req.amount
+        conn.execute(
+            "INSERT INTO bankroll_log (amount, change, reason) VALUES (?, ?, ?)",
+            (round(new_balance, 2), round(req.amount, 2), req.reason or "deposit"),
+        )
+    return {"balance": round(new_balance, 2), "deposited": req.amount}
+
+
+@router.post("/bankroll/withdraw")
+def bankroll_withdraw(req: BankrollActionRequest):
+    """Record a bankroll withdrawal."""
+    init_db()
+    with get_connection() as conn:
+        last = conn.execute(
+            "SELECT amount FROM bankroll_log ORDER BY created_at DESC LIMIT 1"
+        ).fetchone()
+        current = last["amount"] if last else get_settings().BANKROLL
+        new_balance = current - req.amount
+        conn.execute(
+            "INSERT INTO bankroll_log (amount, change, reason) VALUES (?, ?, ?)",
+            (round(new_balance, 2), round(-req.amount, 2), "withdrawal"),
+        )
+    return {"balance": round(new_balance, 2), "withdrawn": req.amount}
+
+
+@router.post("/bankroll/initialize")
+def bankroll_initialize(req: BankrollActionRequest):
+    """Initialize bankroll tracking with a starting balance."""
+    init_db()
+    with get_connection() as conn:
+        conn.execute(
+            "INSERT INTO bankroll_log (amount, change, reason) VALUES (?, ?, ?)",
+            (req.amount, req.amount, "initial"),
+        )
+    return {"balance": req.amount, "status": "initialized"}
+
+
+@router.get("/bankroll/daily")
+def bankroll_daily_pnl():
+    """Get daily P&L summary from bankroll log."""
+    init_db()
+    with get_connection() as conn:
+        rows = conn.execute("""
+            SELECT DATE(created_at) as day, SUM(change) as daily_change,
+                   MAX(amount) as end_balance, COUNT(*) as transactions
+            FROM bankroll_log
+            GROUP BY DATE(created_at)
+            ORDER BY day
+        """).fetchall()
+    return [
+        {
+            "date": r["day"],
+            "daily_change": round(r["daily_change"], 2),
+            "end_balance": round(r["end_balance"], 2),
+            "transactions": r["transactions"],
+        }
+        for r in rows
+    ]
+
+
+# ── CLV Tracking (Closing Line Value) ────────────────────────────
+
+class CLVRequest(BaseModel):
+    bet_id: int
+    closing_odds_american: int
+
+
+@router.post("/clv/record")
+def record_closing_line(req: CLVRequest):
+    """Record the closing line for a bet to calculate CLV."""
+    from sba.services.sharp_money import calculate_clv
+    from sba.utils.odds_math import american_to_decimal
+
+    init_db()
+    with get_connection() as conn:
+        bet_row = conn.execute("SELECT odds_american FROM bets WHERE id = ?", (req.bet_id,)).fetchone()
+        if not bet_row:
+            raise HTTPException(404, "Bet not found")
+
+        clv = calculate_clv(bet_row["odds_american"], req.closing_odds_american)
+        closing_dec = american_to_decimal(req.closing_odds_american)
+
+        conn.execute("""
+            INSERT INTO closing_lines (bet_id, closing_odds_american, closing_odds_decimal,
+                                       clv_american, clv_percentage)
+            VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT(bet_id) DO UPDATE SET
+                closing_odds_american=excluded.closing_odds_american,
+                closing_odds_decimal=excluded.closing_odds_decimal,
+                clv_american=excluded.clv_american,
+                clv_percentage=excluded.clv_percentage,
+                captured_at=CURRENT_TIMESTAMP
+        """, (req.bet_id, req.closing_odds_american, round(closing_dec, 4),
+              clv["clv_american"], clv["clv_percentage"]))
+
+    return clv
+
+
+@router.get("/clv/summary")
+def clv_summary():
+    """Get aggregate CLV stats across all tracked bets."""
+    init_db()
+    with get_connection() as conn:
+        rows = conn.execute("""
+            SELECT cl.*, b.market, b.bookmaker, b.status, b.odds_american as placed_odds
+            FROM closing_lines cl
+            JOIN bets b ON cl.bet_id = b.id
+            ORDER BY cl.captured_at DESC
+        """).fetchall()
+
+    if not rows:
+        return {
+            "total_tracked": 0, "avg_clv": 0, "beat_closing_pct": 0,
+            "clv_by_market": {}, "clv_by_bookmaker": {}, "entries": [],
+        }
+
+    entries = []
+    by_market: dict[str, list] = {}
+    by_book: dict[str, list] = {}
+
+    for r in rows:
+        entry = {
+            "bet_id": r["bet_id"],
+            "placed_odds": r["placed_odds"],
+            "closing_odds": r["closing_odds_american"],
+            "clv_american": r["clv_american"],
+            "clv_percentage": r["clv_percentage"],
+            "market": r["market"],
+            "bookmaker": r["bookmaker"],
+            "status": r["status"],
+        }
+        entries.append(entry)
+        by_market.setdefault(r["market"], []).append(r["clv_percentage"])
+        by_book.setdefault(r["bookmaker"], []).append(r["clv_percentage"])
+
+    avg_clv = round(sum(r["clv_percentage"] for r in rows) / len(rows), 2)
+    beat_pct = round(sum(1 for r in rows if r["clv_percentage"] > 0) / len(rows) * 100, 1)
+
+    clv_by_market = {
+        m: round(sum(vals) / len(vals), 2) for m, vals in by_market.items()
+    }
+    clv_by_book = {
+        b: round(sum(vals) / len(vals), 2) for b, vals in by_book.items()
+    }
+
+    return {
+        "total_tracked": len(rows),
+        "avg_clv": avg_clv,
+        "beat_closing_pct": beat_pct,
+        "clv_by_market": clv_by_market,
+        "clv_by_bookmaker": clv_by_book,
+        "entries": entries[:50],
+    }
+
+
+# ── Sharp Money / Line Movement Analysis ─────────────────────────
+
+@router.get("/sharp-money/{event_id}")
+def get_sharp_signals(event_id: str, market: str = Query("h2h")):
+    """Detect sharp money signals for an event from historical odds."""
+    from sba.services.sharp_money import analyze_line_signals
+
+    init_db()
+    with get_connection() as conn:
+        snapshots = repo.get_odds_history(conn, event_id, market)
+
+    signals = analyze_line_signals(snapshots)
+    return {
+        "event_id": event_id,
+        "market": market,
+        "total_signals": len(signals),
+        "signals": [
+            {
+                "outcome": s.outcome,
+                "signal_type": s.signal_type,
+                "bookmaker": s.bookmaker,
+                "odds_open": s.odds_open,
+                "odds_current": s.odds_current,
+                "movement": s.movement,
+                "confidence": s.confidence,
+                "description": s.description,
+            }
+            for s in signals
+        ],
+    }
+
+
+@router.get("/sharp-money")
+def get_all_sharp_moves():
+    """Get all recently detected sharp moves from the database."""
+    init_db()
+    with get_connection() as conn:
+        rows = conn.execute("""
+            SELECT sm.*, e.home_team, e.away_team
+            FROM sharp_moves sm
+            LEFT JOIN events e ON sm.event_id = e.id
+            ORDER BY sm.detected_at DESC LIMIT 50
+        """).fetchall()
+    return [
+        {
+            "event": f"{r['away_team'] or '?'} @ {r['home_team'] or '?'}",
+            "event_id": r["event_id"],
+            "market": r["market"],
+            "outcome": r["outcome"],
+            "move_type": r["move_type"],
+            "bookmaker": r["bookmaker"],
+            "odds_before": r["odds_before"],
+            "odds_after": r["odds_after"],
+            "line_before": r["line_before"],
+            "line_after": r["line_after"],
+            "magnitude": r["magnitude"],
+            "detected_at": r["detected_at"],
+        }
+        for r in rows
+    ]
+
+
+# ── Community / Leaderboard ──────────────────────────────────────
+
+class RegisterUserRequest(BaseModel):
+    username: str
+    display_name: str = ""
+
+
+class SubmitPickRequest(BaseModel):
+    username: str
+    event_id: str
+    market: str
+    selection: str
+    odds_american: int
+    line: float | None = None
+    confidence: str = "medium"
+    analysis: str = ""
+
+
+class SettlePickRequest(BaseModel):
+    status: str
+    profit_loss: float = 0.0
+
+
+@router.get("/leaderboard")
+def get_leaderboard(limit: int = Query(25)):
+    """Get the community leaderboard ranked by score."""
+    init_db()
+    with get_connection() as conn:
+        rows = conn.execute(
+            "SELECT * FROM leaderboard ORDER BY rank_score DESC LIMIT ?", (limit,)
+        ).fetchall()
+    return [
+        {
+            "rank": i + 1,
+            "username": r["username"],
+            "display_name": r["display_name"],
+            "total_bets": r["total_bets"],
+            "wins": r["wins"],
+            "losses": r["losses"],
+            "win_rate": round(r["win_rate"] * 100, 1),
+            "total_profit": round(r["total_profit"], 2),
+            "roi_pct": round(r["roi_pct"], 1),
+            "avg_odds": r["avg_odds"],
+            "best_streak": r["best_streak"],
+            "rank_score": round(r["rank_score"], 1),
+        }
+        for i, r in enumerate(rows)
+    ]
+
+
+@router.post("/leaderboard/register")
+def register_user(req: RegisterUserRequest):
+    """Register a new user for the leaderboard."""
+    init_db()
+    with get_connection() as conn:
+        existing = conn.execute(
+            "SELECT id FROM leaderboard WHERE username = ?", (req.username,)
+        ).fetchone()
+        if existing:
+            return {"status": "already_exists", "username": req.username}
+        conn.execute(
+            "INSERT INTO leaderboard (username, display_name) VALUES (?, ?)",
+            (req.username, req.display_name or req.username),
+        )
+    return {"status": "registered", "username": req.username}
+
+
+@router.post("/picks")
+def submit_pick(req: SubmitPickRequest):
+    """Submit a public pick."""
+    init_db()
+    with get_connection() as conn:
+        # Verify user exists
+        user = conn.execute(
+            "SELECT id FROM leaderboard WHERE username = ?", (req.username,)
+        ).fetchone()
+        if not user:
+            raise HTTPException(400, "User not registered on leaderboard")
+
+        cursor = conn.execute("""
+            INSERT INTO public_picks (username, event_id, market, selection,
+                                      odds_american, line, confidence, analysis)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """, (req.username, req.event_id, req.market, req.selection,
+              req.odds_american, req.line, req.confidence, req.analysis))
+
+    return {"id": cursor.lastrowid, "status": "submitted"}
+
+
+@router.put("/picks/{pick_id}/settle")
+def settle_pick(pick_id: int, req: SettlePickRequest):
+    """Settle a public pick and update the leaderboard."""
+    if req.status not in ("won", "lost", "push"):
+        raise HTTPException(400, "Status must be 'won', 'lost', or 'push'")
+
+    init_db()
+    with get_connection() as conn:
+        pick = conn.execute(
+            "SELECT * FROM public_picks WHERE id = ?", (pick_id,)
+        ).fetchone()
+        if not pick:
+            raise HTTPException(404, "Pick not found")
+
+        conn.execute(
+            "UPDATE public_picks SET status = ?, profit_loss = ? WHERE id = ?",
+            (req.status, req.profit_loss, pick_id),
+        )
+
+        # Update leaderboard stats
+        username = pick["username"]
+        lb = conn.execute(
+            "SELECT * FROM leaderboard WHERE username = ?", (username,)
+        ).fetchone()
+        if lb:
+            new_bets = lb["total_bets"] + 1
+            new_wins = lb["wins"] + (1 if req.status == "won" else 0)
+            new_losses = lb["losses"] + (1 if req.status == "lost" else 0)
+            new_profit = lb["total_profit"] + req.profit_loss
+            new_wr = new_wins / max(new_bets, 1)
+            # Rank score: combines ROI, volume, and consistency
+            roi = new_profit / max(new_bets * 100, 1) * 100
+            rank_score = (roi * 0.4 + new_wr * 100 * 0.3 + min(new_bets, 100) * 0.3)
+
+            conn.execute("""
+                UPDATE leaderboard SET total_bets = ?, wins = ?, losses = ?,
+                    total_profit = ?, win_rate = ?, roi_pct = ?, rank_score = ?,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE username = ?
+            """, (new_bets, new_wins, new_losses, round(new_profit, 2),
+                  round(new_wr, 4), round(roi, 2), round(rank_score, 2), username))
+
+    return {"pick_id": pick_id, "status": req.status}
+
+
+@router.get("/picks")
+def get_picks(username: str = Query(None), limit: int = Query(50)):
+    """Get public picks, optionally filtered by username."""
+    init_db()
+    with get_connection() as conn:
+        if username:
+            rows = conn.execute(
+                "SELECT * FROM public_picks WHERE username = ? ORDER BY created_at DESC LIMIT ?",
+                (username, limit),
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT * FROM public_picks ORDER BY created_at DESC LIMIT ?",
+                (limit,),
+            ).fetchall()
+
+    return [
+        {
+            "id": r["id"],
+            "username": r["username"],
+            "event_id": r["event_id"],
+            "market": r["market"],
+            "selection": r["selection"],
+            "odds_american": r["odds_american"],
+            "line": r["line"],
+            "confidence": r["confidence"],
+            "analysis": r["analysis"],
+            "status": r["status"],
+            "profit_loss": r["profit_loss"],
+            "created_at": r["created_at"],
+        }
+        for r in rows
+    ]
+
+
+# ── Alert Rules (Automated Alerts) ───────────────────────────────
+
+class CreateAlertRuleRequest(BaseModel):
+    rule_type: str  # ev_threshold, arb_detected, line_movement, price_change
+    condition_json: str = "{}"
+
+
+@router.get("/alert-rules")
+def get_alert_rules():
+    """Get all configured alert rules."""
+    init_db()
+    with get_connection() as conn:
+        rows = conn.execute(
+            "SELECT * FROM alert_rules ORDER BY created_at DESC"
+        ).fetchall()
+    return [
+        {
+            "id": r["id"],
+            "rule_type": r["rule_type"],
+            "condition_json": r["condition_json"],
+            "enabled": bool(r["enabled"]),
+            "last_triggered": r["last_triggered"],
+        }
+        for r in rows
+    ]
+
+
+@router.post("/alert-rules")
+def create_alert_rule(req: CreateAlertRuleRequest):
+    """Create a new alert rule."""
+    valid_types = {"ev_threshold", "arb_detected", "line_movement", "price_change"}
+    if req.rule_type not in valid_types:
+        raise HTTPException(400, f"rule_type must be one of: {valid_types}")
+
+    init_db()
+    with get_connection() as conn:
+        cursor = conn.execute(
+            "INSERT INTO alert_rules (rule_type, condition_json) VALUES (?, ?)",
+            (req.rule_type, req.condition_json),
+        )
+    return {"id": cursor.lastrowid, "status": "created"}
+
+
+@router.put("/alert-rules/{rule_id}/toggle")
+def toggle_alert_rule(rule_id: int):
+    """Toggle an alert rule on/off."""
+    init_db()
+    with get_connection() as conn:
+        conn.execute(
+            "UPDATE alert_rules SET enabled = CASE WHEN enabled = 1 THEN 0 ELSE 1 END WHERE id = ?",
+            (rule_id,),
+        )
+        row = conn.execute(
+            "SELECT enabled FROM alert_rules WHERE id = ?", (rule_id,)
+        ).fetchone()
+    if not row:
+        raise HTTPException(404, "Rule not found")
+    return {"id": rule_id, "enabled": bool(row["enabled"])}
+
+
+@router.delete("/alert-rules/{rule_id}")
+def delete_alert_rule(rule_id: int):
+    """Delete an alert rule."""
+    init_db()
+    with get_connection() as conn:
+        conn.execute("DELETE FROM alert_rules WHERE id = ?", (rule_id,))
+    return {"id": rule_id, "deleted": True}
+
+
+# ── Bet Tags & Notes ─────────────────────────────────────────────
+
+class AddTagRequest(BaseModel):
+    tag: str
+
+
+class AddNoteRequest(BaseModel):
+    note: str
+
+
+@router.post("/bets/{bet_id}/tags")
+def add_bet_tag(bet_id: int, req: AddTagRequest):
+    """Add a tag to a bet."""
+    init_db()
+    with get_connection() as conn:
+        try:
+            conn.execute(
+                "INSERT INTO bet_tags (bet_id, tag) VALUES (?, ?)",
+                (bet_id, req.tag),
+            )
+        except Exception:
+            return {"status": "already_exists"}
+    return {"bet_id": bet_id, "tag": req.tag, "status": "added"}
+
+
+@router.get("/bets/{bet_id}/tags")
+def get_bet_tags(bet_id: int):
+    """Get all tags for a bet."""
+    init_db()
+    with get_connection() as conn:
+        rows = conn.execute(
+            "SELECT tag FROM bet_tags WHERE bet_id = ?", (bet_id,)
+        ).fetchall()
+    return [r["tag"] for r in rows]
+
+
+@router.delete("/bets/{bet_id}/tags/{tag}")
+def remove_bet_tag(bet_id: int, tag: str):
+    """Remove a tag from a bet."""
+    init_db()
+    with get_connection() as conn:
+        conn.execute(
+            "DELETE FROM bet_tags WHERE bet_id = ? AND tag = ?", (bet_id, tag),
+        )
+    return {"bet_id": bet_id, "tag": tag, "status": "removed"}
+
+
+@router.post("/bets/{bet_id}/notes")
+def add_bet_note(bet_id: int, req: AddNoteRequest):
+    """Add a note to a bet."""
+    init_db()
+    with get_connection() as conn:
+        cursor = conn.execute(
+            "INSERT INTO bet_notes (bet_id, note) VALUES (?, ?)",
+            (bet_id, req.note),
+        )
+    return {"id": cursor.lastrowid, "bet_id": bet_id, "status": "added"}
+
+
+@router.get("/bets/{bet_id}/notes")
+def get_bet_notes(bet_id: int):
+    """Get all notes for a bet."""
+    init_db()
+    with get_connection() as conn:
+        rows = conn.execute(
+            "SELECT * FROM bet_notes WHERE bet_id = ? ORDER BY created_at DESC",
+            (bet_id,),
+        ).fetchall()
+    return [
+        {"id": r["id"], "note": r["note"], "created_at": r["created_at"]}
+        for r in rows
     ]

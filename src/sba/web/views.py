@@ -78,6 +78,21 @@ def watchlist_page(request: Request):
     return templates.TemplateResponse(request, "watchlist.html")
 
 
+@router.get("/bankroll")
+def bankroll_page(request: Request):
+    return templates.TemplateResponse(request, "bankroll.html")
+
+
+@router.get("/sharp-money")
+def sharp_money_page(request: Request):
+    return templates.TemplateResponse(request, "sharp-money.html")
+
+
+@router.get("/community")
+def community_page(request: Request):
+    return templates.TemplateResponse(request, "community.html")
+
+
 @router.get("/player/{name}")
 def player_page(request: Request, name: str):
     return templates.TemplateResponse(request, "player.html", {"player_name": name})

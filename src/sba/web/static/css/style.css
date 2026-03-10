@@ -4581,3 +4581,651 @@ body::after {
 [data-theme="light"] .nav-link.active::after {
     display: block;
 }
+
+/* ══════════════════════════════════════════════════════════════════
+   PREMIUM ENHANCEMENTS v2.0
+   ══════════════════════════════════════════════════════════════════ */
+
+/* ── 1. NProgress-style Top Loading Bar ─────────────────────────── */
+
+#nprogress-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--accent-green), var(--accent-blue), var(--accent-green));
+    background-size: 200% 100%;
+    z-index: 10000;
+    transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 0 10px var(--accent-green-glow), 0 0 5px var(--accent-green-glow);
+    animation: nprogress-shimmer 1.5s ease-in-out infinite;
+    pointer-events: none;
+}
+
+#nprogress-bar.done {
+    width: 100% !important;
+    opacity: 0;
+    transition: width 0.2s, opacity 0.4s 0.2s;
+}
+
+#nprogress-bar::after {
+    content: '';
+    position: absolute;
+    right: 0;
+    top: 0;
+    width: 80px;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3));
+    border-radius: 0 2px 2px 0;
+}
+
+@keyframes nprogress-shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+/* ── 2. Ticker Tape / Marquee ───────────────────────────────────── */
+
+.ticker-tape {
+    width: 100%;
+    overflow: hidden;
+    background: linear-gradient(90deg, var(--bg-secondary), var(--bg-tertiary), var(--bg-secondary));
+    border-bottom: 1px solid var(--border-color);
+    padding: 8px 0;
+    position: relative;
+    white-space: nowrap;
+}
+
+.ticker-tape::before,
+.ticker-tape::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 60px;
+    z-index: 2;
+    pointer-events: none;
+}
+
+.ticker-tape::before {
+    left: 0;
+    background: linear-gradient(90deg, var(--bg-secondary), transparent);
+}
+
+.ticker-tape::after {
+    right: 0;
+    background: linear-gradient(90deg, transparent, var(--bg-secondary));
+}
+
+.ticker-track {
+    display: inline-flex;
+    gap: 32px;
+    animation: ticker-scroll 30s linear infinite;
+    align-items: center;
+}
+
+.ticker-track:hover {
+    animation-play-state: paused;
+}
+
+.ticker-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    padding: 2px 12px;
+    border-radius: var(--radius-sm);
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    cursor: default;
+    transition: all var(--transition-fast);
+}
+
+.ticker-item:hover {
+    border-color: var(--accent-green);
+    color: var(--text-primary);
+}
+
+.ticker-item .ticker-up {
+    color: var(--accent-green);
+}
+
+.ticker-item .ticker-down {
+    color: var(--accent-red);
+}
+
+.ticker-item .ticker-sep {
+    color: var(--text-tertiary);
+    font-weight: 400;
+}
+
+@keyframes ticker-scroll {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+}
+
+/* ── 3. Enhanced Live Pulse Indicators ──────────────────────────── */
+
+.live-pulse {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--accent-red);
+}
+
+.live-pulse-dot {
+    width: 8px;
+    height: 8px;
+    background: var(--accent-red);
+    border-radius: 50%;
+    animation: live-pulse-anim 1.5s ease-in-out infinite;
+    position: relative;
+}
+
+.live-pulse-dot::after {
+    content: '';
+    position: absolute;
+    inset: -4px;
+    border-radius: 50%;
+    border: 2px solid var(--accent-red);
+    animation: live-pulse-ring 1.5s ease-out infinite;
+    opacity: 0;
+}
+
+@keyframes live-pulse-anim {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.6; transform: scale(0.85); }
+}
+
+@keyframes live-pulse-ring {
+    0% { transform: scale(0.8); opacity: 0.6; }
+    100% { transform: scale(2.2); opacity: 0; }
+}
+
+/* ── 4. SVG Path Drawing Animation ──────────────────────────────── */
+
+.lm-visual-chart path.chart-line-animated {
+    stroke-dasharray: var(--path-length, 1000);
+    stroke-dashoffset: var(--path-length, 1000);
+    animation: draw-line 1.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.lm-visual-chart circle.chart-dot-animated {
+    opacity: 0;
+    transform: scale(0);
+    transform-origin: center;
+    animation: pop-dot 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes draw-line {
+    to { stroke-dashoffset: 0; }
+}
+
+@keyframes pop-dot {
+    to { opacity: 1; transform: scale(1); }
+}
+
+/* ── 5. Calculator Animated Gauge ───────────────────────────────── */
+
+.gauge-container {
+    position: relative;
+    width: 160px;
+    height: 100px;
+    margin: 0 auto;
+}
+
+.gauge-svg {
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+}
+
+.gauge-bg {
+    fill: none;
+    stroke: var(--border-color);
+    stroke-width: 10;
+    stroke-linecap: round;
+}
+
+.gauge-fill {
+    fill: none;
+    stroke-width: 10;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 1s cubic-bezier(0.4, 0, 0.2, 1),
+                stroke 0.5s;
+}
+
+.gauge-value {
+    font-size: 22px;
+    font-weight: 800;
+    fill: var(--text-primary);
+    text-anchor: middle;
+    dominant-baseline: alphabetic;
+}
+
+.gauge-label {
+    font-size: 10px;
+    fill: var(--text-tertiary);
+    text-anchor: middle;
+    dominant-baseline: hanging;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+/* ── 6. Best Price Glow for Odds Comparison ─────────────────────── */
+
+.best-price {
+    position: relative;
+    color: var(--accent-green) !important;
+    font-weight: 700 !important;
+    text-shadow: 0 0 8px var(--accent-green-glow);
+}
+
+.best-price::before {
+    content: '';
+    position: absolute;
+    inset: -4px;
+    border-radius: var(--radius-sm);
+    background: radial-gradient(ellipse, rgba(0, 230, 138, 0.12), transparent 70%);
+    pointer-events: none;
+    animation: best-price-glow 2s ease-in-out infinite alternate;
+}
+
+@keyframes best-price-glow {
+    0% { opacity: 0.5; }
+    100% { opacity: 1; }
+}
+
+.odds-diff-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: 10px;
+    background: rgba(0, 230, 138, 0.15);
+    color: var(--accent-green);
+    margin-left: 4px;
+    vertical-align: middle;
+}
+
+.odds-diff-badge.negative {
+    background: rgba(255, 77, 106, 0.15);
+    color: var(--accent-red);
+}
+
+/* ── 7. Smooth Scroll & Focus Styles ────────────────────────────── */
+
+html {
+    scroll-behavior: smooth;
+}
+
+*:focus-visible {
+    outline: 2px solid var(--accent-green);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
+}
+
+.skip-link {
+    position: fixed;
+    top: -100px;
+    left: 16px;
+    z-index: 10001;
+    background: var(--accent-green);
+    color: var(--bg-primary);
+    padding: 12px 24px;
+    border-radius: var(--radius-md);
+    font-weight: 700;
+    font-size: 14px;
+    text-decoration: none;
+    transition: top 0.2s;
+}
+
+.skip-link:focus {
+    top: 16px;
+}
+
+/* ── 8. Print Styles ────────────────────────────────────────────── */
+
+@media print {
+    .sidebar,
+    .mobile-bottom-nav,
+    .bet-slip,
+    .top-bar,
+    .fab-btn,
+    .scroll-progress,
+    .toast-container,
+    .ticker-tape,
+    #nprogress-bar,
+    #cmd-backdrop,
+    .sidebar-overlay {
+        display: none !important;
+    }
+
+    .main-content {
+        margin: 0 !important;
+        padding: 0 !important;
+        width: 100% !important;
+    }
+
+    body {
+        background: white !important;
+        color: #111 !important;
+    }
+
+    .card, .glass-card {
+        break-inside: avoid;
+        box-shadow: none !important;
+        border: 1px solid #ddd !important;
+        background: white !important;
+    }
+}
+
+/* ── 9. Enhanced Card Hover & Micro-interactions ────────────────── */
+
+.card, .glass-card {
+    transition: transform var(--transition-normal), box-shadow var(--transition-normal), border-color var(--transition-normal);
+}
+
+.card:hover, .glass-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+}
+
+.btn {
+    position: relative;
+    overflow: hidden;
+}
+
+.btn::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(120deg, transparent 30%, rgba(255, 255, 255, 0.08) 50%, transparent 70%);
+    transform: translateX(-100%);
+    transition: transform 0.5s;
+}
+
+.btn:hover::after {
+    transform: translateX(100%);
+}
+
+/* ── 10. Stat Counter Animation ─────────────────────────────────── */
+
+.stat-value[data-animate] {
+    transition: color 0.3s;
+}
+
+.stat-value[data-animate].counting {
+    color: var(--accent-green);
+}
+
+/* ── 11. Skeleton Loading Placeholders ──────────────────────────── */
+
+.skeleton {
+    background: linear-gradient(90deg,
+        var(--bg-tertiary) 25%,
+        rgba(255, 255, 255, 0.05) 50%,
+        var(--bg-tertiary) 75%
+    );
+    background-size: 200% 100%;
+    animation: skeleton-shimmer 1.5s infinite;
+    border-radius: var(--radius-sm);
+}
+
+.skeleton-text {
+    height: 14px;
+    width: 80%;
+    margin: 8px 0;
+}
+
+.skeleton-heading {
+    height: 24px;
+    width: 60%;
+    margin: 12px 0;
+}
+
+.skeleton-card {
+    height: 120px;
+    width: 100%;
+}
+
+@keyframes skeleton-shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+/* ── 12. Page Transition Animations ─────────────────────────────── */
+
+.content-area {
+    animation: page-enter 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes page-enter {
+    from {
+        opacity: 0;
+        transform: translateY(12px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ── 13. Premium Number Highlight ───────────────────────────────── */
+
+.number-positive {
+    color: var(--accent-green);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+.number-negative {
+    color: var(--accent-red);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+.number-neutral {
+    color: var(--text-secondary);
+    font-variant-numeric: tabular-nums;
+}
+
+/* ── 14. Tooltip Enhancement ────────────────────────────────────── */
+
+[data-tooltip] {
+    position: relative;
+}
+
+[data-tooltip]::before {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%) translateY(4px);
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    padding: 6px 12px;
+    border-radius: var(--radius-sm);
+    font-size: 11px;
+    font-weight: 500;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.2s, transform 0.2s;
+    z-index: 1000;
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow-lg);
+}
+
+[data-tooltip]:hover::before {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
+
+/* ── 15. Enhanced Notification Bell Animation ───────────────────── */
+
+@keyframes bell-ring {
+    0%, 100% { transform: rotate(0); }
+    10% { transform: rotate(14deg); }
+    20% { transform: rotate(-12deg); }
+    30% { transform: rotate(10deg); }
+    40% { transform: rotate(-8deg); }
+    50% { transform: rotate(0); }
+}
+
+.notification-bell.has-alerts {
+    animation: bell-ring 2s ease-in-out;
+}
+
+.notification-bell.has-alerts .notification-count {
+    animation: pop-dot 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* ── 16. Onboarding Welcome Modal ───────────────────────────────── */
+
+.onboarding-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(8px);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    animation: fade-in 0.5s ease forwards;
+}
+
+.onboarding-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-xl);
+    padding: 48px;
+    max-width: 560px;
+    width: 90%;
+    text-align: center;
+    box-shadow: var(--shadow-xl), 0 0 60px rgba(0, 230, 138, 0.1);
+    animation: scale-in 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.1s both;
+}
+
+.onboarding-card h2 {
+    font-size: 28px;
+    font-weight: 800;
+    background: var(--gradient-premium);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 12px;
+}
+
+.onboarding-card p {
+    color: var(--text-secondary);
+    line-height: 1.6;
+    margin-bottom: 24px;
+}
+
+.onboarding-features {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 32px;
+    text-align: left;
+}
+
+.onboarding-feature {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px;
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-md);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    border: 1px solid var(--border-color);
+    transition: all var(--transition-fast);
+}
+
+.onboarding-feature:hover {
+    border-color: var(--accent-green);
+    color: var(--text-primary);
+}
+
+.onboarding-feature svg {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+    color: var(--accent-green);
+}
+
+@keyframes fade-in {
+    to { opacity: 1; }
+}
+
+@keyframes scale-in {
+    from { transform: scale(0.9); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+}
+
+/* ── 17. Reduced Motion Support ─────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+
+    html {
+        scroll-behavior: auto;
+    }
+
+    .ticker-track {
+        animation: none;
+    }
+}
+
+/* ── 18. Light Theme Additions ──────────────────────────────────── */
+
+[data-theme="light"] .ticker-tape {
+    background: linear-gradient(90deg, #f9fafb, #f3f4f6, #f9fafb);
+}
+
+[data-theme="light"] .ticker-tape::before {
+    background: linear-gradient(90deg, #f9fafb, transparent);
+}
+
+[data-theme="light"] .ticker-tape::after {
+    background: linear-gradient(90deg, transparent, #f9fafb);
+}
+
+[data-theme="light"] .ticker-item {
+    background: #fff;
+    border-color: #e5e7eb;
+}
+
+[data-theme="light"] .onboarding-card {
+    background: #fff;
+}
+
+[data-theme="light"] .skeleton {
+    background: linear-gradient(90deg,
+        #e5e7eb 25%,
+        #f3f4f6 50%,
+        #e5e7eb 75%
+    );
+    background-size: 200% 100%;
+}
+
+[data-theme="light"] #nprogress-bar {
+    box-shadow: 0 0 10px rgba(16, 185, 129, 0.3);
+}

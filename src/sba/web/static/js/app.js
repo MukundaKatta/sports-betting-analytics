@@ -2767,13 +2767,246 @@ const SBA = {
     },
 };
 
+    // ── NProgress-style Top Loading Bar ──────────────────────────────
+    setupProgressBar() {
+        // Create the progress bar element
+        const bar = document.createElement('div');
+        bar.id = 'nprogress-bar';
+        document.body.prepend(bar);
+
+        // Intercept link clicks for page navigation loading effect
+        document.addEventListener('click', (e) => {
+            const link = e.target.closest('a[href]');
+            if (!link) return;
+            const href = link.getAttribute('href');
+            if (!href || href.startsWith('#') || href.startsWith('javascript:') || link.target === '_blank') return;
+            if (href.startsWith('http') && !href.includes(window.location.host)) return;
+
+            bar.classList.remove('done');
+            bar.style.width = '0%';
+            // Force reflow
+            void bar.offsetWidth;
+            bar.style.width = '30%';
+
+            setTimeout(() => { bar.style.width = '60%'; }, 150);
+            setTimeout(() => { bar.style.width = '85%'; }, 400);
+        });
+
+        // Complete the bar when page finishes loading
+        window.addEventListener('load', () => {
+            bar.style.width = '100%';
+            setTimeout(() => {
+                bar.classList.add('done');
+                setTimeout(() => { bar.style.width = '0'; bar.classList.remove('done'); }, 500);
+            }, 200);
+        });
+    },
+
+    // ── Ticker Tape ───────────────────────────────────────────────────
+    setupTickerTape() {
+        const contentArea = document.querySelector('.content-area');
+        if (!contentArea) return;
+
+        const tickers = [
+            { label: 'NFL', team: 'KC Chiefs', odds: '-155', change: 'up' },
+            { label: 'NBA', team: 'LAL vs BOS', odds: '+210', change: 'down' },
+            { label: 'MLB', team: 'NYY', odds: '-130', change: 'up' },
+            { label: 'NHL', team: 'TOR vs MTL', odds: '+145', change: 'up' },
+            { label: 'NCAAF', team: 'Alabama', odds: '-180', change: 'down' },
+            { label: 'NBA', team: 'GSW vs PHX', odds: '-110', change: 'up' },
+            { label: 'NFL', team: 'SF 49ers', odds: '+125', change: 'down' },
+            { label: 'MLB', team: 'LAD', odds: '-165', change: 'up' },
+        ];
+
+        const itemsHTML = tickers.map(t => `
+            <span class="ticker-item">
+                <strong>${t.label}</strong>
+                <span class="ticker-sep">|</span>
+                ${t.team}
+                <span class="ticker-${t.change}">${t.change === 'up' ? '\u25B2' : '\u25BC'}</span>
+                ${t.odds}
+            </span>
+        `).join('');
+
+        const tape = document.createElement('div');
+        tape.className = 'ticker-tape';
+        tape.setAttribute('aria-hidden', 'true');
+        tape.innerHTML = `<div class="ticker-track">${itemsHTML}${itemsHTML}</div>`;
+
+        contentArea.insertBefore(tape, contentArea.firstChild);
+    },
+
+    // ── Animated Number Counter ───────────────────────────────────────
+    animateCounters() {
+        const statValues = document.querySelectorAll('.stat-value, .metric-value, .kpi-value');
+        statValues.forEach(el => {
+            const text = el.textContent.trim();
+            const num = parseFloat(text.replace(/[^0-9.\-]/g, ''));
+            if (isNaN(num) || num === 0) return;
+
+            const prefix = text.match(/^[^0-9\-]*/)?.[0] || '';
+            const suffix = text.match(/[^0-9.]*$/)?.[0] || '';
+            const decimals = (text.split('.')[1] || '').replace(/[^0-9]/g, '').length;
+
+            el.setAttribute('data-animate', 'true');
+            el.classList.add('counting');
+            const start = 0;
+            const duration = 800;
+            const startTime = performance.now();
+
+            const update = (now) => {
+                const elapsed = now - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                const eased = 1 - Math.pow(1 - progress, 3); // easeOutCubic
+                const current = start + (num - start) * eased;
+                el.textContent = prefix + current.toFixed(decimals) + suffix;
+                if (progress < 1) {
+                    requestAnimationFrame(update);
+                } else {
+                    el.textContent = text; // restore original
+                    el.classList.remove('counting');
+                }
+            };
+            requestAnimationFrame(update);
+        });
+    },
+
+    // ── SVG Path Drawing Animation ────────────────────────────────────
+    animateChartPaths() {
+        const charts = document.querySelectorAll('.lm-visual-chart svg');
+        charts.forEach(svg => {
+            const paths = svg.querySelectorAll('path[d]');
+            const dots = svg.querySelectorAll('circle');
+
+            paths.forEach(path => {
+                const length = path.getTotalLength();
+                path.classList.add('chart-line-animated');
+                path.style.setProperty('--path-length', length);
+                path.style.strokeDasharray = length;
+                path.style.strokeDashoffset = length;
+            });
+
+            dots.forEach((dot, i) => {
+                dot.classList.add('chart-dot-animated');
+                dot.style.animationDelay = `${0.8 + i * 0.05}s`;
+            });
+        });
+    },
+
+    // ── Calculator Gauge Rendering ────────────────────────────────────
+    renderGauge(containerId, value, max, label, colorStops) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+
+        const pct = Math.min(Math.max(value / max, 0), 1);
+        const radius = 60;
+        const circumference = Math.PI * radius; // half circle
+        const offset = circumference * (1 - pct);
+
+        // Color based on percentage
+        let color = colorStops?.[0] || 'var(--accent-green)';
+        if (colorStops) {
+            if (pct < 0.33) color = colorStops[0];
+            else if (pct < 0.66) color = colorStops[1];
+            else color = colorStops[2];
+        }
+
+        container.innerHTML = `
+            <div class="gauge-container">
+                <svg class="gauge-svg" viewBox="0 0 160 100">
+                    <path class="gauge-bg"
+                        d="M 15 90 A 60 60 0 0 1 145 90"
+                        stroke-dasharray="${circumference}"
+                        stroke-dashoffset="0"/>
+                    <path class="gauge-fill"
+                        d="M 15 90 A 60 60 0 0 1 145 90"
+                        stroke="${color}"
+                        stroke-dasharray="${circumference}"
+                        stroke-dashoffset="${offset}"
+                        style="transition: stroke-dashoffset 1.2s cubic-bezier(0.4,0,0.2,1)"/>
+                    <text class="gauge-value" x="80" y="82">${typeof value === 'number' ? value.toFixed(1) : value}</text>
+                    <text class="gauge-label" x="80" y="96">${label}</text>
+                </svg>
+            </div>
+        `;
+    },
+
+    // ── Onboarding Welcome ────────────────────────────────────────────
+    showOnboarding() {
+        if (localStorage.getItem('sba-onboarded')) return;
+
+        const overlay = document.createElement('div');
+        overlay.className = 'onboarding-overlay';
+        overlay.innerHTML = `
+            <div class="onboarding-card">
+                <h2>Welcome to SBA Elite</h2>
+                <p>Your premium sports betting analytics platform with ML-powered predictions and real-time edge detection.</p>
+                <div class="onboarding-features">
+                    <div class="onboarding-feature">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/></svg>
+                        Edge Detection
+                    </div>
+                    <div class="onboarding-feature">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+                        Player Props
+                    </div>
+                    <div class="onboarding-feature">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                        Line Movement
+                    </div>
+                    <div class="onboarding-feature">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                        Live Feed
+                    </div>
+                </div>
+                <button class="btn btn-primary" onclick="SBA.dismissOnboarding()" style="padding:12px 48px;font-size:15px;font-weight:700">
+                    Get Started
+                </button>
+                <p style="font-size:11px;color:var(--text-tertiary);margin-top:16px;margin-bottom:0">Press <kbd style="background:var(--bg-tertiary);padding:2px 6px;border-radius:4px;font-size:10px">Ctrl+K</kbd> anytime for commands</p>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+    },
+
+    dismissOnboarding() {
+        localStorage.setItem('sba-onboarded', '1');
+        const overlay = document.querySelector('.onboarding-overlay');
+        if (overlay) {
+            overlay.style.opacity = '0';
+            setTimeout(() => overlay.remove(), 500);
+        }
+    },
+
+    // ── Enhanced Notification Bell ────────────────────────────────────
+    ringBell() {
+        const bell = document.getElementById('notification-bell');
+        if (bell) {
+            bell.classList.remove('has-alerts');
+            void bell.offsetWidth;
+            bell.classList.add('has-alerts');
+        }
+    },
+};
+
 // Initialize on DOM ready
 document.addEventListener('DOMContentLoaded', () => {
     SBA.init();
     SBA.setupScrollProgress();
     SBA.setupFAB();
+    SBA.setupProgressBar();
+    SBA.setupTickerTape();
+
     // Setup reveal animations after a brief delay
     setTimeout(() => SBA.setupRevealAnimations(), 100);
+
+    // Animate counters and chart paths after content loads
+    setTimeout(() => {
+        SBA.animateCounters();
+        SBA.animateChartPaths();
+    }, 300);
+
+    // Show onboarding for first-time users
+    setTimeout(() => SBA.showOnboarding(), 800);
 });
 
 // Make globally accessible

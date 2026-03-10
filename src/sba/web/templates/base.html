@@ -95,7 +95,7 @@
                 <span class="status-dot"></span>
                 <span class="status-text">Loading...</span>
             </div>
-            <div class="version-badge" style="margin-top:10px">v1.2.0 Elite</div>
+            <div class="version-badge" style="margin-top:10px"><span class="realtime-dot" style="margin-right:4px"></span> v2.0.0 Elite</div>
         </div>
     </nav>
 
@@ -184,6 +184,12 @@
 
     <!-- Command Palette Backdrop -->
     <div id="cmd-backdrop" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);backdrop-filter:blur(4px);z-index:999;opacity:0;pointer-events:none;transition:opacity 0.2s"></div>
+
+    <!-- Scroll Progress Bar -->
+    <div class="scroll-progress-bar" id="scroll-progress-bar"></div>
+
+    <!-- Particle Canvas -->
+    <canvas id="particle-canvas" style="position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:0;opacity:0.4"></canvas>
 
     <script src="/static/js/app.js"></script>
     {% block scripts %}{% endblock %}

@@ -2,17 +2,17 @@
 {% block title %}Bankroll Simulator{% endblock %}
 
 {% block content %}
-<h1 class="page-title">
-    <span class="gradient-text">Bankroll Simulator</span>
-    <span class="badge">Pro</span>
+<h1 class="page-title reveal-up">
+    <span class="gradient-text animated-gradient-text">Bankroll Simulator</span>
+    <span class="tag-elite">Pro</span>
 </h1>
 
 <div class="dashboard-grid">
     <!-- Simulation Controls -->
-    <div class="card">
+    <div class="card frosted-panel reveal-left" style="animation-delay:0.1s">
         <div class="card-header">
             <h3>
-                <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+                <svg class="header-icon icon-bounce" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
                 Parameters
             </h3>
         </div>
@@ -20,27 +20,27 @@
             <div style="display:grid;gap:16px">
                 <div>
                     <label class="stat-label" style="margin-bottom:6px;display:block">Starting Bankroll</label>
-                    <input type="number" id="sim-bankroll" value="1000" class="filter-select" style="width:100%;padding-right:14px">
+                    <input type="number" id="sim-bankroll" value="1000" class="premium-input" style="width:100%">
                 </div>
                 <div>
                     <label class="stat-label" style="margin-bottom:6px;display:block">Number of Bets</label>
-                    <input type="number" id="sim-bets" value="200" class="filter-select" style="width:100%;padding-right:14px">
+                    <input type="number" id="sim-bets" value="200" class="premium-input" style="width:100%">
                 </div>
                 <div>
                     <label class="stat-label" style="margin-bottom:6px;display:block">Average Odds (American)</label>
-                    <input type="number" id="sim-odds" value="-110" class="filter-select" style="width:100%;padding-right:14px">
+                    <input type="number" id="sim-odds" value="-110" class="premium-input" style="width:100%">
                 </div>
                 <div>
                     <label class="stat-label" style="margin-bottom:6px;display:block">Win Rate (%)</label>
-                    <input type="number" id="sim-winrate" value="53" step="0.5" class="filter-select" style="width:100%;padding-right:14px">
+                    <input type="number" id="sim-winrate" value="53" step="0.5" class="premium-input" style="width:100%">
                 </div>
                 <div>
                     <label class="stat-label" style="margin-bottom:6px;display:block">Kelly Fraction</label>
-                    <input type="number" id="sim-kelly" value="0.25" step="0.05" class="filter-select" style="width:100%;padding-right:14px">
+                    <input type="number" id="sim-kelly" value="0.25" step="0.05" class="premium-input" style="width:100%">
                 </div>
                 <div>
                     <label class="stat-label" style="margin-bottom:6px;display:block">Simulations</label>
-                    <input type="number" id="sim-count" value="50" class="filter-select" style="width:100%;padding-right:14px">
+                    <input type="number" id="sim-count" value="50" class="premium-input" style="width:100%">
                 </div>
                 <button class="btn btn-primary btn-block" onclick="runSimulation()">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polygon points="5 3 19 12 5 21 5 3"/></svg>
@@ -51,10 +51,10 @@
     </div>
 
     <!-- Summary Results -->
-    <div class="card">
+    <div class="card reveal-scale" style="animation-delay:0.15s">
         <div class="card-header">
             <h3>
-                <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+                <svg class="header-icon icon-bounce" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
                 Projection Summary
             </h3>
         </div>
@@ -67,10 +67,10 @@
     </div>
 
     <!-- Monte Carlo Chart -->
-    <div class="card full-width">
+    <div class="card full-width featured-card reveal-up" style="animation-delay:0.2s">
         <div class="card-header">
             <h3>
-                <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                <svg class="header-icon icon-bounce" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
                 Monte Carlo Projection
             </h3>
             <span class="text-dim" style="font-size:12px" id="sim-info"></span>

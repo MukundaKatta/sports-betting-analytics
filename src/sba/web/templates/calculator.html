@@ -4,15 +4,15 @@
 {% block content %}
 <h1 class="page-title">
     <span class="gradient-text">Bet Calculator</span>
-    <span class="badge">Pro</span>
+    <span class="tag-elite">Pro</span>
 </h1>
 
 <div class="dashboard-grid">
     <!-- Odds Converter -->
-    <div class="card">
+    <div class="card frosted-panel reveal-left" style="animation-delay:0.1s">
         <div class="card-header">
             <h3>
-                <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg>
+                <svg class="header-icon icon-bounce" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg>
                 Odds Converter &amp; Payout
             </h3>
         </div>
@@ -20,54 +20,54 @@
             <div style="display:grid;gap:14px">
                 <div>
                     <label class="stat-label" style="margin-bottom:6px;display:block">American Odds</label>
-                    <input type="number" id="calc-american" value="-110" class="filter-select" style="width:100%;padding-right:14px" oninput="calcFromAmerican()">
+                    <input type="number" id="calc-american" value="-110" class="premium-input" style="width:100%" oninput="calcFromAmerican()">
                 </div>
                 <div>
                     <label class="stat-label" style="margin-bottom:6px;display:block">Decimal Odds</label>
-                    <input type="number" id="calc-decimal" step="0.01" class="filter-select" style="width:100%;padding-right:14px" oninput="calcFromDecimal()">
+                    <input type="number" id="calc-decimal" step="0.01" class="premium-input" style="width:100%" oninput="calcFromDecimal()">
                 </div>
                 <div>
                     <label class="stat-label" style="margin-bottom:6px;display:block">Fractional Odds</label>
-                    <input type="text" id="calc-fractional" class="filter-select" style="width:100%;padding-right:14px" readonly>
+                    <input type="text" id="calc-fractional" class="premium-input" style="width:100%" readonly>
                 </div>
                 <div>
                     <label class="stat-label" style="margin-bottom:6px;display:block">Stake ($)</label>
-                    <input type="number" id="calc-stake" value="100" class="filter-select" style="width:100%;padding-right:14px" oninput="calcFromAmerican()">
+                    <input type="number" id="calc-stake" value="100" class="premium-input" style="width:100%" oninput="calcFromAmerican()">
                 </div>
                 <div>
                     <label class="stat-label" style="margin-bottom:6px;display:block">True Win Probability (%)</label>
-                    <input type="number" id="calc-prob" step="0.5" placeholder="Optional" class="filter-select" style="width:100%;padding-right:14px" oninput="calcFromAmerican()">
+                    <input type="number" id="calc-prob" step="0.5" placeholder="Optional — enter for EV & Kelly" class="premium-input" style="width:100%" oninput="calcFromAmerican()">
                 </div>
             </div>
         </div>
     </div>
 
     <!-- Results -->
-    <div class="card">
+    <div class="card reveal-scale" style="animation-delay:0.15s">
         <div class="card-header">
             <h3>
-                <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+                <svg class="header-icon icon-bounce" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
                 Results
             </h3>
         </div>
         <div class="card-body padded" id="calc-results">
             <div class="stats-grid" style="margin:0" id="calc-output">
-                <div class="stat-card green">
+                <div class="stat-card green card-3d-tilt">
                     <div class="stat-label">Payout</div>
-                    <div class="stat-value text-green" id="calc-payout">$90.91</div>
+                    <div class="stat-value text-green glow-green" id="calc-payout">$90.91</div>
                     <div class="stat-sub" id="calc-return">Total return: $190.91</div>
                 </div>
-                <div class="stat-card blue">
+                <div class="stat-card blue card-3d-tilt">
                     <div class="stat-label">Implied Probability</div>
                     <div class="stat-value" id="calc-implied">52.4%</div>
                     <div class="stat-sub">Break-even win rate</div>
                 </div>
-                <div class="stat-card yellow" id="calc-ev-card" style="display:none">
+                <div class="stat-card yellow card-3d-tilt" id="calc-ev-card" style="display:none">
                     <div class="stat-label">Expected Value</div>
                     <div class="stat-value" id="calc-ev">—</div>
                     <div class="stat-sub">Per $100 wagered</div>
                 </div>
-                <div class="stat-card purple" id="calc-kelly-card" style="display:none">
+                <div class="stat-card purple card-3d-tilt" id="calc-kelly-card" style="display:none">
                     <div class="stat-label">Kelly Criterion</div>
                     <div class="stat-value" id="calc-kelly">—</div>
                     <div class="stat-sub">Optimal bankroll %</div>
@@ -77,10 +77,10 @@
     </div>
 
     <!-- Hedge Calculator -->
-    <div class="card full-width">
+    <div class="card full-width frosted-panel reveal-up" style="animation-delay:0.2s">
         <div class="card-header">
             <h3>
-                <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                <svg class="header-icon icon-bounce" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
                 Hedge Calculator
             </h3>
             <span class="text-dim" style="font-size:12px">Lock in guaranteed profit</span>
@@ -89,15 +89,15 @@
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:16px">
                 <div>
                     <label class="stat-label" style="margin-bottom:6px;display:block">Original Odds (American)</label>
-                    <input type="number" id="hedge-orig-odds" value="200" class="filter-select" style="width:100%;padding-right:14px">
+                    <input type="number" id="hedge-orig-odds" value="200" class="premium-input" style="width:100%">
                 </div>
                 <div>
                     <label class="stat-label" style="margin-bottom:6px;display:block">Original Stake ($)</label>
-                    <input type="number" id="hedge-orig-stake" value="100" class="filter-select" style="width:100%;padding-right:14px">
+                    <input type="number" id="hedge-orig-stake" value="100" class="premium-input" style="width:100%">
                 </div>
                 <div>
                     <label class="stat-label" style="margin-bottom:6px;display:block">Hedge Odds (American)</label>
-                    <input type="number" id="hedge-new-odds" value="-150" class="filter-select" style="width:100%;padding-right:14px">
+                    <input type="number" id="hedge-new-odds" value="-150" class="premium-input" style="width:100%">
                 </div>
                 <div style="display:flex;align-items:flex-end">
                     <button class="btn btn-primary btn-block" onclick="calcHedge()">Calculate Hedge</button>

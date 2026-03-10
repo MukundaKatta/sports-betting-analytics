@@ -2,13 +2,13 @@
 {% block title %}Line Movement{% endblock %}
 
 {% block content %}
-<h1 class="page-title">
-    <span class="gradient-text">Line Movement</span>
-    <span class="badge">Live</span>
+<h1 class="page-title reveal-up">
+    <span class="gradient-text animated-gradient-text">Line Movement</span>
+    <span class="tag-live"><span class="realtime-dot"></span> Live</span>
 </h1>
 
 <!-- Event Selector -->
-<div class="filters-bar">
+<div class="filters-bar reveal-up" style="animation-delay:0.1s">
     <select class="filter-select" id="lm-event-select" onchange="SBA.loadLineMovement(this.value)">
         <option value="">Select an event...</option>
     </select>
@@ -21,10 +21,10 @@
 
 <div class="dashboard-grid">
     <!-- Line Movement Chart -->
-    <div class="card full-width">
+    <div class="card full-width featured-card reveal-up" style="animation-delay:0.15s">
         <div class="card-header">
             <h3>
-                <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                <svg class="header-icon icon-bounce" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
                 Odds History
             </h3>
         </div>
@@ -37,10 +37,10 @@
     </div>
 
     <!-- Snapshots Table -->
-    <div class="card full-width">
+    <div class="card full-width reveal-up" style="animation-delay:0.2s">
         <div class="card-header">
             <h3>
-                <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><rect x="2" y="3" width="20" height="18" rx="2"/><line x1="2" y1="9" x2="22" y2="9"/></svg>
+                <svg class="header-icon icon-bounce" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><rect x="2" y="3" width="20" height="18" rx="2"/><line x1="2" y1="9" x2="22" y2="9"/></svg>
                 All Snapshots
             </h3>
         </div>

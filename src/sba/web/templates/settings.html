@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}Settings{% endblock %}
+
+{% block content %}
+<h1 class="page-title">Settings</h1>
+
+<div class="dashboard-grid">
+    <!-- Bankroll Configuration -->
+    <div class="card">
+        <div class="card-header">
+            <h3>
+                <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg>
+                Bankroll Settings
+            </h3>
+        </div>
+        <div class="card-body padded" id="bankroll-settings">
+            <div class="loading-spinner"><div class="spinner"></div> Loading...</div>
+        </div>
+    </div>
+
+    <!-- System Info -->
+    <div class="card">
+        <div class="card-header">
+            <h3>
+                <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                System Info
+            </h3>
+        </div>
+        <div class="card-body padded" id="system-info">
+            <div class="loading-spinner"><div class="spinner"></div> Loading...</div>
+        </div>
+    </div>
+
+    <!-- API Status -->
+    <div class="card full-width">
+        <div class="card-header">
+            <h3>
+                <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                Database Status
+            </h3>
+        </div>
+        <div class="card-body padded" id="db-status">
+            <div class="loading-spinner"><div class="spinner"></div> Loading...</div>
+        </div>
+    </div>
+
+    <!-- Quick Reference -->
+    <div class="card full-width">
+        <div class="card-header">
+            <h3>
+                <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><rect x="2" y="3" width="20" height="18" rx="2"/><line x1="2" y1="9" x2="22" y2="9"/></svg>
+                CLI Quick Reference
+            </h3>
+        </div>
+        <div class="card-body padded">
+            <div class="steps-grid">
+                <div class="step-card">
+                    <div class="step-title" style="color:var(--accent-green)">Data Commands</div>
+                    <code class="step-code">sba data sync</code>
+                    <p class="step-desc">Sync live odds data</p>
+                    <code class="step-code" style="margin-top:8px">sba data backfill --player "Name"</code>
+                    <p class="step-desc">Backfill player game logs</p>
+                </div>
+                <div class="step-card">
+                    <div class="step-title" style="color:var(--accent-blue)">Model Commands</div>
+                    <code class="step-code">sba models train --player "Name"</code>
+                    <p class="step-desc">Train XGBoost models</p>
+                </div>
+                <div class="step-card">
+                    <div class="step-title" style="color:var(--accent-yellow)">Analysis Commands</div>
+                    <code class="step-code">sba edge scan</code>
+                    <p class="step-desc">Scan for +EV edges</p>
+                    <code class="step-code" style="margin-top:8px">sba props scan</code>
+                    <p class="step-desc">Analyze player props</p>
+                </div>
+                <div class="step-card">
+                    <div class="step-title" style="color:var(--accent-purple)">Monitor</div>
+                    <code class="step-code">sba monitor</code>
+                    <p class="step-desc">Real-time terminal dashboard</p>
+                    <code class="step-code" style="margin-top:8px">sba web</code>
+                    <p class="step-desc">Launch web dashboard</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', () => SBA.loadSettings());
+</script>
+{% endblock %}

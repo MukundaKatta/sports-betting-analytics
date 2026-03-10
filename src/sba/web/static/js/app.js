@@ -369,12 +369,18 @@ const SBA = {
 
             // Bets table
             if (data.bets.length === 0) {
-                tableBody.innerHTML = '<tr><td colspan="8" class="empty-state"><p>No bets tracked yet. Add bets from the Edge Finder or Props page.</p></td></tr>';
+                tableBody.innerHTML = '<tr><td colspan="9" class="empty-state"><p>No bets tracked yet. Add bets from the Edge Finder or Props page.</p></td></tr>';
                 return;
             }
 
             tableBody.innerHTML = data.bets.map((b, i) => {
-                const statusClass = b.status === 'won' ? 'text-green' : b.status === 'lost' ? 'text-red' : b.status === 'push' ? 'text-yellow' : 'text-blue';
+                const payout = this.calcPayout(b.odds_american, b.recommended_stake);
+                const actions = b.status === 'pending' ? `
+                    <div style="display:flex;gap:4px;justify-content:center">
+                        <button class="btn btn-sm" style="background:var(--accent-green-dim);color:var(--accent-green);padding:4px 8px;font-size:10px" onclick="SBA.settleBet(${b.id}, 'won', ${payout.toFixed(2)})">Won</button>
+                        <button class="btn btn-sm" style="background:var(--accent-red-dim);color:var(--accent-red);padding:4px 8px;font-size:10px" onclick="SBA.settleBet(${b.id}, 'lost', ${(-b.recommended_stake).toFixed(2)})">Lost</button>
+                        <button class="btn btn-sm" style="background:var(--accent-yellow-dim);color:var(--accent-yellow);padding:4px 8px;font-size:10px" onclick="SBA.settleBet(${b.id}, 'push', 0)">Push</button>
+                    </div>` : `<button class="btn btn-sm" style="color:var(--text-tertiary);padding:4px 8px;font-size:10px" onclick="SBA.deleteBet(${b.id})">Delete</button>`;
                 return `
                 <tr class="new-row" style="animation-delay:${i * 0.03}s">
                     <td class="text-dim" style="font-size:11px">${b.placed_at ? new Date(b.placed_at).toLocaleDateString() : '-'}</td>
@@ -387,10 +393,11 @@ const SBA = {
                     <td class="right text-dim">${b.bookmaker}</td>
                     <td class="center"><span class="confidence-badge ${b.status === 'won' ? 'high' : b.status === 'lost' ? '' : 'medium'}" style="${b.status === 'lost' ? 'background:var(--accent-red-dim);color:var(--accent-red)' : ''}">${b.status.toUpperCase()}</span></td>
                     <td class="right font-bold ${b.profit_loss >= 0 ? 'text-green' : 'text-red'}">${b.profit_loss !== 0 ? `$${b.profit_loss >= 0 ? '+' : ''}${b.profit_loss.toFixed(2)}` : '-'}</td>
+                    <td class="center">${actions}</td>
                 </tr>`;
             }).join('');
         } catch (err) {
-            tableBody.innerHTML = `<tr><td colspan="8" class="empty-state text-red">Error loading bets</td></tr>`;
+            tableBody.innerHTML = `<tr><td colspan="9" class="empty-state text-red">Error loading bets</td></tr>`;
         }
     },
 
@@ -707,6 +714,279 @@ const SBA = {
     // ── Toggle Bet Slip ───────────────────────────────────────────────
     toggleSlip() {
         document.getElementById('bet-slip').classList.toggle('open');
+    },
+
+    // ── Analytics Page ────────────────────────────────────────────────
+    async loadAnalytics() {
+        try {
+            const [analyticsResp, betsResp] = await Promise.all([
+                fetch('/api/analytics'),
+                fetch('/api/bets'),
+            ]);
+            const analytics = await analyticsResp.json();
+            const bets = await betsResp.json();
+
+            // Summary stats
+            const summary = document.getElementById('analytics-summary');
+            if (summary) {
+                const streakIcon = analytics.streak.type === 'won' ? '&#9650;' : analytics.streak.type === 'lost' ? '&#9660;' : '—';
+                const streakColor = analytics.streak.type === 'won' ? 'text-green' : analytics.streak.type === 'lost' ? 'text-red' : '';
+                summary.innerHTML = `
+                    <div class="stat-card green">
+                        <div class="stat-label">Total P/L</div>
+                        <div class="stat-value ${bets.total_profit >= 0 ? 'text-green' : 'text-red'}">$${bets.total_profit >= 0 ? '+' : ''}${bets.total_profit.toFixed(2)}</div>
+                        <div class="stat-sub">${bets.total_bets} settled bets</div>
+                    </div>
+                    <div class="stat-card blue">
+                        <div class="stat-label">Win Rate</div>
+                        <div class="stat-value">${(bets.win_rate * 100).toFixed(1)}%</div>
+                        <div class="stat-sub">${bets.wins}W - ${bets.losses}L - ${bets.pushes}P</div>
+                        <div class="progress-bar"><div class="progress-fill green" style="width:${bets.win_rate * 100}%"></div></div>
+                    </div>
+                    <div class="stat-card yellow">
+                        <div class="stat-label">ROI</div>
+                        <div class="stat-value ${bets.roi >= 0 ? 'text-green' : 'text-red'}">${bets.roi >= 0 ? '+' : ''}${bets.roi.toFixed(1)}%</div>
+                        <div class="stat-sub">$${bets.total_staked.toFixed(0)} staked</div>
+                    </div>
+                    <div class="stat-card purple">
+                        <div class="stat-label">Current Streak</div>
+                        <div class="stat-value ${streakColor}">${analytics.streak.count > 0 ? `${analytics.streak.count}${analytics.streak.type.charAt(0).toUpperCase()}` : '—'}</div>
+                        <div class="stat-sub">${analytics.streak.type || 'No bets'}</div>
+                    </div>
+                `;
+            }
+
+            // P/L chart (CSS bar chart)
+            const chartEl = document.getElementById('pnl-chart-container');
+            if (chartEl) {
+                if (analytics.daily_pnl.length === 0) {
+                    chartEl.innerHTML = '<div class="empty-state" style="padding:40px"><p>No settled bets yet for P/L chart</p></div>';
+                } else {
+                    let cumulative = 0;
+                    const points = analytics.daily_pnl.map(d => {
+                        cumulative += d.pnl;
+                        return { date: d.date, pnl: d.pnl, cumulative };
+                    });
+                    const maxAbs = Math.max(Math.abs(Math.min(...points.map(p => p.cumulative))), Math.abs(Math.max(...points.map(p => p.cumulative))), 1);
+
+                    chartEl.innerHTML = `
+                        <div style="display:flex;flex-direction:column;gap:4px">
+                            ${points.map(p => {
+                                const width = Math.abs(p.cumulative / maxAbs * 100);
+                                const color = p.cumulative >= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
+                                return `
+                                <div style="display:flex;align-items:center;gap:12px">
+                                    <span class="text-dim" style="font-size:11px;min-width:80px">${p.date.slice(5)}</span>
+                                    <div style="flex:1;height:24px;position:relative;display:flex;align-items:center">
+                                        <div style="height:16px;width:${Math.max(width, 2)}%;background:${color};border-radius:4px;opacity:0.7;transition:width 0.5s"></div>
+                                    </div>
+                                    <span class="font-mono font-bold ${p.cumulative >= 0 ? 'text-green' : 'text-red'}" style="font-size:12px;min-width:70px;text-align:right">$${p.cumulative >= 0 ? '+' : ''}${p.cumulative.toFixed(2)}</span>
+                                </div>`;
+                            }).join('')}
+                        </div>
+                    `;
+                }
+            }
+
+            // Market breakdown
+            const marketEl = document.getElementById('market-breakdown');
+            if (marketEl) {
+                const markets = Object.entries(analytics.by_market);
+                if (markets.length === 0) {
+                    marketEl.innerHTML = '<div class="empty-state" style="padding:40px"><p>No market data yet</p></div>';
+                } else {
+                    marketEl.innerHTML = `
+                        <table class="data-table">
+                            <thead><tr><th>Market</th><th class="right">Bets</th><th class="right">Win Rate</th><th class="right">P/L</th><th class="right">ROI</th></tr></thead>
+                            <tbody>
+                                ${markets.map(([name, d]) => `
+                                <tr class="new-row">
+                                    <td><span class="market-tag">${name}</span></td>
+                                    <td class="right font-mono">${d.bets}</td>
+                                    <td class="right font-mono">${d.win_rate}%</td>
+                                    <td class="right font-mono font-bold ${d.profit >= 0 ? 'text-green' : 'text-red'}">$${d.profit >= 0 ? '+' : ''}${d.profit.toFixed(2)}</td>
+                                    <td class="right"><span class="ev-badge ${d.roi >= 0 ? 'high' : 'negative'}">${d.roi >= 0 ? '+' : ''}${d.roi}%</span></td>
+                                </tr>`).join('')}
+                            </tbody>
+                        </table>
+                    `;
+                }
+            }
+
+            // Bookmaker breakdown
+            const bookEl = document.getElementById('bookmaker-breakdown');
+            if (bookEl) {
+                const books = Object.entries(analytics.by_bookmaker);
+                if (books.length === 0) {
+                    bookEl.innerHTML = '<div class="empty-state" style="padding:40px"><p>No bookmaker data yet</p></div>';
+                } else {
+                    bookEl.innerHTML = `
+                        <table class="data-table">
+                            <thead><tr><th>Bookmaker</th><th class="right">Bets</th><th class="right">Win Rate</th><th class="right">P/L</th><th class="right">ROI</th></tr></thead>
+                            <tbody>
+                                ${books.map(([name, d]) => `
+                                <tr class="new-row">
+                                    <td class="font-bold">${name}</td>
+                                    <td class="right font-mono">${d.bets}</td>
+                                    <td class="right font-mono">${d.win_rate}%</td>
+                                    <td class="right font-mono font-bold ${d.profit >= 0 ? 'text-green' : 'text-red'}">$${d.profit >= 0 ? '+' : ''}${d.profit.toFixed(2)}</td>
+                                    <td class="right"><span class="ev-badge ${d.roi >= 0 ? 'high' : 'negative'}">${d.roi >= 0 ? '+' : ''}${d.roi}%</span></td>
+                                </tr>`).join('')}
+                            </tbody>
+                        </table>
+                    `;
+                }
+            }
+
+            // Notable bets
+            const notableEl = document.getElementById('notable-bets');
+            if (notableEl) {
+                if (!analytics.best_bet && !analytics.worst_bet) {
+                    notableEl.innerHTML = '<div class="empty-state" style="padding:40px"><p>No settled bets yet</p></div>';
+                } else {
+                    notableEl.innerHTML = `
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+                            ${analytics.best_bet ? `
+                            <div class="step-card" style="border-left:3px solid var(--accent-green)">
+                                <div class="stat-label">Best Bet</div>
+                                <div class="font-bold" style="margin:8px 0">${analytics.best_bet.selection}</div>
+                                <div class="text-dim" style="font-size:12px">${analytics.best_bet.market} · ${analytics.best_bet.bookmaker}</div>
+                                <div class="stat-value text-green" style="font-size:20px;margin-top:8px">$+${analytics.best_bet.profit_loss.toFixed(2)}</div>
+                            </div>` : ''}
+                            ${analytics.worst_bet ? `
+                            <div class="step-card" style="border-left:3px solid var(--accent-red)">
+                                <div class="stat-label">Worst Bet</div>
+                                <div class="font-bold" style="margin:8px 0">${analytics.worst_bet.selection}</div>
+                                <div class="text-dim" style="font-size:12px">${analytics.worst_bet.market} · ${analytics.worst_bet.bookmaker}</div>
+                                <div class="stat-value text-red" style="font-size:20px;margin-top:8px">$${analytics.worst_bet.profit_loss.toFixed(2)}</div>
+                            </div>` : ''}
+                        </div>
+                    `;
+                }
+            }
+        } catch (err) {
+            const summary = document.getElementById('analytics-summary');
+            if (summary) summary.innerHTML = `<div class="stat-card red"><div class="stat-value text-red">Error loading analytics</div></div>`;
+        }
+    },
+
+    // ── Settings Page ─────────────────────────────────────────────────
+    async loadSettings() {
+        try {
+            const [settingsResp, healthResp, statusResp] = await Promise.all([
+                fetch('/api/settings'),
+                fetch('/api/health'),
+                fetch('/api/status'),
+            ]);
+            const settings = await settingsResp.json();
+            const health = await healthResp.json();
+            const status = await statusResp.json();
+
+            // Bankroll settings
+            const bankrollEl = document.getElementById('bankroll-settings');
+            if (bankrollEl) {
+                bankrollEl.innerHTML = `
+                    <div style="display:grid;gap:16px">
+                        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--border-light)">
+                            <div><div class="font-bold">Bankroll</div><div class="text-dim" style="font-size:12px">Total bankroll for Kelly criterion sizing</div></div>
+                            <div class="font-mono font-bold text-green" style="font-size:18px">$${settings.bankroll.toLocaleString()}</div>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--border-light)">
+                            <div><div class="font-bold">Kelly Fraction</div><div class="text-dim" style="font-size:12px">Fractional Kelly multiplier (1.0 = full Kelly)</div></div>
+                            <div class="font-mono font-bold" style="font-size:18px">${settings.kelly_fraction}</div>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--border-light)">
+                            <div><div class="font-bold">EV Threshold</div><div class="text-dim" style="font-size:12px">Minimum expected value to flag as +EV</div></div>
+                            <div class="font-mono font-bold" style="font-size:18px">${(settings.ev_threshold * 100).toFixed(1)}%</div>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0">
+                            <div><div class="font-bold">Default Sport</div><div class="text-dim" style="font-size:12px">Primary sport for scanning</div></div>
+                            <span class="market-tag">${settings.default_sport}</span>
+                        </div>
+                    </div>
+                    <p class="text-dim" style="font-size:11px;margin-top:16px">Settings are configured via environment variables or .env file</p>
+                `;
+            }
+
+            // System info
+            const sysEl = document.getElementById('system-info');
+            if (sysEl) {
+                sysEl.innerHTML = `
+                    <div style="display:grid;gap:12px">
+                        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border-light)">
+                            <span class="text-secondary">Version</span>
+                            <span class="font-mono">${health.version}</span>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border-light)">
+                            <span class="text-secondary">Uptime</span>
+                            <span class="font-mono">${health.uptime}</span>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border-light)">
+                            <span class="text-secondary">Database</span>
+                            <span class="confidence-badge ${health.database === 'healthy' ? 'high' : ''}" style="${health.database !== 'healthy' ? 'background:var(--accent-red-dim);color:var(--accent-red)' : ''}">${health.database.toUpperCase()}</span>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0">
+                            <span class="text-secondary">API Docs</span>
+                            <a href="/api/docs" target="_blank" class="btn btn-outline btn-sm">Open Swagger UI</a>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // DB status
+            const dbEl = document.getElementById('db-status');
+            if (dbEl) {
+                dbEl.innerHTML = `
+                    <div class="stats-grid" style="margin-bottom:0">
+                        <div class="step-card" style="text-align:center">
+                            <div class="stat-value" style="font-size:28px;color:var(--accent-green)">${status.events.toLocaleString()}</div>
+                            <div class="stat-label" style="margin-top:6px">Events</div>
+                        </div>
+                        <div class="step-card" style="text-align:center">
+                            <div class="stat-value" style="font-size:28px;color:var(--accent-blue)">${status.odds_snapshots.toLocaleString()}</div>
+                            <div class="stat-label" style="margin-top:6px">Odds Snapshots</div>
+                        </div>
+                        <div class="step-card" style="text-align:center">
+                            <div class="stat-value" style="font-size:28px;color:var(--accent-yellow)">${status.players.toLocaleString()}</div>
+                            <div class="stat-label" style="margin-top:6px">Players</div>
+                        </div>
+                        <div class="step-card" style="text-align:center">
+                            <div class="stat-value" style="font-size:28px;color:var(--accent-purple)">${status.game_logs.toLocaleString()}</div>
+                            <div class="stat-label" style="margin-top:6px">Game Logs</div>
+                        </div>
+                    </div>
+                `;
+            }
+        } catch (err) {
+            const bankrollEl = document.getElementById('bankroll-settings');
+            if (bankrollEl) bankrollEl.innerHTML = `<div class="empty-state text-red">Error loading settings</div>`;
+        }
+    },
+
+    // ── Delete Bet ────────────────────────────────────────────────────
+    async deleteBet(betId) {
+        try {
+            await fetch(`/api/bets/${betId}`, { method: 'DELETE' });
+            this.toast('Bet deleted', 'success');
+            this.loadBets();
+        } catch {
+            this.toast('Failed to delete bet', 'error');
+        }
+    },
+
+    // ── Settle Bet ────────────────────────────────────────────────────
+    async settleBet(betId, status, profitLoss) {
+        try {
+            await fetch(`/api/bets/${betId}/settle`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status, profit_loss: profitLoss }),
+            });
+            this.toast(`Bet marked as ${status}`, 'success');
+            this.loadBets();
+        } catch {
+            this.toast('Failed to settle bet', 'error');
+        }
     },
 };
 

@@ -2,7 +2,13 @@
 {% block title %}My Bets{% endblock %}
 
 {% block content %}
-<h1 class="page-title">My Bets</h1>
+<h1 class="page-title">
+    My Bets
+    <a href="/analytics" class="btn btn-outline btn-sm" style="margin-left:auto;font-size:12px">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/></svg>
+        View Analytics
+    </a>
+</h1>
 
 <div class="stats-grid" id="bets-summary">
     <div class="stat-card green">
@@ -43,10 +49,11 @@
                         <th class="right sortable" onclick="SBA.sortTable('bets-table-body', 5)">Book</th>
                         <th class="center sortable" onclick="SBA.sortTable('bets-table-body', 6)">Status</th>
                         <th class="right sortable" onclick="SBA.sortTable('bets-table-body', 7, 'number')">P/L</th>
+                        <th class="center">Actions</th>
                     </tr>
                 </thead>
                 <tbody id="bets-table-body">
-                    <tr><td colspan="8" class="loading-spinner"><div class="spinner"></div> Loading bet history...</td></tr>
+                    <tr><td colspan="9" class="loading-spinner"><div class="spinner"></div> Loading bet history...</td></tr>
                 </tbody>
             </table>
         </div>

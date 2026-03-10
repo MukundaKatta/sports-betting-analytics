@@ -2,12 +2,13 @@
 {% block title %}Edge Finder{% endblock %}
 
 {% block content %}
-<h1 class="page-title">
-    <span class="gradient-text">Edge Finder</span>
+<h1 class="page-title reveal-up">
+    <span class="gradient-text animated-gradient-text">Edge Finder</span>
     <span class="badge" id="edges-count">0</span>
+    <span class="tag-elite" style="margin-left:8px">Elite</span>
 </h1>
 
-<div class="filters-bar">
+<div class="filters-bar reveal-up" style="animation-delay:0.1s">
     <select class="filter-select" id="sport-filter">
         <option value="basketball_nba">NBA</option>
         <option value="basketball_ncaab">NCAAB</option>
@@ -57,7 +58,7 @@
 
 <div id="edge-summary-banner"></div>
 
-<div class="card">
+<div class="card featured-card reveal-up" style="animation-delay:0.15s">
     <div class="card-body">
         <div style="overflow-x:auto">
             <table class="data-table">

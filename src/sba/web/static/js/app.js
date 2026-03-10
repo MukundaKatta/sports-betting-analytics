@@ -3154,6 +3154,81 @@ const SBA = {
     },
 };
 
+// ── v4.0: Cursor Spotlight ─────────────────────────────────────
+function setupCursorSpotlight() {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    if (window.innerWidth < 768) return;
+
+    const spotlight = document.createElement('div');
+    spotlight.className = 'cursor-spotlight';
+    document.body.appendChild(spotlight);
+
+    let ticking = false;
+    document.addEventListener('mousemove', (e) => {
+        if (!ticking) {
+            requestAnimationFrame(() => {
+                spotlight.style.left = e.clientX + 'px';
+                spotlight.style.top = e.clientY + 'px';
+                ticking = false;
+            });
+            ticking = true;
+        }
+    });
+
+    document.addEventListener('mouseleave', () => { spotlight.style.opacity = '0'; });
+    document.addEventListener('mouseenter', () => { spotlight.style.opacity = '1'; });
+}
+
+// ── v4.0: Scroll Progress Bar ──────────────────────────────────
+function setupScrollProgressBarV2() {
+    const bar = document.getElementById('scroll-progress-bar');
+    if (!bar) return;
+
+    const contentArea = document.querySelector('.content-area');
+    if (!contentArea) return;
+
+    let ticking = false;
+    contentArea.addEventListener('scroll', () => {
+        if (!ticking) {
+            requestAnimationFrame(() => {
+                const scrollTop = contentArea.scrollTop;
+                const scrollHeight = contentArea.scrollHeight - contentArea.clientHeight;
+                const pct = scrollHeight > 0 ? (scrollTop / scrollHeight) * 100 : 0;
+                bar.style.width = pct + '%';
+                ticking = false;
+            });
+            ticking = true;
+        }
+    });
+}
+
+// ── v4.0: Enhanced Reveal Animations ───────────────────────────
+function setupRevealAnimationsV2() {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        document.querySelectorAll('.reveal-up, .reveal-left, .reveal-scale').forEach(el => {
+            el.classList.add('revealed');
+        });
+        return;
+    }
+
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                const delay = entry.target.style.animationDelay || '0s';
+                const ms = parseFloat(delay) * 1000;
+                setTimeout(() => {
+                    entry.target.classList.add('revealed');
+                }, ms);
+                observer.unobserve(entry.target);
+            }
+        });
+    }, { threshold: 0.1, rootMargin: '0px 0px -30px 0px' });
+
+    document.querySelectorAll('.reveal-up, .reveal-left, .reveal-scale').forEach(el => {
+        observer.observe(el);
+    });
+}
+
 // Initialize on DOM ready
 document.addEventListener('DOMContentLoaded', () => {
     SBA.init();
@@ -3164,9 +3239,13 @@ document.addEventListener('DOMContentLoaded', () => {
     SBA.setupRippleEffect();
     SBA.setupScrollProgressBar();
 
+    // v4.0 enhancements
+    setupCursorSpotlight();
+    setupScrollProgressBarV2();
+
     // Setup reveal animations after a brief delay
     setTimeout(() => {
-        SBA.setupRevealAnimations();
+        setupRevealAnimationsV2();
         SBA.setup3DCardTilt();
         SBA.setupParticles();
     }, 100);

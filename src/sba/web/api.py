@@ -961,6 +961,131 @@ def get_advanced_analytics():
     }
 
 
+# ── Advanced Analytics Breakdowns ─────────────────────────────────
+
+def _get_settled_bets_dicts() -> list[dict]:
+    """Helper to get settled bets as dicts for analytics service."""
+    init_db()
+    with get_connection() as conn:
+        rows = conn.execute("""
+            SELECT b.*, e.sport, e.home_team, e.away_team
+            FROM bets b
+            LEFT JOIN events e ON e.id = b.event_id
+            WHERE b.status IN ('won', 'lost', 'push')
+            ORDER BY b.placed_at
+        """).fetchall()
+    return [
+        {
+            "status": r["status"],
+            "profit_loss": r["profit_loss"] or 0,
+            "stake": r["recommended_stake"] or 0,
+            "odds_american": r["odds_american"] or 0,
+            "market": r["market"],
+            "bookmaker": r["bookmaker"],
+            "sport": r["sport"] if "sport" in r.keys() else "unknown",
+            "placed_at": r["placed_at"],
+            "selection": r["selection"],
+        }
+        for r in rows
+    ]
+
+
+def _row_to_dict(r) -> dict:
+    return {
+        "label": r.label, "bets": r.bets, "wins": r.wins, "losses": r.losses,
+        "pushes": r.pushes, "profit": r.profit, "wagered": r.wagered,
+        "win_rate": r.win_rate, "roi_pct": r.roi_pct, "avg_odds": r.avg_odds,
+    }
+
+
+@router.get("/analytics/by-sport")
+def analytics_by_sport():
+    """Performance breakdown by sport (NBA, NFL, MLB, etc.)."""
+    from sba.services.analytics import breakdown_by_sport
+    bets = _get_settled_bets_dicts()
+    rows = breakdown_by_sport(bets)
+    return {"breakdown": [_row_to_dict(r) for r in rows], "total_bets": len(bets)}
+
+
+@router.get("/analytics/by-day")
+def analytics_by_day_of_week():
+    """Performance breakdown by day of week."""
+    from sba.services.analytics import breakdown_by_day_of_week
+    bets = _get_settled_bets_dicts()
+    rows = breakdown_by_day_of_week(bets)
+    return {"breakdown": [_row_to_dict(r) for r in rows], "total_bets": len(bets)}
+
+
+@router.get("/analytics/by-odds-range")
+def analytics_by_odds_range():
+    """Performance breakdown by odds range bucket."""
+    from sba.services.analytics import breakdown_by_odds_range
+    bets = _get_settled_bets_dicts()
+    rows = breakdown_by_odds_range(bets)
+    return {"breakdown": [_row_to_dict(r) for r in rows], "total_bets": len(bets)}
+
+
+@router.get("/analytics/by-market")
+def analytics_by_market_type():
+    """Performance breakdown by market type."""
+    from sba.services.analytics import breakdown_by_market
+    bets = _get_settled_bets_dicts()
+    rows = breakdown_by_market(bets)
+    return {"breakdown": [_row_to_dict(r) for r in rows], "total_bets": len(bets)}
+
+
+@router.get("/analytics/by-book")
+def analytics_by_bookmaker():
+    """Performance breakdown by bookmaker."""
+    from sba.services.analytics import breakdown_by_bookmaker
+    bets = _get_settled_bets_dicts()
+    rows = breakdown_by_bookmaker(bets)
+    return {"breakdown": [_row_to_dict(r) for r in rows], "total_bets": len(bets)}
+
+
+@router.get("/analytics/trends")
+def analytics_trends(window: int = Query(7)):
+    """Rolling performance trends over time."""
+    from sba.services.analytics import rolling_trends
+    bets = _get_settled_bets_dicts()
+    points = rolling_trends(bets, window=window)
+    return {
+        "window": window,
+        "points": [
+            {"date": p.date, "profit": p.profit, "cumulative": p.cumulative,
+             "win_rate": p.win_rate, "roi": p.roi, "bets": p.bets}
+            for p in points
+        ],
+    }
+
+
+@router.get("/analytics/streaks")
+def analytics_streaks():
+    """Detailed streak analysis with recovery metrics."""
+    from sba.services.analytics import analyze_streaks
+    bets = _get_settled_bets_dicts()
+    s = analyze_streaks(bets)
+    return {
+        "current_type": s.current_type,
+        "current_length": s.current_length,
+        "longest_win": s.longest_win,
+        "longest_loss": s.longest_loss,
+        "avg_win_streak": s.avg_win_streak,
+        "avg_loss_streak": s.avg_loss_streak,
+        "win_streaks": s.win_streaks,
+        "loss_streaks": s.loss_streaks,
+        "recovery_avg": s.recovery_avg,
+    }
+
+
+@router.get("/analytics/heatmap")
+def analytics_heatmap():
+    """Day-of-week × hour performance heatmap."""
+    from sba.services.analytics import performance_heatmap
+    bets = _get_settled_bets_dicts()
+    return {"heatmap": performance_heatmap(bets), "total_bets": len(bets)}
+
+
 # ── Favorites / Watchlist (DB-persisted) ──────────────────────────
 
 @router.get("/watchlist")
@@ -2457,3 +2582,764 @@ def get_available_sports():
             sports.append({**ks, "event_count": 0, "upcoming": 0})
 
     return sports
+
+
+# ── Multi-Method Devig Engine (Outlier Pro) ─────────────────────
+
+class DevigRequest(BaseModel):
+    odds_american: list[int]
+    outcome_names: list[str] | None = None
+    method: str = "multiplicative"
+
+
+class MultiDevigRequest(BaseModel):
+    book_odds: list[dict]  # [{"bookmaker": str, "odds": [int, ...]}]
+    outcome_names: list[str] | None = None
+    methods: list[str] | None = None
+    method_weights: dict[str, float] | None = None
+
+
+@router.post("/calculator/devig")
+def devig_calculator(req: DevigRequest):
+    """Devig odds using a single method."""
+    from sba.services.devig import devig_single
+
+    result = devig_single(
+        req.odds_american,
+        method=req.method,
+        outcome_names=req.outcome_names,
+    )
+    return {
+        "method": result.method,
+        "outcomes": [
+            {
+                "name": name,
+                "fair_prob": round(prob * 100, 2),
+                "fair_american": am,
+                "fair_decimal": dec,
+            }
+            for name, prob, am, dec in zip(
+                result.outcome_names,
+                result.fair_probabilities,
+                result.fair_odds_american,
+                result.fair_odds_decimal,
+            )
+        ],
+        "vig_removed": result.vig_removed,
+    }
+
+
+@router.post("/calculator/devig/multi")
+def multi_devig_calculator(req: MultiDevigRequest):
+    """Multi-book, multi-method devigging like Outlier Pro."""
+    from sba.services.devig import devig_multi
+
+    result = devig_multi(
+        req.book_odds,
+        methods=req.methods,
+        method_weights=req.method_weights,
+        outcome_names=req.outcome_names,
+    )
+    return {
+        "outcomes": result.outcomes,
+        "books_used": result.books_used,
+        "consensus_vig": result.consensus_vig,
+        "best_method": result.best_method,
+        "weighted_consensus": [
+            {
+                "name": name,
+                "fair_prob": round(prob * 100, 2),
+                "fair_american": am,
+                "fair_decimal": dec,
+            }
+            for name, prob, am, dec in zip(
+                result.outcomes,
+                result.weighted_fair_probs,
+                result.weighted_fair_american,
+                result.weighted_fair_decimal,
+            )
+        ],
+        "methods": [
+            {
+                "method": m.method,
+                "outcomes": [
+                    {
+                        "name": name,
+                        "fair_prob": round(p * 100, 2),
+                        "fair_american": am,
+                    }
+                    for name, p, am in zip(
+                        m.outcome_names, m.fair_probabilities, m.fair_odds_american
+                    )
+                ],
+                "vig_removed": m.vig_removed,
+            }
+            for m in result.methods
+        ],
+    }
+
+
+# ── Bet Grading System (BetQL 1-5 Stars) ────────────────────────
+
+class GradeBetRequest(BaseModel):
+    selection: str
+    market: str
+    event: str
+    edge_pct: float
+    best_odds_american: int
+    fair_odds_american: int | None = None
+    sharp_book_agrees: bool = False
+    line_moving_toward: bool = False
+    line_moving_away: bool = False
+    historical_hit_rate: float | None = None
+    books_with_edge: int = 1
+    total_books: int = 1
+    is_live: bool = False
+    hours_to_start: float | None = None
+
+
+@router.post("/bet-grade")
+def grade_bet_endpoint(req: GradeBetRequest):
+    """Grade a bet opportunity with 1-5 star rating like BetQL."""
+    from sba.services.bet_grader import grade_bet
+
+    grade = grade_bet(
+        selection=req.selection,
+        market=req.market,
+        event=req.event,
+        edge_pct=req.edge_pct,
+        best_odds_american=req.best_odds_american,
+        fair_odds_american=req.fair_odds_american,
+        sharp_book_agrees=req.sharp_book_agrees,
+        line_moving_toward=req.line_moving_toward,
+        line_moving_away=req.line_moving_away,
+        historical_hit_rate=req.historical_hit_rate,
+        books_with_edge=req.books_with_edge,
+        total_books=req.total_books,
+        is_live=req.is_live,
+        hours_to_start=req.hours_to_start,
+    )
+    return {
+        "selection": grade.selection,
+        "market": grade.market,
+        "event": grade.event,
+        "stars": grade.stars,
+        "overall_score": grade.overall_score,
+        "edge_pct": grade.edge_pct,
+        "confidence": grade.confidence,
+        "grade_label": grade.grade_label,
+        "components": {
+            "edge": grade.edge_score,
+            "sharp_agreement": grade.sharp_score,
+            "line_movement": grade.movement_score,
+            "consistency": grade.consistency_score,
+            "market_efficiency": grade.market_score,
+        },
+        "reasons": grade.reasons,
+        "warnings": grade.warnings,
+    }
+
+
+@router.get("/bet-grades")
+def get_graded_edges():
+    """Get all current edges with star ratings applied."""
+    from sba.services.bet_grader import grade_bet
+
+    init_db()
+    with get_connection() as conn:
+        rows = conn.execute("""
+            SELECT e.home_team, e.away_team, e.id as event_id,
+                   os.market, os.outcome_name, os.price_american,
+                   os.price_decimal, os.bookmaker
+            FROM events e
+            JOIN odds_snapshots os ON os.event_id = e.id
+            WHERE e.completed = 0
+            ORDER BY os.snapshot_time DESC
+            LIMIT 100
+        """).fetchall()
+
+    if not rows:
+        return {"grades": [], "total": 0}
+
+    # Simple grading based on available data
+    grades = []
+    for r in rows:
+        edge = max(0, (1.0 / r["price_decimal"] - 0.5) * 100) if r["price_decimal"] > 0 else 0
+        if edge < 1:
+            continue
+        g = grade_bet(
+            selection=r["outcome_name"],
+            market=r["market"],
+            event=f"{r['home_team']} vs {r['away_team']}",
+            edge_pct=round(edge, 1),
+            best_odds_american=r["price_american"],
+        )
+        grades.append({
+            "selection": g.selection,
+            "event": g.event,
+            "market": g.market,
+            "stars": g.stars,
+            "score": g.overall_score,
+            "edge_pct": g.edge_pct,
+            "odds_american": r["price_american"],
+            "bookmaker": r["bookmaker"],
+            "confidence": g.confidence,
+            "grade_label": g.grade_label,
+            "reasons": g.reasons,
+        })
+
+    grades.sort(key=lambda x: x["score"], reverse=True)
+    return {"grades": grades[:50], "total": len(grades)}
+
+
+# ── Backtesting Engine (Rithmm) ──────────────────────────────────
+
+class BacktestRequest(BaseModel):
+    strategy_name: str = "Custom Strategy"
+    starting_bankroll: float = 10000.0
+    stake_type: str = "flat"
+    stake_amount: float = 100.0
+    min_edge: float = 0.0
+    min_odds: int = -500
+    max_odds: int = 5000
+    stop_loss: float | None = None
+    take_profit: float | None = None
+
+
+@router.post("/backtest")
+def run_backtest_endpoint(req: BacktestRequest):
+    """Backtest a strategy against historical bet data."""
+    from sba.services.backtester import run_backtest
+
+    init_db()
+    with get_connection() as conn:
+        rows = conn.execute("""
+            SELECT b.event_id, b.selection, b.odds_american,
+                   b.odds_decimal, b.status, b.profit_loss
+            FROM bets b
+            WHERE b.status IN ('won', 'lost', 'push', 'win', 'loss')
+            ORDER BY b.placed_at
+        """).fetchall()
+
+    historical = [
+        {
+            "event": r["event_id"] or "",
+            "selection": r["selection"] or "",
+            "odds_american": r["odds_american"] or -110,
+            "odds_decimal": r["odds_decimal"] or 1.909,
+            "result": "win" if r["status"] in ("won", "win") else "push" if r["status"] == "push" else "loss",
+        }
+        for r in rows
+    ]
+
+    if not historical:
+        # Generate sample data for demonstration
+        import random
+        random.seed(42)
+        historical = []
+        for i in range(200):
+            odds = random.choice([-110, -115, 100, 120, 150, -130, -105, 200])
+            dec = 1 + (odds / 100) if odds > 0 else 1 + (100 / abs(odds))
+            imp = 1 / dec
+            # Simulate with slight edge
+            win_chance = imp + 0.02
+            result = "win" if random.random() < win_chance else "loss"
+            historical.append({
+                "event": f"Game_{i+1}",
+                "selection": f"Team_{random.choice(['A','B'])}",
+                "odds_american": odds,
+                "odds_decimal": round(dec, 3),
+                "result": result,
+                "edge_pct": round(random.uniform(0, 8), 1),
+            })
+
+    bt = run_backtest(
+        historical,
+        strategy_name=req.strategy_name,
+        starting_bankroll=req.starting_bankroll,
+        stake_type=req.stake_type,
+        stake_amount=req.stake_amount,
+        min_edge=req.min_edge,
+        min_odds=req.min_odds,
+        max_odds=req.max_odds,
+        stop_loss=req.stop_loss,
+        take_profit=req.take_profit,
+    )
+
+    return {
+        "strategy_name": bt.strategy_name,
+        "grade": bt.grade,
+        "total_bets": bt.total_bets,
+        "wins": bt.wins,
+        "losses": bt.losses,
+        "pushes": bt.pushes,
+        "win_rate": bt.win_rate,
+        "total_wagered": bt.total_wagered,
+        "total_profit": bt.total_profit,
+        "roi_pct": bt.roi_pct,
+        "max_drawdown": bt.max_drawdown,
+        "max_drawdown_pct": bt.max_drawdown_pct,
+        "sharpe_ratio": bt.sharpe_ratio,
+        "longest_win_streak": bt.longest_win_streak,
+        "longest_lose_streak": bt.longest_lose_streak,
+        "avg_odds": bt.avg_odds,
+        "avg_stake": bt.avg_stake,
+        "profit_factor": bt.profit_factor,
+        "starting_bankroll": bt.starting_bankroll,
+        "ending_bankroll": bt.ending_bankroll,
+        "peak_bankroll": bt.peak_bankroll,
+        "equity_curve": bt.equity_curve,
+    }
+
+
+# ── Public Money / Sharp vs Public (Action Network) ─────────────
+
+@router.get("/public-money/{event_id}")
+def get_public_money(event_id: str, market: str = Query("h2h")):
+    """Get public bet % vs money % for an event like Action Network."""
+    from sba.services.public_money import simulate_public_money
+
+    init_db()
+    with get_connection() as conn:
+        event = conn.execute(
+            "SELECT * FROM events WHERE id = ?", (event_id,)
+        ).fetchone()
+
+        if not event:
+            raise HTTPException(404, "Event not found")
+
+        # Get latest odds for simulation
+        odds = conn.execute("""
+            SELECT outcome_name, price_american
+            FROM odds_snapshots
+            WHERE event_id = ? AND market = ?
+            ORDER BY snapshot_time DESC LIMIT 2
+        """, (event_id, market)).fetchall()
+
+    if len(odds) >= 2:
+        home_odds = odds[0]["price_american"]
+        away_odds = odds[1]["price_american"]
+    else:
+        home_odds = -110
+        away_odds = -110
+
+    analysis = simulate_public_money(
+        event_id=event_id,
+        home_team=event["home_team"],
+        away_team=event["away_team"],
+        home_odds_american=home_odds,
+        away_odds_american=away_odds,
+        market=market,
+    )
+
+    return {
+        "event_id": analysis.event_id,
+        "market": analysis.market,
+        "sharp_signal": analysis.sharp_signal,
+        "signal_strength": analysis.signal_strength,
+        "description": analysis.description,
+        "outcomes": [
+            {
+                "name": o.outcome,
+                "bet_pct": o.bet_pct,
+                "money_pct": o.money_pct,
+                "divergence": o.divergence,
+                "sharp_side": o.sharp_side,
+            }
+            for o in analysis.outcomes
+        ],
+    }
+
+
+@router.post("/public-money/analyze")
+def analyze_public_money_endpoint(
+    event_id: str = Query(...),
+    market: str = Query("h2h"),
+    outcomes: list[dict] = [],
+):
+    """Analyze custom public money data."""
+    from sba.services.public_money import analyze_public_money
+
+    analysis = analyze_public_money(event_id, market, outcomes)
+    return {
+        "event_id": analysis.event_id,
+        "market": analysis.market,
+        "sharp_signal": analysis.sharp_signal,
+        "signal_strength": analysis.signal_strength,
+        "description": analysis.description,
+        "outcomes": [
+            {
+                "name": o.outcome,
+                "bet_pct": o.bet_pct,
+                "money_pct": o.money_pct,
+                "divergence": o.divergence,
+                "sharp_side": o.sharp_side,
+            }
+            for o in analysis.outcomes
+        ],
+    }
+
+
+# ── Achievements & Gamification ──────────────────────────────────────
+
+def _get_user_stats() -> dict:
+    """Gather user stats for achievement evaluation."""
+    init_db()
+    with get_connection() as conn:
+        bets = conn.execute(
+            "SELECT * FROM bets WHERE status IN ('won','lost','push')"
+        ).fetchall()
+        picks = conn.execute("SELECT COUNT(*) as cnt FROM public_picks").fetchone()
+
+    total = len(bets)
+    won = sum(1 for b in bets if b["status"] == "won")
+    lost = sum(1 for b in bets if b["status"] == "lost")
+    profit = sum((b["profit_loss"] or 0) for b in bets)
+    staked = sum(abs(b["recommended_stake"] or 0) for b in bets) or 1
+    roi = profit / staked * 100 if staked > 0 else 0
+
+    sports = set()
+    books = set()
+    for b in bets:
+        if b["bookmaker"]:
+            books.add(b["bookmaker"])
+        # get sport from event join
+    with get_connection() as conn:
+        sport_rows = conn.execute("""
+            SELECT DISTINCT e.sport FROM bets b
+            JOIN events e ON e.id = b.event_id
+            WHERE b.status IN ('won','lost','push') AND e.sport IS NOT NULL
+        """).fetchall()
+    sports = {r["sport"] for r in sport_rows}
+
+    # Longest win streak
+    longest_win = 0
+    current_win = 0
+    biggest_dog = 0
+    for b in bets:
+        if b["status"] == "won":
+            current_win += 1
+            longest_win = max(longest_win, current_win)
+            odds = b["odds_american"] or 0
+            if odds > 0:
+                biggest_dog = max(biggest_dog, odds)
+        else:
+            current_win = 0
+
+    return {
+        "total_bets": total,
+        "wins": won,
+        "losses": lost,
+        "total_profit": profit,
+        "roi_pct": round(roi, 1),
+        "longest_win_streak": longest_win,
+        "unique_sports": len(sports),
+        "unique_books": len(books),
+        "total_picks": picks["cnt"] if picks else 0,
+        "biggest_underdog_win": biggest_dog,
+        "analytics_views": 0,
+        "perfect_weeks": 0,
+        "comeback_count": 0,
+    }
+
+
+@router.get("/achievements")
+def get_achievements():
+    """Get all achievements with unlock status and progress."""
+    from sba.services.achievements import evaluate_achievements, get_achievement_summary
+
+    stats = _get_user_stats()
+    achievements = evaluate_achievements(stats)
+    summary = get_achievement_summary(achievements)
+
+    return {
+        "achievements": achievements,
+        "summary": summary,
+        "stats": stats,
+    }
+
+
+@router.get("/achievements/summary")
+def get_achievements_summary():
+    """Quick summary of achievement progress for dashboard widget."""
+    from sba.services.achievements import evaluate_achievements, get_achievement_summary
+
+    stats = _get_user_stats()
+    achievements = evaluate_achievements(stats)
+    summary = get_achievement_summary(achievements)
+    recent_unlocked = [a for a in achievements if a["unlocked"]][-3:]
+
+    return {
+        "total_unlocked": summary["total_unlocked"],
+        "total_achievements": summary["total_achievements"],
+        "total_points": summary["total_points"],
+        "rank": summary["rank"],
+        "recent_unlocked": recent_unlocked,
+        "next_unlock": summary["next_unlock"],
+    }
+
+
+# ── Insights Engine ──────────────────────────────────────────────────
+
+@router.get("/insights")
+def get_insights():
+    """Get personalized AI-powered insights and recommendations."""
+    from sba.services.insights import generate_insights
+
+    bets = _get_settled_bets_dicts()
+
+    # Get bankroll
+    bankroll = 0
+    with get_connection() as conn:
+        row = conn.execute(
+            "SELECT amount FROM bankroll_log ORDER BY created_at DESC LIMIT 1"
+        ).fetchone()
+        if row:
+            bankroll = row["amount"]
+
+    insights = generate_insights(bets, bankroll)
+
+    return {
+        "insights": [
+            {
+                "id": i.id,
+                "category": i.category,
+                "severity": i.severity,
+                "title": i.title,
+                "message": i.message,
+                "action": i.action,
+                "metric_value": i.metric_value,
+                "link": i.link,
+            }
+            for i in insights
+        ],
+        "total": len(insights),
+    }
+
+
+# ── Bet Rating / Star System ────────────────────────────────────────
+
+class BetRatingRequest(BaseModel):
+    odds_american: int
+    model_probability: float | None = None
+    ev_pct: float | None = None
+    kelly_fraction: float | None = None
+    clv: float | None = None
+
+
+@router.post("/bet-rating")
+def rate_bet_endpoint(req: BetRatingRequest):
+    """Rate a bet on a 1-5 star scale (BetQL-style confidence scoring)."""
+    from sba.services.insights import rate_bet
+
+    rating = rate_bet(
+        odds_american=req.odds_american,
+        model_prob=req.model_probability,
+        ev_pct=req.ev_pct,
+        kelly=req.kelly_fraction,
+        clv=req.clv,
+    )
+    return rating
+
+
+# ── Staking Strategies ───────────────────────────────────────────────
+
+class StakingRequest(BaseModel):
+    bankroll: float
+    odds_decimal: float = 2.0
+    win_probability: float = 0.55
+    ev_pct: float = 5.0
+    confidence: str = "medium"
+    loss_streak: int = 0
+
+
+@router.post("/staking/compare")
+def compare_staking(req: StakingRequest):
+    """Compare all staking strategies side by side."""
+    from sba.services.staking import compare_strategies
+
+    strategies = compare_strategies(
+        bankroll=req.bankroll,
+        odds_decimal=req.odds_decimal,
+        win_prob=req.win_probability,
+        ev_pct=req.ev_pct,
+        confidence=req.confidence,
+        loss_streak=req.loss_streak,
+    )
+    return {"strategies": strategies, "bankroll": req.bankroll}
+
+
+@router.post("/staking/kelly")
+def kelly_stake(
+    bankroll: float = Query(...),
+    odds_decimal: float = Query(...),
+    win_probability: float = Query(...),
+    fraction: float = Query(0.25),
+):
+    """Calculate Kelly Criterion stake."""
+    from sba.services.staking import kelly_criterion
+
+    result = kelly_criterion(bankroll, odds_decimal, win_probability, fraction)
+    return {
+        "strategy": result.strategy,
+        "stake": result.stake,
+        "unit_pct": result.unit_size,
+        "reasoning": result.reasoning,
+    }
+
+
+# ── Today's Performance (Live Dashboard Widget) ─────────────────────
+
+@router.get("/performance/today")
+def today_performance():
+    """Get today's betting performance for the live dashboard widget."""
+    from datetime import date
+
+    init_db()
+    today = date.today().isoformat()
+
+    with get_connection() as conn:
+        rows = conn.execute("""
+            SELECT status, profit_loss, odds_american, market, recommended_stake
+            FROM bets WHERE DATE(placed_at) = ? AND status IN ('won','lost','push')
+        """, (today,)).fetchall()
+
+        pending = conn.execute("""
+            SELECT COUNT(*) as cnt FROM bets
+            WHERE DATE(placed_at) = ? AND status = 'pending'
+        """, (today,)).fetchone()
+
+    total_bets = len(rows)
+    wins = sum(1 for r in rows if r["status"] == "won")
+    losses = sum(1 for r in rows if r["status"] == "lost")
+    pushes = sum(1 for r in rows if r["status"] == "push")
+    profit = sum((r["profit_loss"] or 0) for r in rows)
+    wagered = sum(abs(r["recommended_stake"] or 0) for r in rows) or 1
+    roi = profit / wagered * 100
+
+    return {
+        "date": today,
+        "total_bets": total_bets,
+        "wins": wins,
+        "losses": losses,
+        "pushes": pushes,
+        "pending": pending["cnt"] if pending else 0,
+        "profit": round(profit, 2),
+        "wagered": round(wagered, 2),
+        "roi": round(roi, 1),
+        "win_rate": round(wins / total_bets * 100, 1) if total_bets > 0 else 0,
+    }
+
+
+# ── Equity Curve / Bankroll Growth ───────────────────────────────────
+
+@router.get("/performance/equity-curve")
+def equity_curve():
+    """Get cumulative P/L equity curve for bankroll growth visualization."""
+    init_db()
+    with get_connection() as conn:
+        rows = conn.execute("""
+            SELECT DATE(placed_at) as bet_date,
+                   SUM(profit_loss) as daily_pnl,
+                   COUNT(*) as bets,
+                   SUM(CASE WHEN status='won' THEN 1 ELSE 0 END) as wins
+            FROM bets WHERE status IN ('won','lost','push')
+            GROUP BY DATE(placed_at)
+            ORDER BY bet_date
+        """).fetchall()
+
+        bankroll_row = conn.execute(
+            "SELECT amount FROM bankroll_log ORDER BY created_at ASC LIMIT 1"
+        ).fetchone()
+
+    starting = bankroll_row["amount"] if bankroll_row else 1000
+    cumulative = starting
+    peak = starting
+    curve = []
+
+    for r in rows:
+        cumulative += (r["daily_pnl"] or 0)
+        peak = max(peak, cumulative)
+        drawdown = (peak - cumulative) / peak * 100 if peak > 0 else 0
+        curve.append({
+            "date": r["bet_date"],
+            "daily_pnl": round(r["daily_pnl"] or 0, 2),
+            "cumulative": round(cumulative, 2),
+            "bets": r["bets"],
+            "wins": r["wins"],
+            "drawdown_pct": round(drawdown, 1),
+        })
+
+    return {
+        "starting_bankroll": starting,
+        "current_value": round(cumulative, 2),
+        "peak": round(peak, 2),
+        "total_pnl": round(cumulative - starting, 2),
+        "total_roi": round((cumulative - starting) / starting * 100, 1) if starting > 0 else 0,
+        "curve": curve,
+    }
+
+
+# ── Line Movement Timeline ──────────────────────────────────────────
+
+@router.get("/line-movement/timeline/{event_id}")
+def line_movement_timeline(event_id: str, market: str = Query("h2h")):
+    """Enhanced line movement timeline with bookmaker comparison.
+
+    Returns timestamped odds changes across all bookmakers for visual timeline.
+    """
+    init_db()
+    with get_connection() as conn:
+        rows = conn.execute("""
+            SELECT bookmaker, outcome_name, price_american, price_decimal,
+                   snapshot_time
+            FROM odds_snapshots
+            WHERE event_id = ? AND market = ?
+            ORDER BY snapshot_time
+        """, (event_id, market)).fetchall()
+
+        event = conn.execute(
+            "SELECT * FROM events WHERE id = ?", (event_id,)
+        ).fetchone()
+
+    if not rows:
+        return {"event_id": event_id, "timeline": [], "bookmakers": [], "outcomes": []}
+
+    bookmakers = sorted(set(r["bookmaker"] for r in rows))
+    outcomes = sorted(set(r["outcome_name"] for r in rows))
+
+    # Build timeline entries
+    timeline = []
+    prev_odds = {}
+    for r in rows:
+        key = f"{r['bookmaker']}_{r['outcome_name']}"
+        prev = prev_odds.get(key)
+        change = 0
+        direction = "none"
+        if prev is not None:
+            change = r["price_american"] - prev
+            direction = "up" if change > 0 else "down" if change < 0 else "none"
+
+        timeline.append({
+            "time": r["snapshot_time"],
+            "bookmaker": r["bookmaker"],
+            "outcome": r["outcome_name"],
+            "odds_american": r["price_american"],
+            "odds_decimal": round(r["price_decimal"], 3),
+            "change": change,
+            "direction": direction,
+        })
+        prev_odds[key] = r["price_american"]
+
+    return {
+        "event_id": event_id,
+        "event": {
+            "home_team": event["home_team"] if event else "Unknown",
+            "away_team": event["away_team"] if event else "Unknown",
+            "sport": event["sport"] if event else "Unknown",
+        },
+        "bookmakers": bookmakers,
+        "outcomes": outcomes,
+        "timeline": timeline,
+        "total_snapshots": len(timeline),
+    }

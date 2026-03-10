@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+{% block title %}Backtester{% endblock %}
+
+{% block content %}
+<h1 class="page-title reveal-up">
+    <span class="gradient-text animated-gradient-text">Strategy Backtester</span>
+    <span class="tag-elite">Pro</span>
+</h1>
+
+<div class="dashboard-grid">
+    <!-- Configuration -->
+    <div class="card frosted-panel reveal-left" style="animation-delay:0.1s">
+        <div class="card-header">
+            <h3>
+                <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+                Strategy Configuration
+            </h3>
+        </div>
+        <div class="card-body padded">
+            <div style="display:grid;gap:10px">
+                <div>
+                    <label class="stat-label" style="margin-bottom:6px;display:block">Strategy Name</label>
+                    <input type="text" id="bt-name" value="My Strategy" class="premium-input" style="width:100%">
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                    <div><label class="stat-label" style="display:block;font-size:10px;margin-bottom:4px">Starting Bankroll</label><input type="number" id="bt-bankroll" value="10000" class="premium-input" style="width:100%"></div>
+                    <div><label class="stat-label" style="display:block;font-size:10px;margin-bottom:4px">Stake Type</label>
+                        <select class="filter-select" id="bt-stake-type" style="width:100%">
+                            <option value="flat">Flat ($)</option>
+                            <option value="percentage">Percentage (%)</option>
+                            <option value="kelly">Kelly Criterion</option>
+                        </select>
+                    </div>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                    <div><label class="stat-label" style="display:block;font-size:10px;margin-bottom:4px">Stake Amount</label><input type="number" id="bt-stake" value="100" class="premium-input" style="width:100%"></div>
+                    <div><label class="stat-label" style="display:block;font-size:10px;margin-bottom:4px">Min Edge %</label><input type="number" id="bt-min-edge" value="0" step="0.5" class="premium-input" style="width:100%"></div>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                    <div><label class="stat-label" style="display:block;font-size:10px;margin-bottom:4px">Min Odds</label><input type="number" id="bt-min-odds" value="-500" class="premium-input" style="width:100%"></div>
+                    <div><label class="stat-label" style="display:block;font-size:10px;margin-bottom:4px">Max Odds</label><input type="number" id="bt-max-odds" value="5000" class="premium-input" style="width:100%"></div>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                    <div><label class="stat-label" style="display:block;font-size:10px;margin-bottom:4px">Stop Loss ($)</label><input type="number" id="bt-stop-loss" placeholder="Optional" class="premium-input" style="width:100%"></div>
+                    <div><label class="stat-label" style="display:block;font-size:10px;margin-bottom:4px">Take Profit ($)</label><input type="number" id="bt-take-profit" placeholder="Optional" class="premium-input" style="width:100%"></div>
+                </div>
+                <button class="btn btn-primary btn-block" onclick="runBacktest()">Run Backtest</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Results Summary -->
+    <div class="card featured-card frosted-panel reveal-scale" style="animation-delay:0.15s">
+        <div class="card-header">
+            <h3>
+                <svg class="header-icon icon-bounce" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                Results
+            </h3>
+        </div>
+        <div class="card-body padded" id="bt-result">
+            <div class="empty-state" style="padding:30px">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48"><path d="M3 3v18h18"/><polyline points="18 9 13 14 9 10 3 16"/></svg>
+                <p>Configure and run a backtest to see results</p>
+                <p class="text-dim" style="font-size:12px">Tests your strategy against historical or simulated bet data</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Equity Curve -->
+    <div class="card full-width reveal-up" style="animation-delay:0.2s">
+        <div class="card-header"><h3>Equity Curve</h3></div>
+        <div class="card-body padded" id="bt-equity">
+            <div class="empty-state" style="padding:20px"><p>Run a backtest to see the equity curve</p></div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function runBacktest() {
+    const body = {
+        strategy_name: document.getElementById('bt-name').value.trim(),
+        starting_bankroll: parseFloat(document.getElementById('bt-bankroll').value) || 10000,
+        stake_type: document.getElementById('bt-stake-type').value,
+        stake_amount: parseFloat(document.getElementById('bt-stake').value) || 100,
+        min_edge: parseFloat(document.getElementById('bt-min-edge').value) || 0,
+        min_odds: parseInt(document.getElementById('bt-min-odds').value) || -500,
+        max_odds: parseInt(document.getElementById('bt-max-odds').value) || 5000,
+    };
+    const sl = document.getElementById('bt-stop-loss').value;
+    const tp = document.getElementById('bt-take-profit').value;
+    if (sl) body.stop_loss = parseFloat(sl);
+    if (tp) body.take_profit = parseFloat(tp);
+
+    try {
+        const resp = await fetch('/api/backtest', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(body),
+        });
+        const d = await resp.json();
+        if (resp.status !== 200) { SBA.toast(d.detail || 'Error', 'error'); return; }
+
+        const gradeColors = { A: 'text-green', B: 'text-green', C: 'text-yellow', D: 'text-red', F: 'text-red' };
+
+        document.getElementById('bt-result').innerHTML = `
+            <div style="text-align:center;margin-bottom:16px">
+                <div style="font-size:48px;font-weight:800" class="${gradeColors[d.grade] || ''}">${d.grade}</div>
+                <div class="font-bold">${d.strategy_name}</div>
+            </div>
+            <div class="stats-grid" style="margin:0 0 12px 0">
+                <div class="stat-card ${d.total_profit >= 0 ? 'green' : 'red'} card-3d-tilt">
+                    <div class="stat-label">Total Profit</div>
+                    <div class="stat-value ${d.total_profit >= 0 ? 'text-green' : 'text-red'}">${d.total_profit >= 0 ? '+' : ''}$${d.total_profit.toFixed(2)}</div>
+                </div>
+                <div class="stat-card blue card-3d-tilt">
+                    <div class="stat-label">ROI</div>
+                    <div class="stat-value">${d.roi_pct}%</div>
+                </div>
+                <div class="stat-card card-3d-tilt">
+                    <div class="stat-label">Win Rate</div>
+                    <div class="stat-value">${d.win_rate}%</div>
+                    <div class="stat-sub">${d.wins}W / ${d.losses}L / ${d.pushes}P</div>
+                </div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:12px">
+                <div style="padding:6px 10px;background:var(--bg-secondary);border-radius:6px"><span class="text-dim">Bets:</span> <strong>${d.total_bets}</strong></div>
+                <div style="padding:6px 10px;background:var(--bg-secondary);border-radius:6px"><span class="text-dim">Wagered:</span> <strong>$${d.total_wagered.toFixed(0)}</strong></div>
+                <div style="padding:6px 10px;background:var(--bg-secondary);border-radius:6px"><span class="text-dim">Max DD:</span> <strong class="text-red">$${d.max_drawdown.toFixed(0)} (${d.max_drawdown_pct}%)</strong></div>
+                <div style="padding:6px 10px;background:var(--bg-secondary);border-radius:6px"><span class="text-dim">Sharpe:</span> <strong>${d.sharpe_ratio}</strong></div>
+                <div style="padding:6px 10px;background:var(--bg-secondary);border-radius:6px"><span class="text-dim">Win Streak:</span> <strong class="text-green">${d.longest_win_streak}</strong></div>
+                <div style="padding:6px 10px;background:var(--bg-secondary);border-radius:6px"><span class="text-dim">Lose Streak:</span> <strong class="text-red">${d.longest_lose_streak}</strong></div>
+                <div style="padding:6px 10px;background:var(--bg-secondary);border-radius:6px"><span class="text-dim">Profit Factor:</span> <strong>${d.profit_factor}</strong></div>
+                <div style="padding:6px 10px;background:var(--bg-secondary);border-radius:6px"><span class="text-dim">Peak:</span> <strong class="text-green">$${d.peak_bankroll.toFixed(0)}</strong></div>
+            </div>
+        `;
+
+        // Draw equity curve
+        if (d.equity_curve && d.equity_curve.length > 1) {
+            drawEquityCurve(d.equity_curve, d.starting_bankroll);
+        }
+        SBA.toast(`Backtest complete: Grade ${d.grade}`, 'success');
+    } catch (err) {
+        SBA.toast('Error: ' + err.message, 'error');
+    }
+}
+
+function drawEquityCurve(curve, start) {
+    const el = document.getElementById('bt-equity');
+    const w = 800, h = 200, pad = 40;
+    const min = Math.min(...curve) * 0.98;
+    const max = Math.max(...curve) * 1.02;
+    const range = max - min || 1;
+
+    let path = '';
+    const points = curve.map((v, i) => {
+        const x = pad + (i / (curve.length - 1)) * (w - pad * 2);
+        const y = h - pad - ((v - min) / range) * (h - pad * 2);
+        return `${x},${y}`;
+    });
+    path = 'M' + points.join(' L');
+
+    const startY = h - pad - ((start - min) / range) * (h - pad * 2);
+    const final = curve[curve.length - 1];
+    const color = final >= start ? 'var(--accent-green)' : 'var(--accent-red)';
+
+    el.innerHTML = `
+        <svg viewBox="0 0 ${w} ${h}" style="width:100%;height:auto">
+            <line x1="${pad}" y1="${startY}" x2="${w - pad}" y2="${startY}" stroke="var(--border)" stroke-dasharray="4"/>
+            <text x="${pad - 4}" y="${startY + 4}" fill="var(--text-dim)" font-size="10" text-anchor="end">$${start.toFixed(0)}</text>
+            <path d="${path}" fill="none" stroke="${color}" stroke-width="2"/>
+            <text x="${w - pad}" y="${h - 10}" fill="var(--text-dim)" font-size="10" text-anchor="end">$${final.toFixed(0)}</text>
+        </svg>
+    `;
+}
+</script>
+{% endblock %}

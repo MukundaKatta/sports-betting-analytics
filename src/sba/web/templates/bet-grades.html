@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+{% block title %}Bet Grades{% endblock %}
+
+{% block content %}
+<h1 class="page-title reveal-up">
+    <span class="gradient-text animated-gradient-text">Bet Grades</span>
+    <span class="tag-elite">Pro</span>
+</h1>
+
+<div class="dashboard-grid">
+    <!-- Grade a Single Bet -->
+    <div class="card frosted-panel reveal-left" style="animation-delay:0.1s">
+        <div class="card-header">
+            <h3>
+                <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                Grade a Bet
+            </h3>
+        </div>
+        <div class="card-body padded">
+            <div style="display:grid;gap:10px">
+                <input type="text" id="bg-event" placeholder="Event (e.g. Lakers vs Celtics)" class="premium-input" style="width:100%">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                    <input type="text" id="bg-selection" placeholder="Selection" class="premium-input" style="width:100%">
+                    <input type="text" id="bg-market" placeholder="Market (h2h)" class="premium-input" style="width:100%">
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                    <div><label class="stat-label" style="display:block;font-size:10px;margin-bottom:4px">Edge %</label><input type="number" id="bg-edge" value="3" step="0.1" class="premium-input" style="width:100%"></div>
+                    <div><label class="stat-label" style="display:block;font-size:10px;margin-bottom:4px">Best Odds</label><input type="number" id="bg-odds" value="-110" class="premium-input" style="width:100%"></div>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+                    <label style="display:flex;align-items:center;gap:4px;font-size:12px"><input type="checkbox" id="bg-sharp"> Sharp agrees</label>
+                    <label style="display:flex;align-items:center;gap:4px;font-size:12px"><input type="checkbox" id="bg-toward"> Line toward</label>
+                    <label style="display:flex;align-items:center;gap:4px;font-size:12px"><input type="checkbox" id="bg-away"> Line away</label>
+                </div>
+                <button class="btn btn-primary btn-block" onclick="gradeBet()">Grade This Bet</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Single Grade Result -->
+    <div class="card frosted-panel reveal-scale" style="animation-delay:0.15s">
+        <div class="card-header"><h3>Grade Result</h3></div>
+        <div class="card-body padded" id="bg-result">
+            <div class="empty-state" style="padding:30px"><p>Grade a bet to see its rating</p></div>
+        </div>
+    </div>
+
+    <!-- Auto-Graded Edges -->
+    <div class="card full-width featured-card frosted-panel reveal-up" style="animation-delay:0.2s">
+        <div class="card-header">
+            <h3>
+                <svg class="header-icon icon-bounce" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                Top Graded Opportunities
+                <span class="badge" id="bg-count">0</span>
+            </h3>
+        </div>
+        <div class="card-body">
+            <table class="data-table">
+                <thead>
+                    <tr><th>Rating</th><th>Event</th><th>Selection</th><th>Market</th><th class="right">Edge</th><th class="right">Odds</th><th>Book</th><th>Grade</th></tr>
+                </thead>
+                <tbody id="bg-table">
+                    <tr><td colspan="8" class="empty-state"><p>Loading graded bets...</p></td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function starsHtml(n) {
+    return '<span style="color:var(--accent-yellow);letter-spacing:2px">' + '&#9733;'.repeat(n) + '<span style="opacity:0.2">' + '&#9733;'.repeat(5 - n) + '</span></span>';
+}
+
+async function gradeBet() {
+    const body = {
+        selection: document.getElementById('bg-selection').value.trim() || 'Selection',
+        market: document.getElementById('bg-market').value.trim() || 'h2h',
+        event: document.getElementById('bg-event').value.trim() || 'Event',
+        edge_pct: parseFloat(document.getElementById('bg-edge').value) || 0,
+        best_odds_american: parseInt(document.getElementById('bg-odds').value) || -110,
+        sharp_book_agrees: document.getElementById('bg-sharp').checked,
+        line_moving_toward: document.getElementById('bg-toward').checked,
+        line_moving_away: document.getElementById('bg-away').checked,
+    };
+
+    const resp = await fetch('/api/bet-grade', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(body),
+    });
+    const d = await resp.json();
+    if (resp.status !== 200) { SBA.toast(d.detail || 'Error', 'error'); return; }
+
+    const el = document.getElementById('bg-result');
+    el.innerHTML = `
+        <div style="text-align:center;margin-bottom:12px">
+            <div style="font-size:28px">${starsHtml(d.stars)}</div>
+            <div class="font-bold" style="font-size:20px;margin-top:4px">${d.grade_label}</div>
+            <div class="tag ${d.confidence === 'very_high' ? 'tag-green' : d.confidence === 'high' ? 'tag-yellow' : ''}">${d.confidence} confidence</div>
+        </div>
+        <div style="display:grid;gap:4px;margin-bottom:12px">
+            <div style="display:flex;justify-content:space-between;font-size:12px"><span>Edge</span><div style="background:var(--bg-secondary);border-radius:4px;overflow:hidden;width:60%;height:16px"><div style="width:${d.components.edge}%;height:100%;background:var(--accent-green);border-radius:4px"></div></div><span class="font-mono">${d.components.edge}</span></div>
+            <div style="display:flex;justify-content:space-between;font-size:12px"><span>Sharp</span><div style="background:var(--bg-secondary);border-radius:4px;overflow:hidden;width:60%;height:16px"><div style="width:${d.components.sharp_agreement}%;height:100%;background:var(--accent-blue);border-radius:4px"></div></div><span class="font-mono">${d.components.sharp_agreement}</span></div>
+            <div style="display:flex;justify-content:space-between;font-size:12px"><span>Movement</span><div style="background:var(--bg-secondary);border-radius:4px;overflow:hidden;width:60%;height:16px"><div style="width:${d.components.line_movement}%;height:100%;background:var(--accent-yellow);border-radius:4px"></div></div><span class="font-mono">${d.components.line_movement}</span></div>
+            <div style="display:flex;justify-content:space-between;font-size:12px"><span>History</span><div style="background:var(--bg-secondary);border-radius:4px;overflow:hidden;width:60%;height:16px"><div style="width:${d.components.consistency}%;height:100%;background:var(--accent-purple, #a78bfa);border-radius:4px"></div></div><span class="font-mono">${d.components.consistency}</span></div>
+        </div>
+        ${d.reasons.length ? `<div style="font-size:12px;margin-bottom:6px">${d.reasons.map(r => `<div class="text-green" style="margin:2px 0">+ ${r}</div>`).join('')}</div>` : ''}
+        ${d.warnings.length ? `<div style="font-size:12px">${d.warnings.map(w => `<div class="text-red" style="margin:2px 0">! ${w}</div>`).join('')}</div>` : ''}
+    `;
+    SBA.toast(`${d.stars}-star bet!`, 'success');
+}
+
+async function loadGradedEdges() {
+    try {
+        const resp = await fetch('/api/bet-grades');
+        const data = await resp.json();
+        document.getElementById('bg-count').textContent = data.total;
+        const tbody = document.getElementById('bg-table');
+        if (!data.grades || data.grades.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="8" class="empty-state"><p>No graded opportunities available</p><p class="text-dim" style="font-size:12px">Grades are generated from current odds data</p></td></tr>';
+        } else {
+            tbody.innerHTML = data.grades.map(g => `
+                <tr>
+                    <td>${starsHtml(g.stars)}</td>
+                    <td class="font-bold">${g.event}</td>
+                    <td>${g.selection}</td>
+                    <td><span class="tag">${g.market}</span></td>
+                    <td class="right font-mono text-green">${g.edge_pct}%</td>
+                    <td class="right font-mono">${g.odds_american > 0 ? '+' : ''}${g.odds_american}</td>
+                    <td>${g.bookmaker}</td>
+                    <td><span class="tag ${g.confidence === 'very_high' ? 'tag-green' : g.confidence === 'high' ? 'tag-yellow' : ''}">${g.grade_label}</span></td>
+                </tr>
+            `).join('');
+        }
+    } catch (err) {
+        console.error('Failed to load graded edges:', err);
+    }
+}
+
+document.addEventListener('DOMContentLoaded', loadGradedEdges);
+</script>
+{% endblock %}

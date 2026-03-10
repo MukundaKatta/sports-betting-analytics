@@ -1,0 +1,196 @@
+{% extends "base.html" %}
+{% block title %}Devig Engine{% endblock %}
+
+{% block content %}
+<h1 class="page-title reveal-up">
+    <span class="gradient-text animated-gradient-text">Multi-Method Devig Engine</span>
+    <span class="tag-elite">Pro</span>
+</h1>
+
+<div class="dashboard-grid">
+    <!-- Single Method Devig -->
+    <div class="card frosted-panel reveal-left" style="animation-delay:0.1s">
+        <div class="card-header">
+            <h3>
+                <svg class="header-icon icon-bounce" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="M12 8v8"/></svg>
+                Quick Devig
+            </h3>
+        </div>
+        <div class="card-body padded">
+            <div style="display:grid;gap:10px">
+                <div>
+                    <label class="stat-label" style="margin-bottom:6px;display:block">Outcome 1 Odds (American)</label>
+                    <input type="number" id="dv-odds1" value="-110" class="premium-input" style="width:100%">
+                </div>
+                <div>
+                    <label class="stat-label" style="margin-bottom:6px;display:block">Outcome 2 Odds (American)</label>
+                    <input type="number" id="dv-odds2" value="-110" class="premium-input" style="width:100%">
+                </div>
+                <div>
+                    <label class="stat-label" style="margin-bottom:6px;display:block">Outcome Names (optional)</label>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                        <input type="text" id="dv-name1" placeholder="Home" class="premium-input" style="width:100%">
+                        <input type="text" id="dv-name2" placeholder="Away" class="premium-input" style="width:100%">
+                    </div>
+                </div>
+                <div>
+                    <label class="stat-label" style="margin-bottom:6px;display:block">Method</label>
+                    <select class="filter-select" id="dv-method" style="width:100%">
+                        <option value="multiplicative">Multiplicative (Standard)</option>
+                        <option value="additive">Additive</option>
+                        <option value="power">Power / Shin</option>
+                        <option value="worst_case">Worst Case (Conservative)</option>
+                    </select>
+                </div>
+                <button class="btn btn-primary btn-block" onclick="quickDevig()">Remove Vig</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Result -->
+    <div class="card frosted-panel reveal-scale" style="animation-delay:0.15s">
+        <div class="card-header">
+            <h3>
+                <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                Fair Odds
+            </h3>
+        </div>
+        <div class="card-body padded" id="dv-result">
+            <div class="empty-state" style="padding:30px">
+                <p>Enter odds and click Remove Vig</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Multi-Book Devig -->
+    <div class="card full-width featured-card frosted-panel reveal-up" style="animation-delay:0.2s">
+        <div class="card-header">
+            <h3>
+                <svg class="header-icon icon-bounce" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+                Multi-Book Devig
+                <span class="tag-elite">Outlier Pro</span>
+            </h3>
+        </div>
+        <div class="card-body padded">
+            <p class="text-dim" style="font-size:12px;margin:0 0 12px 0">Add odds from multiple books. Sharp books (Pinnacle, Circa) get higher weight automatically.</p>
+            <div id="mb-books" style="display:grid;gap:8px;margin-bottom:12px">
+                <div class="mb-book-row" style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:6px;align-items:end">
+                    <div><label class="stat-label" style="display:block;font-size:10px">Book</label><input type="text" class="premium-input mb-bk" value="pinnacle" style="width:100%"></div>
+                    <div><label class="stat-label" style="display:block;font-size:10px">Outcome 1</label><input type="number" class="premium-input mb-o1" value="-108" style="width:100%"></div>
+                    <div><label class="stat-label" style="display:block;font-size:10px">Outcome 2</label><input type="number" class="premium-input mb-o2" value="-104" style="width:100%"></div>
+                    <button class="btn btn-small" onclick="this.closest('.mb-book-row').remove()" style="padding:6px 10px">x</button>
+                </div>
+                <div class="mb-book-row" style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:6px;align-items:end">
+                    <div><input type="text" class="premium-input mb-bk" value="fanduel" style="width:100%"></div>
+                    <div><input type="number" class="premium-input mb-o1" value="-110" style="width:100%"></div>
+                    <div><input type="number" class="premium-input mb-o2" value="-110" style="width:100%"></div>
+                    <button class="btn btn-small" onclick="this.closest('.mb-book-row').remove()" style="padding:6px 10px">x</button>
+                </div>
+            </div>
+            <div style="display:flex;gap:8px">
+                <button class="btn btn-small" onclick="addBookRow()">+ Add Book</button>
+                <button class="btn btn-primary" onclick="multiDevig()" style="flex:1">Run Multi-Book Devig</button>
+            </div>
+            <div id="mb-result" style="margin-top:16px"></div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function quickDevig() {
+    const odds = [parseInt(document.getElementById('dv-odds1').value), parseInt(document.getElementById('dv-odds2').value)];
+    const names = [document.getElementById('dv-name1').value.trim() || 'Outcome 1', document.getElementById('dv-name2').value.trim() || 'Outcome 2'];
+    const method = document.getElementById('dv-method').value;
+
+    const resp = await fetch('/api/calculator/devig', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ odds_american: odds, outcome_names: names, method }),
+    });
+    const d = await resp.json();
+    if (resp.status !== 200) { SBA.toast(d.detail || 'Error', 'error'); return; }
+
+    document.getElementById('dv-result').innerHTML = `
+        <div style="margin-bottom:12px;padding:8px 12px;background:var(--bg-secondary);border-radius:6px;font-size:12px">
+            <span class="text-dim">Method:</span> <strong>${d.method}</strong> |
+            <span class="text-dim">Vig removed:</span> <strong class="text-red">${d.vig_removed}%</strong>
+        </div>
+        <div class="stats-grid" style="margin:0">
+            ${d.outcomes.map(o => `
+                <div class="stat-card card-3d-tilt">
+                    <div class="stat-label">${o.name}</div>
+                    <div class="stat-value font-mono">${o.fair_american > 0 ? '+' : ''}${o.fair_american}</div>
+                    <div class="stat-sub">${o.fair_prob}% fair probability</div>
+                </div>
+            `).join('')}
+        </div>
+    `;
+    SBA.toast('Vig removed!', 'success');
+}
+
+function addBookRow() {
+    const div = document.createElement('div');
+    div.className = 'mb-book-row';
+    div.style = 'display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:6px;align-items:end';
+    div.innerHTML = `
+        <div><input type="text" class="premium-input mb-bk" placeholder="Book name" style="width:100%"></div>
+        <div><input type="number" class="premium-input mb-o1" value="-110" style="width:100%"></div>
+        <div><input type="number" class="premium-input mb-o2" value="-110" style="width:100%"></div>
+        <button class="btn btn-small" onclick="this.closest('.mb-book-row').remove()" style="padding:6px 10px">x</button>
+    `;
+    document.getElementById('mb-books').appendChild(div);
+}
+
+async function multiDevig() {
+    const rows = document.querySelectorAll('.mb-book-row');
+    const book_odds = [];
+    rows.forEach(r => {
+        const bk = r.querySelector('.mb-bk').value.trim();
+        const o1 = parseInt(r.querySelector('.mb-o1').value);
+        const o2 = parseInt(r.querySelector('.mb-o2').value);
+        if (bk && !isNaN(o1) && !isNaN(o2)) {
+            book_odds.push({ bookmaker: bk, odds: [o1, o2] });
+        }
+    });
+    if (book_odds.length < 1) { SBA.toast('Add at least 1 book', 'error'); return; }
+
+    const resp = await fetch('/api/calculator/devig/multi', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ book_odds }),
+    });
+    const d = await resp.json();
+    if (resp.status !== 200) { SBA.toast(d.detail || 'Error', 'error'); return; }
+
+    let html = `
+        <div style="margin-bottom:12px;padding:8px 12px;background:var(--bg-secondary);border-radius:6px;font-size:12px">
+            Books: <strong>${d.books_used.join(', ')}</strong> |
+            Consensus Vig: <strong class="text-red">${d.consensus_vig}%</strong> |
+            Best Method: <strong>${d.best_method}</strong>
+        </div>
+        <h4 style="margin:0 0 8px 0;font-size:13px;color:var(--text-dim)">Weighted Consensus (All Methods)</h4>
+        <div class="stats-grid" style="margin:0 0 16px 0">
+            ${d.weighted_consensus.map(o => `
+                <div class="stat-card green card-3d-tilt">
+                    <div class="stat-label">${o.name}</div>
+                    <div class="stat-value font-mono">${o.fair_american > 0 ? '+' : ''}${o.fair_american}</div>
+                    <div class="stat-sub">${o.fair_prob}% fair</div>
+                </div>
+            `).join('')}
+        </div>
+        <h4 style="margin:0 0 8px 0;font-size:13px;color:var(--text-dim)">Method Comparison</h4>
+        <table class="data-table"><thead><tr><th>Method</th>${d.weighted_consensus.map(o => `<th class="right">${o.name}</th>`).join('')}<th class="right">Vig</th></tr></thead><tbody>
+        ${d.methods.map(m => `
+            <tr>
+                <td class="font-bold">${m.method}</td>
+                ${m.outcomes.map(o => `<td class="right font-mono">${o.fair_american > 0 ? '+' : ''}${o.fair_american} <span class="text-dim">(${o.fair_prob}%)</span></td>`).join('')}
+                <td class="right font-mono text-red">${m.vig_removed}%</td>
+            </tr>
+        `).join('')}
+        </tbody></table>
+    `;
+    document.getElementById('mb-result').innerHTML = html;
+    SBA.toast('Multi-book devig complete!', 'success');
+}
+</script>
+{% endblock %}

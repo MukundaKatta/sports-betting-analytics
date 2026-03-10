@@ -313,3 +313,206 @@ class Backtester:
         return {
             k: float(np.mean(v)) for k, v in sorted(buckets.items())
         }
+
+
+# ── Strategy-Based Backtesting (for API endpoint) ───────────────────
+
+from dataclasses import dataclass, field
+import math
+
+
+@dataclass
+class StrategyBacktestResult:
+    """Result of a strategy-based backtest."""
+    strategy_name: str = "Custom"
+    grade: str = "C"
+    total_bets: int = 0
+    wins: int = 0
+    losses: int = 0
+    pushes: int = 0
+    win_rate: float = 0.0
+    total_wagered: float = 0.0
+    total_profit: float = 0.0
+    roi_pct: float = 0.0
+    max_drawdown: float = 0.0
+    max_drawdown_pct: float = 0.0
+    sharpe_ratio: float = 0.0
+    longest_win_streak: int = 0
+    longest_lose_streak: int = 0
+    avg_odds: float = 0.0
+    avg_stake: float = 0.0
+    profit_factor: float = 0.0
+    starting_bankroll: float = 10000.0
+    ending_bankroll: float = 10000.0
+    peak_bankroll: float = 10000.0
+    equity_curve: list = field(default_factory=list)
+
+
+def run_backtest(
+    bets: list[dict],
+    strategy_name: str = "Custom Strategy",
+    starting_bankroll: float = 10000.0,
+    stake_type: str = "flat",
+    stake_amount: float = 100.0,
+    min_edge: float = 0.0,
+    min_odds: int = -500,
+    max_odds: int = 5000,
+    stop_loss: float | None = None,
+    take_profit: float | None = None,
+) -> StrategyBacktestResult:
+    """Run a strategy-based backtest on historical bet data.
+
+    Args:
+        bets: List of dicts with event, selection, odds_american, odds_decimal, result.
+        strategy_name: Name for this strategy.
+        starting_bankroll: Initial bankroll.
+        stake_type: "flat", "percentage", or "kelly".
+        stake_amount: Amount per bet (or percentage).
+        min_edge: Minimum edge_pct to take a bet.
+        min_odds/max_odds: Odds filters.
+        stop_loss/take_profit: Session limits.
+    """
+    bankroll = starting_bankroll
+    peak = starting_bankroll
+    max_dd = 0.0
+    wins = 0
+    losses = 0
+    pushes = 0
+    total_wagered = 0.0
+    total_profit = 0.0
+    equity_curve = [{"bet": 0, "bankroll": round(bankroll, 2)}]
+    win_streak = 0
+    lose_streak = 0
+    longest_win = 0
+    longest_lose = 0
+    profits_list = []
+    odds_sum = 0
+
+    for bet in bets:
+        odds_am = bet.get("odds_american", -110)
+        odds_dec = bet.get("odds_decimal") or (
+            1 + (odds_am / 100) if odds_am > 0 else 1 + (100 / abs(odds_am))
+        )
+        edge = bet.get("edge_pct", 0)
+
+        # Filters
+        if odds_am < min_odds or odds_am > max_odds:
+            continue
+        if edge < min_edge:
+            continue
+
+        # Stop loss / take profit
+        if stop_loss and bankroll <= starting_bankroll - stop_loss:
+            break
+        if take_profit and bankroll >= starting_bankroll + take_profit:
+            break
+
+        # Calculate stake
+        if stake_type == "percentage":
+            stake = bankroll * (stake_amount / 100)
+        elif stake_type == "kelly":
+            imp_prob = 1 / odds_dec if odds_dec > 0 else 0.5
+            edge_est = imp_prob + 0.02
+            b = odds_dec - 1
+            q = 1 - edge_est
+            kelly = max(0, (b * edge_est - q) / b) if b > 0 else 0
+            stake = bankroll * kelly * 0.25  # quarter kelly
+        else:
+            stake = stake_amount
+
+        stake = min(stake, bankroll)
+        if stake <= 0:
+            continue
+
+        total_wagered += stake
+        odds_sum += odds_am
+        result = bet.get("result", "loss")
+
+        if result == "win":
+            profit = stake * (odds_dec - 1)
+            wins += 1
+            win_streak += 1
+            lose_streak = 0
+            longest_win = max(longest_win, win_streak)
+        elif result == "push":
+            profit = 0
+            pushes += 1
+            win_streak = 0
+            lose_streak = 0
+        else:
+            profit = -stake
+            losses += 1
+            lose_streak += 1
+            win_streak = 0
+            longest_lose = max(longest_lose, lose_streak)
+
+        bankroll += profit
+        total_profit += profit
+        profits_list.append(profit)
+        peak = max(peak, bankroll)
+        dd = peak - bankroll
+        max_dd = max(max_dd, dd)
+
+        equity_curve.append({
+            "bet": wins + losses + pushes,
+            "bankroll": round(bankroll, 2),
+        })
+
+    total_bets = wins + losses + pushes
+    win_rate = (wins / total_bets * 100) if total_bets > 0 else 0
+    roi = (total_profit / total_wagered * 100) if total_wagered > 0 else 0
+    avg_odds = (odds_sum / total_bets) if total_bets > 0 else 0
+    avg_stake = (total_wagered / total_bets) if total_bets > 0 else 0
+    max_dd_pct = (max_dd / peak * 100) if peak > 0 else 0
+
+    # Sharpe ratio
+    if profits_list and len(profits_list) > 1:
+        mean_p = sum(profits_list) / len(profits_list)
+        std_p = math.sqrt(sum((p - mean_p) ** 2 for p in profits_list) / len(profits_list))
+        sharpe = (mean_p / std_p) if std_p > 0 else 0
+    else:
+        sharpe = 0
+
+    # Profit factor
+    gross_wins = sum(p for p in profits_list if p > 0)
+    gross_losses = abs(sum(p for p in profits_list if p < 0))
+    pf = (gross_wins / gross_losses) if gross_losses > 0 else float("inf") if gross_wins > 0 else 0
+
+    # Grade
+    if roi > 10 and win_rate > 55:
+        grade = "A+"
+    elif roi > 5:
+        grade = "A"
+    elif roi > 2:
+        grade = "B+"
+    elif roi > 0:
+        grade = "B"
+    elif roi > -5:
+        grade = "C"
+    else:
+        grade = "D"
+
+    return StrategyBacktestResult(
+        strategy_name=strategy_name,
+        grade=grade,
+        total_bets=total_bets,
+        wins=wins,
+        losses=losses,
+        pushes=pushes,
+        win_rate=round(win_rate, 1),
+        total_wagered=round(total_wagered, 2),
+        total_profit=round(total_profit, 2),
+        roi_pct=round(roi, 2),
+        max_drawdown=round(max_dd, 2),
+        max_drawdown_pct=round(max_dd_pct, 1),
+        sharpe_ratio=round(sharpe, 3),
+        longest_win_streak=longest_win,
+        longest_lose_streak=longest_lose,
+        avg_odds=round(avg_odds),
+        avg_stake=round(avg_stake, 2),
+        profit_factor=round(pf, 2) if pf != float("inf") else 999.99,
+        starting_bankroll=starting_bankroll,
+        ending_bankroll=round(bankroll, 2),
+        peak_bankroll=round(peak, 2),
+        equity_curve=equity_curve,
+    )

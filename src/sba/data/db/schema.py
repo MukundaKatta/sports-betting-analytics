@@ -205,4 +205,19 @@ CREATE TABLE IF NOT EXISTS alert_rules (
     last_triggered TEXT,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE IF NOT EXISTS user_achievements (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    achievement_id TEXT NOT NULL UNIQUE,
+    unlocked_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    points INTEGER DEFAULT 0
+);
+
+CREATE INDEX IF NOT EXISTS idx_achievements_id ON user_achievements(achievement_id);
+
+CREATE TABLE IF NOT EXISTS user_stats (
+    key TEXT PRIMARY KEY,
+    value REAL DEFAULT 0,
+    updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
 """

@@ -1,0 +1,232 @@
+{% extends "base.html" %}
+{% block title %}Insights{% endblock %}
+
+{% block content %}
+<!-- Hero -->
+<div class="frosted-panel reveal-up" style="padding:32px;margin-bottom:28px;position:relative;overflow:hidden">
+    <div style="position:absolute;top:0;right:0;width:300px;height:100%;opacity:0.07;background:linear-gradient(135deg,var(--accent-blue),var(--accent-purple));border-radius:50%;filter:blur(60px);transform:translate(30%,-30%)"></div>
+    <h1 class="page-title" style="margin:0 0 8px">
+        <span class="gradient-text animated-gradient-text">Smart Insights</span>
+        <span class="tag-live" style="margin-left:12px"><span class="realtime-dot"></span> AI</span>
+    </h1>
+    <p class="text-dim" style="margin:0;font-size:13px;max-width:520px">
+        Personalized, data-driven recommendations analyzed from your betting history.
+        Powered by pattern recognition across sports, markets, timing, and bankroll.
+    </p>
+</div>
+
+<!-- Insight Cards -->
+<div id="insights-container">
+    <div class="loading-spinner"><div class="spinner"></div> Analyzing your betting patterns...</div>
+</div>
+
+<!-- Bet Rating Tool -->
+<div class="card frosted-panel reveal-up" style="margin-top:24px;animation-delay:0.2s">
+    <div class="card-header">
+        <h3>
+            <svg class="header-icon icon-bounce" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+            Bet Rating Calculator
+            <span class="tag-elite" style="margin-left:8px">BetQL-Style</span>
+        </h3>
+    </div>
+    <div class="card-body padded">
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px">
+            <div>
+                <label class="stat-label" style="margin-bottom:4px;display:block">Odds (American)</label>
+                <input type="number" id="rate-odds" value="-110" class="premium-input" style="width:100%">
+            </div>
+            <div>
+                <label class="stat-label" style="margin-bottom:4px;display:block">EV %</label>
+                <input type="number" id="rate-ev" step="0.1" placeholder="e.g. 5.2" class="premium-input" style="width:100%">
+            </div>
+            <div>
+                <label class="stat-label" style="margin-bottom:4px;display:block">Model Probability</label>
+                <input type="number" id="rate-prob" step="0.01" placeholder="e.g. 0.55" class="premium-input" style="width:100%">
+            </div>
+            <div>
+                <label class="stat-label" style="margin-bottom:4px;display:block">Kelly Fraction</label>
+                <input type="number" id="rate-kelly" step="0.001" placeholder="e.g. 0.03" class="premium-input" style="width:100%">
+            </div>
+            <div>
+                <label class="stat-label" style="margin-bottom:4px;display:block">CLV %</label>
+                <input type="number" id="rate-clv" step="0.1" placeholder="e.g. 2.5" class="premium-input" style="width:100%">
+            </div>
+            <div style="display:flex;align-items:end">
+                <button class="btn btn-primary btn-block" onclick="rateBet()">Rate Bet</button>
+            </div>
+        </div>
+        <!-- Rating Result -->
+        <div id="rating-result" style="display:none;margin-top:16px">
+            <div class="frosted-panel" style="padding:20px;text-align:center">
+                <div id="rating-stars" style="font-size:32px;margin-bottom:8px"></div>
+                <div id="rating-label" style="font-size:18px;font-weight:700;margin-bottom:4px"></div>
+                <div id="rating-score" class="text-dim" style="font-size:13px;margin-bottom:12px"></div>
+                <div id="rating-factors" style="text-align:left"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Staking Strategy Comparison -->
+<div class="card frosted-panel reveal-up" style="margin-top:20px;animation-delay:0.3s">
+    <div class="card-header">
+        <h3>
+            <svg class="header-icon icon-bounce" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            Staking Strategy Comparison
+            <span class="tag" style="margin-left:8px">Multi-Strategy</span>
+        </h3>
+    </div>
+    <div class="card-body padded">
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:16px">
+            <div>
+                <label class="stat-label" style="margin-bottom:4px;display:block">Bankroll ($)</label>
+                <input type="number" id="stake-bankroll" value="1000" class="premium-input" style="width:100%">
+            </div>
+            <div>
+                <label class="stat-label" style="margin-bottom:4px;display:block">Odds (Decimal)</label>
+                <input type="number" id="stake-odds" value="2.0" step="0.01" class="premium-input" style="width:100%">
+            </div>
+            <div>
+                <label class="stat-label" style="margin-bottom:4px;display:block">Win Probability</label>
+                <input type="number" id="stake-prob" value="0.55" step="0.01" class="premium-input" style="width:100%">
+            </div>
+            <div>
+                <label class="stat-label" style="margin-bottom:4px;display:block">EV %</label>
+                <input type="number" id="stake-ev" value="5.0" step="0.1" class="premium-input" style="width:100%">
+            </div>
+            <div>
+                <label class="stat-label" style="margin-bottom:4px;display:block">Confidence</label>
+                <select class="filter-select" id="stake-conf" style="width:100%">
+                    <option value="low">Low</option>
+                    <option value="medium" selected>Medium</option>
+                    <option value="high">High</option>
+                    <option value="max">Max</option>
+                </select>
+            </div>
+            <div style="display:flex;align-items:end">
+                <button class="btn btn-primary btn-block" onclick="compareStaking()">Compare</button>
+            </div>
+        </div>
+        <div id="staking-result" style="display:none">
+            <table class="data-table">
+                <thead>
+                    <tr><th>Strategy</th><th class="right">Stake</th><th class="right">% of Bankroll</th><th>Reasoning</th></tr>
+                </thead>
+                <tbody id="staking-table"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<style>
+.insight-card{border-radius:12px;padding:20px;margin-bottom:12px;border-left:4px solid;position:relative}
+.insight-card.critical{border-left-color:#ff4d6a;background:rgba(255,77,106,0.05)}
+.insight-card.warning{border-left-color:#ffc234;background:rgba(255,194,52,0.05)}
+.insight-card.success{border-left-color:#00e68a;background:rgba(0,230,138,0.05)}
+.insight-card.info{border-left-color:#5b9aff;background:rgba(91,154,255,0.05)}
+.insight-severity{font-size:10px;text-transform:uppercase;font-weight:700;letter-spacing:0.5px;margin-bottom:6px}
+.insight-card.critical .insight-severity{color:#ff4d6a}
+.insight-card.warning .insight-severity{color:#ffc234}
+.insight-card.success .insight-severity{color:#00e68a}
+.insight-card.info .insight-severity{color:#5b9aff}
+.insight-action{margin-top:10px;padding:10px;border-radius:8px;background:rgba(255,255,255,0.03);font-size:12px}
+</style>
+<script>
+async function loadInsights() {
+    try {
+        const resp = await fetch('/api/insights');
+        const data = await resp.json();
+        const container = document.getElementById('insights-container');
+
+        if (data.insights.length === 0) {
+            container.innerHTML = '<div class="frosted-panel" style="padding:40px;text-align:center"><p class="text-dim">No insights available yet. Start tracking bets to unlock personalized recommendations.</p></div>';
+            return;
+        }
+
+        container.innerHTML = data.insights.map(i => `
+            <div class="insight-card frosted-panel ${i.severity}">
+                <div class="insight-severity">${i.severity} &middot; ${i.category}</div>
+                <div style="font-weight:700;font-size:16px;margin-bottom:6px">${i.title}</div>
+                <div class="text-dim" style="font-size:13px">${i.message}</div>
+                <div class="insight-action">
+                    <strong>Recommended Action:</strong> ${i.action}
+                    ${i.link ? `<a href="${i.link}" class="btn btn-outline btn-sm" style="margin-left:8px;font-size:11px">View Details</a>` : ''}
+                </div>
+                ${i.metric_value !== null ? `<div class="font-mono text-dim" style="position:absolute;top:16px;right:16px;font-size:12px">${typeof i.metric_value === 'number' ? i.metric_value.toFixed(1) : i.metric_value}</div>` : ''}
+            </div>
+        `).join('');
+    } catch (err) {
+        console.error('Failed to load insights:', err);
+    }
+}
+
+async function rateBet() {
+    const body = {
+        odds_american: parseInt(document.getElementById('rate-odds').value),
+        ev_pct: parseFloat(document.getElementById('rate-ev').value) || null,
+        model_probability: parseFloat(document.getElementById('rate-prob').value) || null,
+        kelly_fraction: parseFloat(document.getElementById('rate-kelly').value) || null,
+        clv: parseFloat(document.getElementById('rate-clv').value) || null,
+    };
+
+    try {
+        const resp = await fetch('/api/bet-rating', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(body),
+        });
+        const r = await resp.json();
+
+        document.getElementById('rating-result').style.display = 'block';
+        document.getElementById('rating-stars').innerHTML = '&#9733;'.repeat(r.stars) + '&#9734;'.repeat(5 - r.stars);
+        document.getElementById('rating-stars').style.color = r.color === 'green' ? '#00e68a' : r.color === 'yellow' ? '#ffc234' : '#ff4d6a';
+        document.getElementById('rating-label').textContent = r.label + ' Bet';
+        document.getElementById('rating-label').style.color = r.color === 'green' ? '#00e68a' : r.color === 'yellow' ? '#ffc234' : '#ff4d6a';
+        document.getElementById('rating-score').textContent = `Confidence Score: ${r.score}/100`;
+        document.getElementById('rating-factors').innerHTML = r.factors.map(f =>
+            `<div class="text-dim" style="font-size:12px;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.04)">&#8226; ${f}</div>`
+        ).join('');
+    } catch (err) {
+        SBA.toast('Error rating bet', 'error');
+    }
+}
+
+async function compareStaking() {
+    const body = {
+        bankroll: parseFloat(document.getElementById('stake-bankroll').value),
+        odds_decimal: parseFloat(document.getElementById('stake-odds').value),
+        win_probability: parseFloat(document.getElementById('stake-prob').value),
+        ev_pct: parseFloat(document.getElementById('stake-ev').value),
+        confidence: document.getElementById('stake-conf').value,
+        loss_streak: 0,
+    };
+
+    try {
+        const resp = await fetch('/api/staking/compare', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(body),
+        });
+        const data = await resp.json();
+
+        document.getElementById('staking-result').style.display = 'block';
+        const tbody = document.getElementById('staking-table');
+        const maxStake = Math.max(...data.strategies.map(s => s.stake));
+        tbody.innerHTML = data.strategies.map(s => `
+            <tr>
+                <td class="font-bold">${s.strategy.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase())}</td>
+                <td class="right font-mono font-bold ${s.stake > 0 ? 'text-green' : ''}">$${s.stake.toFixed(2)}</td>
+                <td class="right font-mono">${s.unit_pct.toFixed(2)}%</td>
+                <td class="text-dim" style="font-size:12px">${s.reasoning}</td>
+            </tr>
+        `).join('');
+    } catch (err) {
+        SBA.toast('Error comparing strategies', 'error');
+    }
+}
+
+document.addEventListener('DOMContentLoaded', loadInsights);
+</script>
+{% endblock %}

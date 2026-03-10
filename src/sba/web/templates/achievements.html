@@ -1,0 +1,194 @@
+{% extends "base.html" %}
+{% block title %}Achievements{% endblock %}
+
+{% block content %}
+<!-- Hero -->
+<div class="frosted-panel reveal-up" style="padding:32px;margin-bottom:28px;position:relative;overflow:hidden">
+    <div style="position:absolute;top:0;right:0;width:300px;height:100%;opacity:0.07;background:linear-gradient(135deg,#ffc234,#a855f7);border-radius:50%;filter:blur(60px);transform:translate(30%,-30%)"></div>
+    <h1 class="page-title" style="margin:0 0 8px">
+        <span class="gradient-text animated-gradient-text">Achievements</span>
+        <span class="tag-elite" style="margin-left:12px">Gamified</span>
+    </h1>
+    <p class="text-dim" style="margin:0;font-size:13px;max-width:480px">
+        Unlock badges, earn points, and climb the ranks. Inspired by the best gamification in sports betting.
+    </p>
+</div>
+
+<!-- Rank & Summary -->
+<div class="stats-grid reveal-up" id="ach-summary" style="animation-delay:0.1s">
+    <div class="stat-card yellow card-3d-tilt">
+        <div class="stat-label">Rank</div>
+        <div class="stat-value" id="ach-rank" style="font-size:20px">—</div>
+        <div class="stat-sub" id="ach-points">0 points</div>
+    </div>
+    <div class="stat-card green card-3d-tilt">
+        <div class="stat-label">Unlocked</div>
+        <div class="stat-value" id="ach-unlocked">0</div>
+        <div class="stat-sub" id="ach-total">of 0 achievements</div>
+    </div>
+    <div class="stat-card blue card-3d-tilt">
+        <div class="stat-label">Next Unlock</div>
+        <div class="stat-value" id="ach-next" style="font-size:14px">—</div>
+        <div class="stat-sub" id="ach-next-progress">—</div>
+    </div>
+    <div class="stat-card purple card-3d-tilt">
+        <div class="stat-label">Completion</div>
+        <div class="stat-value" id="ach-completion">0%</div>
+        <div class="stat-sub">overall progress</div>
+    </div>
+</div>
+
+<!-- Tier Breakdown -->
+<div class="frosted-panel reveal-up" style="padding:20px;margin-bottom:20px;animation-delay:0.15s">
+    <div style="display:flex;gap:16px;flex-wrap:wrap;justify-content:center" id="tier-bars">
+        <div class="tier-bar" data-tier="bronze">
+            <span style="color:#cd7f32;font-weight:700;font-size:13px">Bronze</span>
+            <div style="flex:1;background:rgba(205,127,50,0.15);border-radius:8px;height:8px;min-width:100px">
+                <div id="tier-bronze-bar" style="height:100%;background:#cd7f32;border-radius:8px;width:0%;transition:width 0.8s"></div>
+            </div>
+            <span class="font-mono text-dim" style="font-size:12px" id="tier-bronze-text">0/0</span>
+        </div>
+        <div class="tier-bar" data-tier="silver">
+            <span style="color:#c0c0c0;font-weight:700;font-size:13px">Silver</span>
+            <div style="flex:1;background:rgba(192,192,192,0.15);border-radius:8px;height:8px;min-width:100px">
+                <div id="tier-silver-bar" style="height:100%;background:#c0c0c0;border-radius:8px;width:0%;transition:width 0.8s"></div>
+            </div>
+            <span class="font-mono text-dim" style="font-size:12px" id="tier-silver-text">0/0</span>
+        </div>
+        <div class="tier-bar" data-tier="gold">
+            <span style="color:#ffd700;font-weight:700;font-size:13px">Gold</span>
+            <div style="flex:1;background:rgba(255,215,0,0.15);border-radius:8px;height:8px;min-width:100px">
+                <div id="tier-gold-bar" style="height:100%;background:#ffd700;border-radius:8px;width:0%;transition:width 0.8s"></div>
+            </div>
+            <span class="font-mono text-dim" style="font-size:12px" id="tier-gold-text">0/0</span>
+        </div>
+        <div class="tier-bar" data-tier="diamond">
+            <span style="color:#b9f2ff;font-weight:700;font-size:13px">Diamond</span>
+            <div style="flex:1;background:rgba(185,242,255,0.15);border-radius:8px;height:8px;min-width:100px">
+                <div id="tier-diamond-bar" style="height:100%;background:linear-gradient(90deg,#b9f2ff,#a855f7);border-radius:8px;width:0%;transition:width 0.8s"></div>
+            </div>
+            <span class="font-mono text-dim" style="font-size:12px" id="tier-diamond-text">0/0</span>
+        </div>
+    </div>
+</div>
+
+<!-- Category Filter -->
+<div class="frosted-panel reveal-up" style="padding:12px 16px;margin-bottom:20px;display:flex;gap:8px;flex-wrap:wrap;animation-delay:0.2s">
+    <button class="btn btn-sm btn-primary ach-filter active" data-cat="all" onclick="filterAch('all',this)">All</button>
+    <button class="btn btn-sm btn-outline ach-filter" data-cat="betting" onclick="filterAch('betting',this)">Betting</button>
+    <button class="btn btn-sm btn-outline ach-filter" data-cat="streak" onclick="filterAch('streak',this)">Streaks</button>
+    <button class="btn btn-sm btn-outline ach-filter" data-cat="bankroll" onclick="filterAch('bankroll',this)">Bankroll</button>
+    <button class="btn btn-sm btn-outline ach-filter" data-cat="analytics" onclick="filterAch('analytics',this)">Analytics</button>
+    <button class="btn btn-sm btn-outline ach-filter" data-cat="community" onclick="filterAch('community',this)">Community</button>
+</div>
+
+<!-- Achievement Grid -->
+<div class="dashboard-grid" id="ach-grid" style="grid-template-columns:repeat(auto-fill,minmax(280px,1fr))">
+    <div class="loading-spinner"><div class="spinner"></div> Loading achievements...</div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<style>
+.tier-bar{display:flex;align-items:center;gap:8px;min-width:200px;flex:1}
+.ach-card{border-radius:12px;padding:20px;position:relative;overflow:hidden;transition:transform 0.2s,box-shadow 0.2s}
+.ach-card:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,0.3)}
+.ach-card.locked{opacity:0.5;filter:grayscale(0.6)}
+.ach-card.unlocked{border:1px solid rgba(0,230,138,0.3)}
+.ach-icon{width:48px;height:48px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;margin-bottom:12px}
+.ach-card.bronze .ach-icon{background:rgba(205,127,50,0.15);color:#cd7f32}
+.ach-card.silver .ach-icon{background:rgba(192,192,192,0.15);color:#c0c0c0}
+.ach-card.gold .ach-icon{background:rgba(255,215,0,0.15);color:#ffd700}
+.ach-card.diamond .ach-icon{background:linear-gradient(135deg,rgba(185,242,255,0.15),rgba(168,85,247,0.15));color:#b9f2ff}
+.ach-progress{height:6px;border-radius:3px;background:rgba(255,255,255,0.06);margin-top:10px;overflow:hidden}
+.ach-progress-fill{height:100%;border-radius:3px;transition:width 1s ease}
+.ach-card.bronze .ach-progress-fill{background:#cd7f32}
+.ach-card.silver .ach-progress-fill{background:#c0c0c0}
+.ach-card.gold .ach-progress-fill{background:#ffd700}
+.ach-card.diamond .ach-progress-fill{background:linear-gradient(90deg,#b9f2ff,#a855f7)}
+.ach-points-badge{position:absolute;top:12px;right:12px;font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px;background:rgba(255,255,255,0.06)}
+.ach-filter.active{background:var(--accent-green);border-color:var(--accent-green)}
+</style>
+<script>
+let allAchievements = [];
+
+async function loadAchievements() {
+    try {
+        const resp = await fetch('/api/achievements');
+        const data = await resp.json();
+        allAchievements = data.achievements;
+        const s = data.summary;
+
+        document.getElementById('ach-rank').textContent = s.rank;
+        document.getElementById('ach-points').textContent = s.total_points + ' points';
+        document.getElementById('ach-unlocked').textContent = s.total_unlocked;
+        document.getElementById('ach-total').textContent = `of ${s.total_achievements} achievements`;
+        document.getElementById('ach-completion').textContent = Math.round(s.total_unlocked / s.total_achievements * 100) + '%';
+
+        if (s.next_unlock) {
+            document.getElementById('ach-next').textContent = s.next_unlock.name;
+            document.getElementById('ach-next-progress').textContent = s.next_unlock.progress_pct + '% complete';
+        }
+
+        // Tier bars
+        for (const tier of ['bronze','silver','gold','diamond']) {
+            const t = s.by_tier[tier];
+            const pct = t.total > 0 ? (t.unlocked / t.total * 100) : 0;
+            document.getElementById(`tier-${tier}-bar`).style.width = pct + '%';
+            document.getElementById(`tier-${tier}-text`).textContent = `${t.unlocked}/${t.total}`;
+        }
+
+        renderAchievements(allAchievements);
+    } catch (err) {
+        console.error('Failed to load achievements:', err);
+    }
+}
+
+function renderAchievements(achs) {
+    const grid = document.getElementById('ach-grid');
+    if (achs.length === 0) {
+        grid.innerHTML = '<p class="empty-state">No achievements found</p>';
+        return;
+    }
+    // Sort: unlocked first, then by tier rank desc, then progress desc
+    achs.sort((a, b) => {
+        if (a.unlocked !== b.unlocked) return b.unlocked - a.unlocked;
+        if (a.tier_rank !== b.tier_rank) return b.tier_rank - a.tier_rank;
+        return b.progress_pct - a.progress_pct;
+    });
+
+    grid.innerHTML = achs.map(a => `
+        <div class="ach-card frosted-panel card-3d-tilt ${a.tier} ${a.unlocked ? 'unlocked' : 'locked'}" data-cat="${a.category}">
+            <span class="ach-points-badge">${a.unlocked ? '&#10003; ' : ''}${a.points} pts</span>
+            <div class="ach-icon">${a.unlocked ? '&#127942;' : '&#128274;'}</div>
+            <div style="font-weight:700;font-size:15px;margin-bottom:4px">${a.name}</div>
+            <div class="text-dim" style="font-size:12px;margin-bottom:2px">${a.description}</div>
+            <div class="text-dim" style="font-size:11px">
+                <span class="tag" style="font-size:10px;text-transform:uppercase">${a.tier}</span>
+                <span class="tag" style="font-size:10px">${a.category}</span>
+            </div>
+            <div class="ach-progress">
+                <div class="ach-progress-fill" style="width:${a.progress_pct}%"></div>
+            </div>
+            <div class="text-dim" style="font-size:11px;margin-top:4px;text-align:right">
+                ${a.unlocked ? 'Unlocked!' : `${a.progress} / ${a.threshold} (${a.progress_pct}%)`}
+            </div>
+        </div>
+    `).join('');
+}
+
+function filterAch(cat, btn) {
+    document.querySelectorAll('.ach-filter').forEach(b => {
+        b.classList.remove('active', 'btn-primary');
+        b.classList.add('btn-outline');
+    });
+    btn.classList.add('active', 'btn-primary');
+    btn.classList.remove('btn-outline');
+
+    const filtered = cat === 'all' ? allAchievements : allAchievements.filter(a => a.category === cat);
+    renderAchievements(filtered);
+}
+
+document.addEventListener('DOMContentLoaded', loadAchievements);
+</script>
+{% endblock %}

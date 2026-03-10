@@ -113,6 +113,36 @@ def promo_optimizer_page(request: Request):
     return templates.TemplateResponse(request, "promo-optimizer.html")
 
 
+@router.get("/devig")
+def devig_page(request: Request):
+    return templates.TemplateResponse(request, "devig.html")
+
+
+@router.get("/bet-grades")
+def bet_grades_page(request: Request):
+    return templates.TemplateResponse(request, "bet-grades.html")
+
+
+@router.get("/backtester")
+def backtester_page(request: Request):
+    return templates.TemplateResponse(request, "backtester.html")
+
+
+@router.get("/public-money")
+def public_money_page(request: Request):
+    return templates.TemplateResponse(request, "public-money.html")
+
+
+@router.get("/achievements")
+def achievements_page(request: Request):
+    return templates.TemplateResponse(request, "achievements.html")
+
+
+@router.get("/insights")
+def insights_page(request: Request):
+    return templates.TemplateResponse(request, "insights.html")
+
+
 @router.get("/player/{name}")
 def player_page(request: Request, name: str):
     return templates.TemplateResponse(request, "player.html", {"player_name": name})

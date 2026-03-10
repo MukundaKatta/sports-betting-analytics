@@ -3,6 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Professional sports betting analytics platform with ML-powered predictions, Kelly criterion sizing, and real-time edge detection">
+    <meta name="theme-color" content="#0a0e17">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta property="og:title" content="SBA — Sports Betting Analytics">
+    <meta property="og:description" content="ML-powered betting edge detection with Kelly criterion sizing">
+    <meta property="og:type" content="website">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><defs><linearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'><stop offset='0%25' stop-color='%2300e68a'/><stop offset='100%25' stop-color='%235b9aff'/></linearGradient></defs><rect width='100' height='100' rx='20' fill='url(%23g)'/><text x='50' y='68' text-anchor='middle' fill='%230a0e17' font-family='sans-serif' font-weight='800' font-size='40'>SBA</text></svg>">
+    <link rel="manifest" href="/static/manifest.json">
     <title>{% block title %}SBA{% endblock %} — Sports Betting Analytics</title>
     <link rel="stylesheet" href="/static/css/style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -42,6 +51,10 @@
                 <span>Analytics</span>
                 <span class="nav-badge">Pro</span>
             </a>
+            <a href="/line-movement" class="nav-link" data-page="line-movement">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                <span>Line Movement</span>
+            </a>
 
             <div class="nav-label">System</div>
             <a href="/settings" class="nav-link" data-page="settings">
@@ -58,6 +71,8 @@
         </div>
     </nav>
 
+    <div class="sidebar-overlay" onclick="document.getElementById('sidebar').classList.remove('open')"></div>
+
     <!-- Main Content -->
     <main class="main-content">
         <header class="top-bar">
@@ -73,6 +88,10 @@
                     <span class="search-kbd">/</span>
                     <div class="search-results" id="search-results"></div>
                 </div>
+                <button class="theme-toggle" onclick="SBA.toggleTheme()" title="Toggle theme (T)">
+                    <svg class="theme-icon-dark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+                    <svg class="theme-icon-light" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                </button>
                 <div class="live-clock" id="live-clock"></div>
             </div>
         </header>

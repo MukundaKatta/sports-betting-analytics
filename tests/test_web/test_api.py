@@ -50,7 +50,7 @@ class TestHealthEndpoint:
         assert resp.status_code == 200
         data = resp.json()
         assert data["status"] == "ok"
-        assert data["version"] == "0.2.0"
+        assert data["version"] == "0.3.0"
         assert data["database"] == "healthy"
         assert "uptime" in data
 
@@ -213,6 +213,48 @@ class TestViewRoutes:
         resp = client.get("/static/js/app.js")
         assert resp.status_code == 200
 
+    def test_line_movement_page_loads(self, client):
+        resp = client.get("/line-movement")
+        assert resp.status_code == 200
+        assert "Line Movement" in resp.text
+
     def test_api_docs_accessible(self, client):
         resp = client.get("/api/docs")
         assert resp.status_code == 200
+
+
+class TestCSVExport:
+    def test_export_returns_csv(self, client):
+        resp = client.get("/api/bets/export")
+        assert resp.status_code == 200
+        assert "text/csv" in resp.headers["content-type"]
+        assert "sba_bets_export.csv" in resp.headers.get("content-disposition", "")
+        lines = resp.text.strip().split("\n")
+        assert len(lines) >= 1  # at least header row
+        assert "ID" in lines[0]
+        assert "Market" in lines[0]
+
+    def test_export_with_bet_data(self, client):
+        _create_test_event("test_event_csv")
+        client.post("/api/bets/track", json={
+            "event_id": "test_event_csv",
+            "market": "h2h",
+            "selection": "Team A",
+            "odds_american": 150,
+            "stake": 25.0,
+        })
+        resp = client.get("/api/bets/export")
+        assert resp.status_code == 200
+        lines = resp.text.strip().split("\n")
+        assert len(lines) >= 2  # header + at least one data row
+
+
+class TestSearchPlayers:
+    def test_search_returns_list(self, client):
+        resp = client.get("/api/search/players?q=test")
+        assert resp.status_code == 200
+        assert isinstance(resp.json(), list)
+
+    def test_search_requires_min_length(self, client):
+        resp = client.get("/api/search/players?q=a")
+        assert resp.status_code == 422

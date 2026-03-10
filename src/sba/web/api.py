@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import csv
+import io
 import logging
 from datetime import datetime
 
 from fastapi import APIRouter, HTTPException, Query
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from sba.config import get_settings
@@ -177,7 +180,7 @@ def health_check():
 
     return HealthResponse(
         status="ok",
-        version="0.2.0",
+        version="0.3.0",
         uptime=f"{hours}h {minutes}m {seconds}s",
         database=db_status,
     )
@@ -390,6 +393,54 @@ def delete_bet(bet_id: int):
     with get_connection() as conn:
         conn.execute("DELETE FROM bets WHERE id = ?", (bet_id,))
     return {"id": bet_id, "deleted": True}
+
+
+@router.get("/bets/export")
+def export_bets_csv():
+    """Export bet history as CSV file."""
+    init_db()
+    with get_connection() as conn:
+        bets = repo.get_bet_history(conn)
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow([
+        "ID", "Date", "Event", "Market", "Selection", "Line",
+        "Odds (American)", "Odds (Decimal)", "Stake", "Bookmaker",
+        "Status", "P/L", "Model Prob", "EV", "Kelly %",
+    ])
+    for b in bets:
+        writer.writerow([
+            b.id,
+            b.placed_at.isoformat() if b.placed_at else "",
+            b.event_id, b.market, b.selection, b.line or "",
+            b.odds_american, f"{b.odds_decimal:.3f}",
+            f"{b.recommended_stake:.2f}", b.bookmaker,
+            b.status, f"{b.profit_loss:.2f}",
+            f"{b.model_probability:.4f}", f"{b.expected_value:.4f}",
+            f"{b.kelly_fraction:.4f}",
+        ])
+
+    output.seek(0)
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=sba_bets_export.csv"},
+    )
+
+
+# ── Search ──────────────────────────────────────────────────────────
+
+@router.get("/search/players")
+def search_players(q: str = Query(..., min_length=2)):
+    """Search for players by name prefix."""
+    init_db()
+    with get_connection() as conn:
+        rows = conn.execute(
+            "SELECT name, team, position FROM players WHERE LOWER(name) LIKE ? LIMIT 10",
+            (f"%{q.lower()}%",),
+        ).fetchall()
+    return [{"name": r["name"], "team": r["team"], "position": r["position"]} for r in rows]
 
 
 # ── Analytics ────────────────────────────────────────────────────────

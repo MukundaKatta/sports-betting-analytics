@@ -11,6 +11,7 @@ const SBA = {
 
     // ── Initialization ────────────────────────────────────────────────
     init() {
+        this.loadTheme();
         this.setupClock();
         this.setupSearch();
         this.setupKeyboardShortcuts();
@@ -59,6 +60,9 @@ const SBA = {
                 case 'b':
                     this.toggleSlip();
                     break;
+                case 't':
+                    this.toggleTheme();
+                    break;
                 case 'Escape':
                     document.getElementById('bet-slip')?.classList.remove('open');
                     document.getElementById('player-search')?.blur();
@@ -97,15 +101,20 @@ const SBA = {
     async searchPlayers(query) {
         const results = document.getElementById('search-results');
         try {
-            const resp = await fetch(`/api/players/${encodeURIComponent(query)}`);
+            const resp = await fetch(`/api/search/players?q=${encodeURIComponent(query)}`);
             if (resp.ok) {
-                const player = await resp.json();
-                results.innerHTML = `
-                    <a class="search-result-item" href="/player/${encodeURIComponent(player.name)}">
-                        <span>${player.name}</span>
-                        <span class="text-dim">${player.team} · ${player.position}</span>
-                    </a>`;
-                results.classList.add('active');
+                const players = await resp.json();
+                if (players.length > 0) {
+                    results.innerHTML = players.map(p => `
+                        <a class="search-result-item" href="/player/${encodeURIComponent(p.name)}">
+                            <span>${p.name}</span>
+                            <span class="text-dim">${p.team} · ${p.position}</span>
+                        </a>`).join('');
+                    results.classList.add('active');
+                } else {
+                    results.innerHTML = '<div class="search-result-item text-dim">No players found</div>';
+                    results.classList.add('active');
+                }
             } else {
                 results.innerHTML = '<div class="search-result-item text-dim">No players found</div>';
                 results.classList.add('active');
@@ -987,6 +996,113 @@ const SBA = {
         } catch {
             this.toast('Failed to settle bet', 'error');
         }
+    },
+
+    // ── Line Movement ────────────────────────────────────────────────
+    async loadLineMovementEvents() {
+        const select = document.getElementById('lm-event-select');
+        if (!select) return;
+
+        try {
+            const resp = await fetch('/api/events');
+            const events = await resp.json();
+            events.forEach(e => {
+                const opt = document.createElement('option');
+                opt.value = e.id;
+                opt.textContent = `${e.away_team} @ ${e.home_team}`;
+                select.appendChild(opt);
+            });
+        } catch {}
+    },
+
+    async loadLineMovement(eventId) {
+        const chartEl = document.getElementById('lm-chart');
+        const tableBody = document.getElementById('lm-table-body');
+        if (!eventId || !chartEl) return;
+
+        const market = document.getElementById('lm-market-select')?.value || 'h2h';
+
+        chartEl.innerHTML = '<div class="loading-spinner"><div class="spinner"></div> Loading line data...</div>';
+
+        try {
+            const resp = await fetch(`/api/line-movement/${eventId}?market=${market}`);
+            const data = await resp.json();
+
+            if (data.length === 0) {
+                chartEl.innerHTML = '<div class="empty-state" style="padding:40px"><p>No odds history found for this event and market</p></div>';
+                tableBody.innerHTML = '<tr><td colspan="6" class="empty-state"><p>No data</p></td></tr>';
+                return;
+            }
+
+            // Group by bookmaker+outcome for visual chart
+            const groups = {};
+            data.forEach(s => {
+                const key = `${s.bookmaker} · ${s.outcome}`;
+                if (!groups[key]) groups[key] = [];
+                groups[key].push(s);
+            });
+
+            const colors = ['var(--accent-green)', 'var(--accent-blue)', 'var(--accent-yellow)', 'var(--accent-purple)', 'var(--accent-cyan)', 'var(--accent-red)'];
+            let colorIdx = 0;
+
+            chartEl.innerHTML = `
+                <div style="display:flex;flex-direction:column;gap:16px">
+                    ${Object.entries(groups).map(([key, snaps]) => {
+                        const color = colors[colorIdx++ % colors.length];
+                        const latest = snaps[snaps.length - 1];
+                        const first = snaps[0];
+                        const diff = latest.odds_american - first.odds_american;
+                        const diffStr = diff > 0 ? `+${diff}` : `${diff}`;
+                        const diffColor = diff > 0 ? 'text-green' : diff < 0 ? 'text-red' : 'text-dim';
+                        return `
+                        <div style="display:flex;align-items:center;gap:16px;padding:12px;background:rgba(255,255,255,0.02);border-radius:var(--radius-sm);border:1px solid var(--border-light)">
+                            <div style="width:8px;height:8px;border-radius:50%;background:${color};flex-shrink:0"></div>
+                            <div style="flex:1;min-width:0">
+                                <div class="font-bold" style="font-size:13px">${key}</div>
+                                <div class="text-dim" style="font-size:11px">${snaps.length} snapshot${snaps.length > 1 ? 's' : ''}</div>
+                            </div>
+                            <div class="font-mono" style="font-size:15px;font-weight:700">
+                                ${latest.odds_american > 0 ? '+' : ''}${latest.odds_american}
+                            </div>
+                            ${snaps.length > 1 ? `<div class="font-mono ${diffColor}" style="font-size:12px">(${diffStr})</div>` : ''}
+                        </div>`;
+                    }).join('')}
+                </div>
+            `;
+
+            // Table
+            tableBody.innerHTML = data.map((s, i) => `
+                <tr class="new-row" style="animation-delay:${i * 0.02}s">
+                    <td class="text-dim" style="font-size:11px">${s.time}</td>
+                    <td>${s.bookmaker}</td>
+                    <td class="font-bold">${s.outcome}</td>
+                    <td class="right font-mono">${s.line !== null ? s.line : '-'}</td>
+                    <td class="right">
+                        <span class="odds-badge ${s.odds_american > 0 ? 'positive' : 'negative'}">
+                            ${s.odds_american > 0 ? '+' : ''}${s.odds_american}
+                        </span>
+                    </td>
+                    <td class="right font-mono">${s.odds_decimal.toFixed(3)}</td>
+                </tr>
+            `).join('');
+        } catch (err) {
+            chartEl.innerHTML = `<div class="empty-state text-red">Error: ${err.message}</div>`;
+        }
+    },
+
+    // ── Theme Toggle ─────────────────────────────────────────────────
+    toggleTheme() {
+        const html = document.documentElement;
+        const current = html.getAttribute('data-theme');
+        const next = current === 'dark' ? 'light' : 'dark';
+        html.setAttribute('data-theme', next);
+        localStorage.setItem('sba-theme', next);
+        this.toast(`Switched to ${next} mode`, 'info');
+    },
+
+    loadTheme() {
+        const saved = localStorage.getItem('sba-theme');
+        if (saved) document.documentElement.setAttribute('data-theme', saved);
     },
 };
 

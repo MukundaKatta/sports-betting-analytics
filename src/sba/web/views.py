@@ -43,6 +43,11 @@ def settings_page(request: Request):
     return templates.TemplateResponse(request, "settings.html")
 
 
+@router.get("/line-movement")
+def line_movement_page(request: Request):
+    return templates.TemplateResponse(request, "line-movement.html")
+
+
 @router.get("/player/{name}")
 def player_page(request: Request, name: str):
     return templates.TemplateResponse(request, "player.html", {"player_name": name})

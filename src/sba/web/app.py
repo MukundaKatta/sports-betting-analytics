@@ -31,7 +31,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="SBA — Sports Betting Analytics",
     description="Professional sports betting analytics platform with ML-powered predictions",
-    version="0.2.0",
+    version="0.3.0",
     lifespan=lifespan,
     docs_url="/api/docs",
     redoc_url="/api/redoc",

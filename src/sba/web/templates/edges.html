@@ -38,9 +38,21 @@
         Scan for Edges
     </button>
 
-    <button class="btn btn-outline btn-sm" onclick="SBA.toggleSlip()" style="margin-left:auto">
-        Bet Slip (<span id="slip-count-header">0</span>)
-    </button>
+    <div style="margin-left:auto;display:flex;align-items:center;gap:12px">
+        <div class="refresh-timer" id="refresh-timer" style="display:none">
+            <div class="refresh-ring">
+                <svg viewBox="0 0 20 20"><circle class="bg" cx="10" cy="10" r="8"/><circle class="fg" cx="10" cy="10" r="8"/></svg>
+            </div>
+            <span id="refresh-countdown">60s</span>
+        </div>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-tertiary);cursor:pointer">
+            <input type="checkbox" id="auto-refresh-toggle" onchange="toggleAutoRefresh(this.checked)" style="accent-color:var(--accent-blue)">
+            Auto-refresh
+        </label>
+        <button class="btn btn-outline btn-sm" onclick="SBA.toggleSlip()">
+            Bet Slip (<span id="slip-count-header">0</span>)
+        </button>
+    </div>
 </div>
 
 <div class="card">
@@ -49,23 +61,24 @@
             <table class="data-table">
                 <thead>
                     <tr>
-                        <th>Event</th>
-                        <th>Market</th>
-                        <th>Selection</th>
-                        <th class="right">Best Odds</th>
-                        <th>Book</th>
-                        <th class="right">Model %</th>
-                        <th class="right">Implied %</th>
-                        <th class="right">EV</th>
-                        <th class="right">Kelly %</th>
-                        <th class="right">Stake</th>
-                        <th class="center">Confidence</th>
+                        <th class="sortable" onclick="SBA.sortTable('edges-table-body', 0)">Event</th>
+                        <th class="sortable" onclick="SBA.sortTable('edges-table-body', 1)">Market</th>
+                        <th class="sortable" onclick="SBA.sortTable('edges-table-body', 2)">Selection</th>
+                        <th class="right sortable" onclick="SBA.sortTable('edges-table-body', 3, 'number')">Best Odds</th>
+                        <th class="sortable" onclick="SBA.sortTable('edges-table-body', 4)">Book</th>
+                        <th class="right sortable" onclick="SBA.sortTable('edges-table-body', 5, 'number')">Model %</th>
+                        <th class="right sortable" onclick="SBA.sortTable('edges-table-body', 6, 'number')">Implied %</th>
+                        <th class="right sortable" onclick="SBA.sortTable('edges-table-body', 7, 'number')">EV</th>
+                        <th class="right sortable" onclick="SBA.sortTable('edges-table-body', 8, 'number')">Kelly %</th>
+                        <th class="right sortable" onclick="SBA.sortTable('edges-table-body', 9, 'number')">Stake</th>
+                        <th class="center sortable" onclick="SBA.sortTable('edges-table-body', 10)">Confidence</th>
                     </tr>
                 </thead>
                 <tbody id="edges-table-body">
                     <tr><td colspan="11" class="empty-state">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
                         <p>Click "Scan for Edges" to find +EV opportunities across all sportsbooks</p>
+                        <p class="text-dim" style="font-size:12px">Columns are sortable — click any header</p>
                     </td></tr>
                 </tbody>
             </table>
@@ -81,6 +94,17 @@ function scanEdges() {
     const market = document.getElementById('market-filter').value;
     const minEv = document.getElementById('ev-filter').value || null;
     SBA.loadEdges(sport, market, minEv);
+}
+
+function toggleAutoRefresh(enabled) {
+    const timer = document.getElementById('refresh-timer');
+    if (enabled) {
+        timer.style.display = 'flex';
+        SBA.startAutoRefresh(() => scanEdges(), 60);
+    } else {
+        timer.style.display = 'none';
+        SBA.stopAutoRefresh();
+    }
 }
 </script>
 {% endblock %}

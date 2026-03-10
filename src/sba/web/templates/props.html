@@ -36,15 +36,15 @@
             <table class="data-table">
                 <thead>
                     <tr>
-                        <th>Player</th>
-                        <th>Market</th>
-                        <th class="right">Predicted</th>
-                        <th class="right">Line</th>
-                        <th class="right">Over %</th>
-                        <th class="right">Over Odds</th>
-                        <th class="right">Over EV</th>
-                        <th class="right">Under EV</th>
-                        <th class="center">Rec</th>
+                        <th class="sortable" onclick="SBA.sortTable('props-table-body', 0)">Player</th>
+                        <th class="sortable" onclick="SBA.sortTable('props-table-body', 1)">Market</th>
+                        <th class="right sortable" onclick="SBA.sortTable('props-table-body', 2, 'number')">Predicted</th>
+                        <th class="right sortable" onclick="SBA.sortTable('props-table-body', 3, 'number')">Line</th>
+                        <th class="right sortable" onclick="SBA.sortTable('props-table-body', 4, 'number')">Over %</th>
+                        <th class="right sortable" onclick="SBA.sortTable('props-table-body', 5, 'number')">Over Odds</th>
+                        <th class="right sortable" onclick="SBA.sortTable('props-table-body', 6, 'number')">Over EV</th>
+                        <th class="right sortable" onclick="SBA.sortTable('props-table-body', 7, 'number')">Under EV</th>
+                        <th class="center sortable" onclick="SBA.sortTable('props-table-body', 8)">Rec</th>
                         <th>Key Features</th>
                     </tr>
                 </thead>
@@ -52,7 +52,7 @@
                     <tr><td colspan="10" class="empty-state">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                         <p>Click "Analyze Props" to run ML predictions on player props</p>
-                        <p class="text-dim" style="font-size:12px">Backfill player data first: <code>sba data backfill --player "Player Name"</code></p>
+                        <p class="text-dim" style="font-size:12px">Backfill player data first: <code class="step-code" style="display:inline;padding:3px 8px">sba data backfill --player "Player Name"</code></p>
                     </td></tr>
                 </tbody>
             </table>

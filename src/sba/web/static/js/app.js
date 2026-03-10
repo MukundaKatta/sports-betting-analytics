@@ -1,15 +1,19 @@
 /* ═══════════════════════════════════════════════════════════════════════
-   SBA — Sports Betting Analytics — Frontend Application
+   SBA — Sports Betting Analytics — Premium Frontend Application
    ═══════════════════════════════════════════════════════════════════════ */
 
 const SBA = {
     betSlip: [],
     refreshTimer: null,
+    refreshInterval: 60,
+    refreshCountdown: 60,
+    sortState: {},
 
     // ── Initialization ────────────────────────────────────────────────
     init() {
         this.setupClock();
         this.setupSearch();
+        this.setupKeyboardShortcuts();
         this.updateStatus();
         this.highlightActiveNav();
         setInterval(() => this.updateStatus(), 60000);
@@ -41,6 +45,28 @@ const SBA = {
         });
     },
 
+    // ── Keyboard Shortcuts ────────────────────────────────────────────
+    setupKeyboardShortcuts() {
+        document.addEventListener('keydown', (e) => {
+            // Don't fire shortcuts when typing in inputs
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+            switch(e.key) {
+                case '/':
+                    e.preventDefault();
+                    document.getElementById('player-search')?.focus();
+                    break;
+                case 'b':
+                    this.toggleSlip();
+                    break;
+                case 'Escape':
+                    document.getElementById('bet-slip')?.classList.remove('open');
+                    document.getElementById('player-search')?.blur();
+                    break;
+            }
+        });
+    },
+
     // ── Player Search ─────────────────────────────────────────────────
     setupSearch() {
         const input = document.getElementById('player-search');
@@ -53,6 +79,14 @@ const SBA = {
             const q = input.value.trim();
             if (q.length < 2) { results.classList.remove('active'); return; }
             debounce = setTimeout(() => this.searchPlayers(q), 300);
+        });
+
+        // Escape to close
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                results.classList.remove('active');
+                input.blur();
+            }
         });
 
         document.addEventListener('click', (e) => {
@@ -100,6 +134,90 @@ const SBA = {
         }
     },
 
+    // ── Count-Up Animation ────────────────────────────────────────────
+    animateCountUp(element, target, duration = 800) {
+        const start = 0;
+        const startTime = performance.now();
+        const isFloat = String(target).includes('.');
+        const prefix = element.dataset.prefix || '';
+        const suffix = element.dataset.suffix || '';
+
+        const step = (currentTime) => {
+            const elapsed = currentTime - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+            // Ease out cubic
+            const eased = 1 - Math.pow(1 - progress, 3);
+            const current = start + (target - start) * eased;
+            element.textContent = prefix + (isFloat ? current.toFixed(1) : Math.round(current).toLocaleString()) + suffix;
+            if (progress < 1) requestAnimationFrame(step);
+        };
+        requestAnimationFrame(step);
+    },
+
+    // ── Table Sorting ─────────────────────────────────────────────────
+    sortTable(tableId, colIndex, type = 'string') {
+        const tbody = document.getElementById(tableId);
+        if (!tbody) return;
+        const rows = Array.from(tbody.querySelectorAll('tr'));
+        if (rows.length === 0) return;
+
+        const key = `${tableId}-${colIndex}`;
+        const ascending = this.sortState[key] !== 'asc';
+        this.sortState[key] = ascending ? 'asc' : 'desc';
+
+        // Update header visual
+        const table = tbody.closest('table');
+        table.querySelectorAll('th').forEach(th => th.classList.remove('sort-asc', 'sort-desc'));
+        const th = table.querySelectorAll('th')[colIndex];
+        th.classList.add(ascending ? 'sort-asc' : 'sort-desc');
+
+        rows.sort((a, b) => {
+            let aVal = a.cells[colIndex]?.textContent.trim() || '';
+            let bVal = b.cells[colIndex]?.textContent.trim() || '';
+
+            if (type === 'number') {
+                aVal = parseFloat(aVal.replace(/[^0-9.\-]/g, '')) || 0;
+                bVal = parseFloat(bVal.replace(/[^0-9.\-]/g, '')) || 0;
+            }
+
+            if (aVal < bVal) return ascending ? -1 : 1;
+            if (aVal > bVal) return ascending ? 1 : -1;
+            return 0;
+        });
+
+        rows.forEach(row => tbody.appendChild(row));
+    },
+
+    // ── Auto-Refresh ──────────────────────────────────────────────────
+    startAutoRefresh(callback, interval = 60) {
+        this.refreshInterval = interval;
+        this.refreshCountdown = interval;
+        this.stopAutoRefresh();
+
+        const timerEl = document.getElementById('refresh-countdown');
+        const ringEl = document.querySelector('.refresh-ring .fg');
+
+        this.refreshTimer = setInterval(() => {
+            this.refreshCountdown--;
+            if (timerEl) timerEl.textContent = `${this.refreshCountdown}s`;
+            if (ringEl) {
+                const pct = this.refreshCountdown / this.refreshInterval;
+                ringEl.style.strokeDashoffset = 50.26 * (1 - pct);
+            }
+            if (this.refreshCountdown <= 0) {
+                this.refreshCountdown = this.refreshInterval;
+                callback();
+            }
+        }, 1000);
+    },
+
+    stopAutoRefresh() {
+        if (this.refreshTimer) {
+            clearInterval(this.refreshTimer);
+            this.refreshTimer = null;
+        }
+    },
+
     // ── Edge Finder ───────────────────────────────────────────────────
     async loadEdges(sport, market, minEv) {
         const container = document.getElementById('edges-table-body');
@@ -117,15 +235,20 @@ const SBA = {
             const resp = await fetch(url);
             const edges = await resp.json();
 
-            if (countEl) countEl.textContent = edges.length;
+            if (countEl) {
+                countEl.textContent = edges.length;
+            }
 
             if (edges.length === 0) {
-                container.innerHTML = '<tr><td colspan="11" class="empty-state"><p>No +EV opportunities found right now. Try adjusting filters or check back later.</p></td></tr>';
+                container.innerHTML = `<tr><td colspan="11" class="empty-state">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+                    <p>No +EV opportunities found right now. Try adjusting filters or check back later.</p>
+                </td></tr>`;
                 return;
             }
 
-            container.innerHTML = edges.map(e => `
-                <tr>
+            container.innerHTML = edges.map((e, i) => `
+                <tr class="new-row" style="animation-delay:${i * 0.03}s">
                     <td>
                         <div class="matchup-teams">
                             <span class="team-name away">${e.event_away}</span>
@@ -136,7 +259,8 @@ const SBA = {
                     <td class="font-bold">${e.selection}${e.line ? ` (${e.line > 0 ? '+' : ''}${e.line})` : ''}</td>
                     <td class="right">
                         <span class="odds-badge ${e.best_odds_american > 0 ? 'positive' : 'negative'}"
-                              onclick="SBA.addToSlip('${e.event_id}', '${e.selection}', ${e.best_odds_american}, '${e.market}', '${e.bookmaker}', '${e.event_away} @ ${e.event_home}', ${e.recommended_stake})">
+                              onclick="SBA.addToSlip('${e.event_id}', '${e.selection}', ${e.best_odds_american}, '${e.market}', '${e.bookmaker}', '${e.event_away} @ ${e.event_home}', ${e.recommended_stake})"
+                              data-tooltip="Click to add to bet slip">
                             ${e.best_odds_american > 0 ? '+' : ''}${e.best_odds_american}
                         </span>
                     </td>
@@ -173,16 +297,19 @@ const SBA = {
             if (countEl) countEl.textContent = props.length;
 
             if (props.length === 0) {
-                container.innerHTML = '<tr><td colspan="10" class="empty-state"><p>No +EV props found. Models need player data — run backfill first.</p></td></tr>';
+                container.innerHTML = `<tr><td colspan="10" class="empty-state">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+                    <p>No +EV props found. Models need player data — run backfill first.</p>
+                </td></tr>`;
                 return;
             }
 
-            container.innerHTML = props.map(p => {
+            container.innerHTML = props.map((p, i) => {
                 const recClass = p.recommendation.includes('OVER') ? 'over' : p.recommendation.includes('UNDER') ? 'under' : 'pass';
                 const overEv = (p.over_ev * 100).toFixed(1);
                 const underEv = (p.under_ev * 100).toFixed(1);
                 return `
-                <tr>
+                <tr class="new-row" style="animation-delay:${i * 0.03}s">
                     <td>
                         <a href="/player/${encodeURIComponent(p.player_name)}" class="font-bold">${p.player_name}</a>
                         <div class="text-dim" style="font-size:11px">${p.player_team}</div>
@@ -215,12 +342,12 @@ const SBA = {
             const resp = await fetch('/api/bets');
             const data = await resp.json();
 
-            // Summary cards
+            // Summary cards with icons
             summary.innerHTML = `
                 <div class="stat-card green">
                     <div class="stat-label">Total P/L</div>
                     <div class="stat-value ${data.total_profit >= 0 ? 'text-green' : 'text-red'}">$${data.total_profit >= 0 ? '+' : ''}${data.total_profit.toFixed(2)}</div>
-                    <div class="stat-sub">ROI: ${data.roi >= 0 ? '+' : ''}${data.roi.toFixed(1)}%</div>
+                    <div class="stat-sub">ROI: <span class="${data.roi >= 0 ? 'text-green' : 'text-red'}">${data.roi >= 0 ? '+' : ''}${data.roi.toFixed(1)}%</span></div>
                 </div>
                 <div class="stat-card blue">
                     <div class="stat-label">Win Rate</div>
@@ -246,10 +373,10 @@ const SBA = {
                 return;
             }
 
-            tableBody.innerHTML = data.bets.map(b => {
+            tableBody.innerHTML = data.bets.map((b, i) => {
                 const statusClass = b.status === 'won' ? 'text-green' : b.status === 'lost' ? 'text-red' : b.status === 'push' ? 'text-yellow' : 'text-blue';
                 return `
-                <tr>
+                <tr class="new-row" style="animation-delay:${i * 0.03}s">
                     <td class="text-dim" style="font-size:11px">${b.placed_at ? new Date(b.placed_at).toLocaleDateString() : '-'}</td>
                     <td class="font-bold">${b.selection}</td>
                     <td><span class="market-tag">${b.market}</span></td>
@@ -277,7 +404,10 @@ const SBA = {
         try {
             const resp = await fetch(`/api/players/${encodeURIComponent(name)}`);
             if (!resp.ok) {
-                container.innerHTML = `<div class="empty-state"><p>Player "${name}" not found. Run <code>sba data backfill --player "${name}"</code> to import their stats.</p></div>`;
+                container.innerHTML = `<div class="empty-state">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+                    <p>Player "${name}" not found. Run <code class="step-code" style="display:inline">sba data backfill --player "${name}"</code> to import their stats.</p>
+                </div>`;
                 return;
             }
 
@@ -300,11 +430,16 @@ const SBA = {
                         const trend = p.trends[stat + '_trend'];
                         const trendStr = trend !== undefined ? (trend >= 0 ? '+' : '') + trend.toFixed(1) : '';
                         const trendColor = trend >= 0 ? 'green' : 'red';
+                        const trendDir = trend >= 0 ? 'up' : 'down';
+                        const trendArrow = trend >= 0 ? '&#9650;' : '&#9660;';
                         return `
                         <div class="stat-card ${trendColor}">
                             <div class="stat-label">${stat}</div>
                             <div class="stat-value">${l5}</div>
-                            <div class="stat-sub">Last 5 avg · Season: ${l20} ${trendStr ? `<span class="text-${trendColor}">(${trendStr})</span>` : ''}</div>
+                            <div class="stat-sub">
+                                L5 avg · Season: ${l20}
+                                ${trendStr ? `<span class="stat-trend ${trendDir}">${trendArrow} ${trendStr}</span>` : ''}
+                            </div>
                         </div>`;
                     }).join('')}
                 </div>
@@ -322,8 +457,8 @@ const SBA = {
                                 </tr>
                             </thead>
                             <tbody>
-                                ${p.recent_games.map(g => `
-                                <tr>
+                                ${p.recent_games.map((g, i) => `
+                                <tr class="new-row" style="animation-delay:${i * 0.03}s">
                                     <td class="text-dim">${g.date}</td>
                                     <td>${g.opponent}</td>
                                     <td class="right font-mono">${Math.round(g.minutes)}</td>
@@ -346,7 +481,7 @@ const SBA = {
 
     // ── Dashboard ─────────────────────────────────────────────────────
     async loadDashboard() {
-        // Load status
+        // Load status with count-up animations
         try {
             const resp = await fetch('/api/status');
             const status = await resp.json();
@@ -355,25 +490,31 @@ const SBA = {
                 statsEl.innerHTML = `
                     <div class="stat-card green">
                         <div class="stat-label">Events Tracked</div>
-                        <div class="stat-value">${status.events}</div>
+                        <div class="stat-value count-up" data-target="${status.events}">${status.events}</div>
                         <div class="stat-sub">across all sports</div>
                     </div>
                     <div class="stat-card blue">
                         <div class="stat-label">Odds Snapshots</div>
-                        <div class="stat-value">${status.odds_snapshots.toLocaleString()}</div>
+                        <div class="stat-value count-up" data-target="${status.odds_snapshots}">${status.odds_snapshots.toLocaleString()}</div>
                         <div class="stat-sub">historical data points</div>
                     </div>
                     <div class="stat-card yellow">
                         <div class="stat-label">Players</div>
-                        <div class="stat-value">${status.players}</div>
+                        <div class="stat-value count-up" data-target="${status.players}">${status.players}</div>
                         <div class="stat-sub">with game logs</div>
                     </div>
                     <div class="stat-card purple">
                         <div class="stat-label">Game Logs</div>
-                        <div class="stat-value">${status.game_logs.toLocaleString()}</div>
+                        <div class="stat-value count-up" data-target="${status.game_logs}">${status.game_logs.toLocaleString()}</div>
                         <div class="stat-sub">for ML training</div>
                     </div>
                 `;
+
+                // Animate count-ups
+                statsEl.querySelectorAll('.count-up').forEach(el => {
+                    const target = parseInt(el.dataset.target);
+                    if (target > 0) this.animateCountUp(el, target);
+                });
             }
         } catch {}
 
@@ -384,25 +525,30 @@ const SBA = {
             const betEl = document.getElementById('dashboard-bets');
             if (betEl) {
                 if (bets.total_bets === 0 && bets.pending === 0) {
-                    betEl.innerHTML = '<div class="empty-state"><p>No bets tracked yet</p></div>';
+                    betEl.innerHTML = `<div class="empty-state" style="padding:40px 20px">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="36" height="36"><rect x="2" y="3" width="20" height="18" rx="2"/><line x1="2" y1="9" x2="22" y2="9"/></svg>
+                        <p>No bets tracked yet</p>
+                    </div>`;
                 } else {
+                    const plColor = bets.total_profit >= 0 ? 'text-green' : 'text-red';
+                    const roiColor = bets.roi >= 0 ? 'text-green' : 'text-red';
                     betEl.innerHTML = `
-                        <div style="padding:20px;display:flex;justify-content:space-around;text-align:center">
+                        <div style="padding:24px;display:grid;grid-template-columns:repeat(4,1fr);gap:16px;text-align:center">
                             <div>
-                                <div class="stat-value ${bets.total_profit >= 0 ? 'text-green' : 'text-red'}" style="font-size:22px">$${bets.total_profit >= 0 ? '+' : ''}${bets.total_profit.toFixed(2)}</div>
-                                <div class="stat-label">Total P/L</div>
+                                <div class="stat-value ${plColor}" style="font-size:22px">$${bets.total_profit >= 0 ? '+' : ''}${bets.total_profit.toFixed(2)}</div>
+                                <div class="stat-label" style="margin-top:6px">Total P/L</div>
                             </div>
                             <div>
                                 <div class="stat-value" style="font-size:22px">${(bets.win_rate * 100).toFixed(0)}%</div>
-                                <div class="stat-label">Win Rate</div>
+                                <div class="stat-label" style="margin-top:6px">Win Rate</div>
                             </div>
                             <div>
                                 <div class="stat-value" style="font-size:22px">${bets.total_bets + bets.pending}</div>
-                                <div class="stat-label">Total Bets</div>
+                                <div class="stat-label" style="margin-top:6px">Total Bets</div>
                             </div>
                             <div>
-                                <div class="stat-value text-blue" style="font-size:22px">${bets.roi >= 0 ? '+' : ''}${bets.roi.toFixed(1)}%</div>
-                                <div class="stat-label">ROI</div>
+                                <div class="stat-value ${roiColor}" style="font-size:22px">${bets.roi >= 0 ? '+' : ''}${bets.roi.toFixed(1)}%</div>
+                                <div class="stat-label" style="margin-top:6px">ROI</div>
                             </div>
                         </div>
                     `;
@@ -411,9 +557,8 @@ const SBA = {
         } catch {}
     },
 
-    // ── Bet Slip ──────────────────────────────────────────────────────
+    // ── Bet Slip — Premium ────────────────────────────────────────────
     addToSlip(eventId, selection, odds, market, bookmaker, eventName, stake) {
-        // Check if already in slip
         if (this.betSlip.find(b => b.eventId === eventId && b.selection === selection)) {
             this.toast('Already in bet slip', 'info');
             return;
@@ -423,19 +568,31 @@ const SBA = {
         this.renderSlip();
         this.toast(`${selection} added to slip`, 'success');
 
-        // Open slip
         document.getElementById('bet-slip').classList.add('open');
+
+        // Update header count
+        const headerCount = document.getElementById('slip-count-header');
+        if (headerCount) headerCount.textContent = this.betSlip.length;
     },
 
     removeFromSlip(index) {
         this.betSlip.splice(index, 1);
         this.renderSlip();
+        const headerCount = document.getElementById('slip-count-header');
+        if (headerCount) headerCount.textContent = this.betSlip.length;
     },
 
     clearSlip() {
         this.betSlip = [];
         this.renderSlip();
         document.getElementById('bet-slip').classList.remove('open');
+        const headerCount = document.getElementById('slip-count-header');
+        if (headerCount) headerCount.textContent = '0';
+    },
+
+    calcPayout(odds, stake) {
+        if (odds > 0) return stake * (odds / 100);
+        return stake * (100 / Math.abs(odds));
     },
 
     renderSlip() {
@@ -450,13 +607,21 @@ const SBA = {
                 <div class="empty-slip">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48"><rect x="2" y="3" width="20" height="18" rx="2"/><line x1="2" y1="9" x2="22" y2="9"/></svg>
                     <p>Add selections to your bet slip</p>
+                    <p class="text-dim" style="font-size:11px">Click odds on any edge to add</p>
                 </div>`;
             footer.style.display = 'none';
             return;
         }
 
         footer.style.display = 'flex';
-        body.innerHTML = this.betSlip.map((b, i) => `
+        let totalStake = 0;
+        let totalPayout = 0;
+
+        body.innerHTML = this.betSlip.map((b, i) => {
+            const payout = this.calcPayout(b.odds, b.stake);
+            totalStake += b.stake;
+            totalPayout += payout + b.stake;
+            return `
             <div class="slip-item">
                 <div class="slip-item-header">
                     <div>
@@ -469,14 +634,38 @@ const SBA = {
                     <span class="slip-odds-value">${b.odds > 0 ? '+' : ''}${b.odds}</span>
                     <div class="slip-stake">
                         <input type="number" value="${b.stake.toFixed(0)}" placeholder="$0"
-                               onchange="SBA.betSlip[${i}].stake = parseFloat(this.value) || 0">
+                               onchange="SBA.betSlip[${i}].stake = parseFloat(this.value) || 0; SBA.renderSlip()">
                     </div>
                 </div>
+                <div class="slip-payout">
+                    <span>Potential Payout</span>
+                    <span class="slip-payout-value">$${(payout + b.stake).toFixed(2)}</span>
+                </div>
+            </div>`;
+        }).join('');
+
+        // Update footer with totals
+        footer.innerHTML = `
+            <div class="slip-total">
+                <span>Total Stake</span>
+                <span>$${totalStake.toFixed(2)}</span>
             </div>
-        `).join('');
+            <div class="slip-total" style="border-bottom:none;padding-bottom:0">
+                <span>Total Payout</span>
+                <span class="slip-total-value">$${totalPayout.toFixed(2)}</span>
+            </div>
+            <button class="btn btn-primary btn-block" onclick="SBA.placeBets()" style="margin-top:8px">Track All Bets</button>
+            <button class="btn btn-outline btn-block" onclick="SBA.clearSlip()">Clear Slip</button>
+        `;
     },
 
     async placeBets() {
+        const btn = document.querySelector('.bet-slip-footer .btn-primary');
+        if (btn) {
+            btn.disabled = true;
+            btn.textContent = 'Tracking...';
+        }
+
         for (const bet of this.betSlip) {
             try {
                 await fetch('/api/bets/track', {
@@ -499,14 +688,20 @@ const SBA = {
         this.clearSlip();
     },
 
-    // ── Toasts ────────────────────────────────────────────────────────
+    // ── Toasts — Premium ──────────────────────────────────────────────
     toast(message, type = 'info') {
         const container = document.getElementById('toast-container');
         const toast = document.createElement('div');
         toast.className = `toast ${type}`;
-        toast.textContent = message;
+
+        const icons = { success: '&#10003;', error: '&#10007;', info: '&#8505;' };
+        toast.innerHTML = `<span class="toast-icon">${icons[type] || icons.info}</span> ${message}`;
+
         container.appendChild(toast);
-        setTimeout(() => toast.remove(), 4000);
+        setTimeout(() => {
+            toast.classList.add('removing');
+            setTimeout(() => toast.remove(), 300);
+        }, 3500);
     },
 
     // ── Toggle Bet Slip ───────────────────────────────────────────────

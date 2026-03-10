@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import csv
+import io
 import logging
 from datetime import datetime
 
 from fastapi import APIRouter, HTTPException, Query
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from sba.config import get_settings
@@ -116,7 +119,95 @@ class StatusResponse(BaseModel):
     api_credits: int | None
 
 
-# ── API Endpoints ─────────────────────────────────────────────────────
+class HealthResponse(BaseModel):
+    status: str
+    version: str
+    uptime: str
+    database: str
+
+
+class AnalyticsResponse(BaseModel):
+    by_market: dict[str, dict]
+    by_bookmaker: dict[str, dict]
+    daily_pnl: list[dict]
+    best_bet: dict | None
+    worst_bet: dict | None
+    streak: dict
+
+
+class SettingsResponse(BaseModel):
+    bankroll: float
+    kelly_fraction: float
+    ev_threshold: float
+    default_sport: str
+    refresh_interval: int
+
+
+class TrackBetRequest(BaseModel):
+    event_id: str
+    market: str
+    selection: str
+    odds_american: int
+    stake: float = 0
+    line: float | None = None
+    bookmaker: str = "manual"
+
+
+class SettleBetRequest(BaseModel):
+    status: str
+    profit_loss: float
+
+
+# ── Health & Status ─────────────────────────────────────────────
+
+_start_time = datetime.now()
+
+
+@router.get("/health", response_model=HealthResponse)
+def health_check():
+    """Health check endpoint for monitoring."""
+    uptime = datetime.now() - _start_time
+    hours, remainder = divmod(int(uptime.total_seconds()), 3600)
+    minutes, seconds = divmod(remainder, 60)
+
+    db_status = "healthy"
+    try:
+        init_db()
+        with get_connection() as conn:
+            conn.execute("SELECT 1")
+    except Exception:
+        db_status = "unhealthy"
+
+    return HealthResponse(
+        status="ok",
+        version="0.3.0",
+        uptime=f"{hours}h {minutes}m {seconds}s",
+        database=db_status,
+    )
+
+
+@router.get("/status", response_model=StatusResponse)
+def get_status():
+    """Get database and API status."""
+    init_db()
+    with get_connection() as conn:
+        events = conn.execute("SELECT COUNT(*) as c FROM events").fetchone()["c"]
+        snapshots = conn.execute("SELECT COUNT(*) as c FROM odds_snapshots").fetchone()["c"]
+        players = conn.execute("SELECT COUNT(*) as c FROM players").fetchone()["c"]
+        logs = conn.execute("SELECT COUNT(*) as c FROM player_game_logs").fetchone()["c"]
+        bets = conn.execute("SELECT COUNT(*) as c FROM bets").fetchone()["c"]
+
+    return StatusResponse(
+        events=events,
+        odds_snapshots=snapshots,
+        players=players,
+        game_logs=logs,
+        bets=bets,
+        api_credits=None,
+    )
+
+
+# ── Edge Finding ─────────────────────────────────────────────────────
 
 @router.get("/edges", response_model=list[EdgeResponse])
 def get_edges(
@@ -157,6 +248,8 @@ def get_edges(
     ]
 
 
+# ── Player Props ─────────────────────────────────────────────────────
+
 @router.get("/props", response_model=list[PropResponse])
 def get_props(
     sport: str = Query(None),
@@ -194,6 +287,8 @@ def get_props(
     ]
 
 
+# ── Events ───────────────────────────────────────────────────────────
+
 @router.get("/events", response_model=list[EventResponse])
 def get_events(sport: str = Query(None)):
     """Get upcoming events from the database."""
@@ -212,6 +307,8 @@ def get_events(sport: str = Query(None)):
         for e in events
     ]
 
+
+# ── Bet Tracking & Management ────────────────────────────────────────
 
 @router.get("/bets", response_model=BetSummaryResponse)
 def get_bets():
@@ -257,16 +354,6 @@ def get_bets():
     )
 
 
-class TrackBetRequest(BaseModel):
-    event_id: str
-    market: str
-    selection: str
-    odds_american: int
-    stake: float = 0
-    line: float | None = None
-    bookmaker: str = "manual"
-
-
 @router.post("/bets/track")
 def track_bet(req: TrackBetRequest):
     """Track a new bet."""
@@ -286,6 +373,166 @@ def track_bet(req: TrackBetRequest):
         bet_id = repo.insert_bet(conn, bet)
     return {"id": bet_id, "status": "tracked"}
 
+
+@router.put("/bets/{bet_id}/settle")
+def settle_bet(bet_id: int, req: SettleBetRequest):
+    """Settle a bet with result."""
+    if req.status not in ("won", "lost", "push"):
+        raise HTTPException(400, "Status must be 'won', 'lost', or 'push'")
+
+    init_db()
+    with get_connection() as conn:
+        repo.update_bet_result(conn, bet_id, req.status, req.profit_loss)
+    return {"id": bet_id, "status": req.status, "profit_loss": req.profit_loss}
+
+
+@router.delete("/bets/{bet_id}")
+def delete_bet(bet_id: int):
+    """Delete a tracked bet."""
+    init_db()
+    with get_connection() as conn:
+        conn.execute("DELETE FROM bets WHERE id = ?", (bet_id,))
+    return {"id": bet_id, "deleted": True}
+
+
+@router.get("/bets/export")
+def export_bets_csv():
+    """Export bet history as CSV file."""
+    init_db()
+    with get_connection() as conn:
+        bets = repo.get_bet_history(conn)
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow([
+        "ID", "Date", "Event", "Market", "Selection", "Line",
+        "Odds (American)", "Odds (Decimal)", "Stake", "Bookmaker",
+        "Status", "P/L", "Model Prob", "EV", "Kelly %",
+    ])
+    for b in bets:
+        writer.writerow([
+            b.id,
+            b.placed_at.isoformat() if b.placed_at else "",
+            b.event_id, b.market, b.selection, b.line or "",
+            b.odds_american, f"{b.odds_decimal:.3f}",
+            f"{b.recommended_stake:.2f}", b.bookmaker,
+            b.status, f"{b.profit_loss:.2f}",
+            f"{b.model_probability:.4f}", f"{b.expected_value:.4f}",
+            f"{b.kelly_fraction:.4f}",
+        ])
+
+    output.seek(0)
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=sba_bets_export.csv"},
+    )
+
+
+# ── Search ──────────────────────────────────────────────────────────
+
+@router.get("/search/players")
+def search_players(q: str = Query(..., min_length=2)):
+    """Search for players by name prefix."""
+    init_db()
+    with get_connection() as conn:
+        rows = conn.execute(
+            "SELECT name, team, position FROM players WHERE LOWER(name) LIKE ? LIMIT 10",
+            (f"%{q.lower()}%",),
+        ).fetchall()
+    return [{"name": r["name"], "team": r["team"], "position": r["position"]} for r in rows]
+
+
+# ── Analytics ────────────────────────────────────────────────────────
+
+@router.get("/analytics", response_model=AnalyticsResponse)
+def get_analytics():
+    """Get detailed betting analytics breakdown."""
+    init_db()
+    with get_connection() as conn:
+        bets = repo.get_bet_history(conn)
+
+    settled = [b for b in bets if b.status in ("won", "lost", "push")]
+
+    # Analytics by market
+    by_market: dict[str, dict] = {}
+    for b in settled:
+        m = b.market
+        if m not in by_market:
+            by_market[m] = {"bets": 0, "wins": 0, "profit": 0.0, "staked": 0.0}
+        by_market[m]["bets"] += 1
+        if b.status == "won":
+            by_market[m]["wins"] += 1
+        by_market[m]["profit"] += b.profit_loss
+        by_market[m]["staked"] += b.recommended_stake
+
+    for m in by_market:
+        by_market[m]["win_rate"] = round(by_market[m]["wins"] / max(by_market[m]["bets"], 1) * 100, 1)
+        by_market[m]["roi"] = round(by_market[m]["profit"] / max(by_market[m]["staked"], 1) * 100, 1)
+        by_market[m]["profit"] = round(by_market[m]["profit"], 2)
+        by_market[m]["staked"] = round(by_market[m]["staked"], 2)
+
+    # Analytics by bookmaker
+    by_bookmaker: dict[str, dict] = {}
+    for b in settled:
+        bk = b.bookmaker
+        if bk not in by_bookmaker:
+            by_bookmaker[bk] = {"bets": 0, "wins": 0, "profit": 0.0, "staked": 0.0}
+        by_bookmaker[bk]["bets"] += 1
+        if b.status == "won":
+            by_bookmaker[bk]["wins"] += 1
+        by_bookmaker[bk]["profit"] += b.profit_loss
+        by_bookmaker[bk]["staked"] += b.recommended_stake
+
+    for bk in by_bookmaker:
+        by_bookmaker[bk]["win_rate"] = round(by_bookmaker[bk]["wins"] / max(by_bookmaker[bk]["bets"], 1) * 100, 1)
+        by_bookmaker[bk]["roi"] = round(by_bookmaker[bk]["profit"] / max(by_bookmaker[bk]["staked"], 1) * 100, 1)
+        by_bookmaker[bk]["profit"] = round(by_bookmaker[bk]["profit"], 2)
+        by_bookmaker[bk]["staked"] = round(by_bookmaker[bk]["staked"], 2)
+
+    # Daily P/L timeline
+    daily_pnl: dict[str, float] = {}
+    for b in settled:
+        if b.placed_at:
+            day = b.placed_at.strftime("%Y-%m-%d")
+            daily_pnl[day] = round(daily_pnl.get(day, 0) + b.profit_loss, 2)
+
+    daily_pnl_list = [{"date": d, "pnl": v} for d, v in sorted(daily_pnl.items())]
+
+    # Best and worst bets
+    best = max(settled, key=lambda b: b.profit_loss) if settled else None
+    worst = min(settled, key=lambda b: b.profit_loss) if settled else None
+
+    def bet_summary(b):
+        return {
+            "selection": b.selection, "market": b.market,
+            "odds": b.odds_american, "profit_loss": round(b.profit_loss, 2),
+            "bookmaker": b.bookmaker,
+        }
+
+    # Current streak
+    streak_type = ""
+    streak_count = 0
+    for b in sorted(settled, key=lambda x: x.placed_at or datetime.min, reverse=True):
+        if not streak_type:
+            streak_type = b.status
+            streak_count = 1
+        elif b.status == streak_type:
+            streak_count += 1
+        else:
+            break
+
+    return AnalyticsResponse(
+        by_market=by_market,
+        by_bookmaker=by_bookmaker,
+        daily_pnl=daily_pnl_list,
+        best_bet=bet_summary(best) if best else None,
+        worst_bet=bet_summary(worst) if worst else None,
+        streak={"type": streak_type, "count": streak_count},
+    )
+
+
+# ── Players ──────────────────────────────────────────────────────────
 
 @router.get("/players/{name}", response_model=PlayerProfileResponse | None)
 def get_player(name: str):
@@ -322,26 +569,7 @@ def get_player(name: str):
     )
 
 
-@router.get("/status", response_model=StatusResponse)
-def get_status():
-    """Get database and API status."""
-    init_db()
-    with get_connection() as conn:
-        events = conn.execute("SELECT COUNT(*) as c FROM events").fetchone()["c"]
-        snapshots = conn.execute("SELECT COUNT(*) as c FROM odds_snapshots").fetchone()["c"]
-        players = conn.execute("SELECT COUNT(*) as c FROM players").fetchone()["c"]
-        logs = conn.execute("SELECT COUNT(*) as c FROM player_game_logs").fetchone()["c"]
-        bets = conn.execute("SELECT COUNT(*) as c FROM bets").fetchone()["c"]
-
-    return StatusResponse(
-        events=events,
-        odds_snapshots=snapshots,
-        players=players,
-        game_logs=logs,
-        bets=bets,
-        api_credits=None,
-    )
-
+# ── Line Movement ───────────────────────────────────────────────────
 
 @router.get("/line-movement/{event_id}")
 def get_line_movement(event_id: str, market: str = Query("h2h")):
@@ -359,3 +587,18 @@ def get_line_movement(event_id: str, market: str = Query("h2h")):
         }
         for s in snapshots
     ]
+
+
+# ── Settings ─────────────────────────────────────────────────────────
+
+@router.get("/settings", response_model=SettingsResponse)
+def get_settings_endpoint():
+    """Get current app settings."""
+    settings = get_settings()
+    return SettingsResponse(
+        bankroll=settings.BANKROLL,
+        kelly_fraction=settings.KELLY_FRACTION,
+        ev_threshold=settings.EV_THRESHOLD,
+        default_sport=settings.DEFAULT_SPORT,
+        refresh_interval=settings.REFRESH_INTERVAL_SECONDS,
+    )

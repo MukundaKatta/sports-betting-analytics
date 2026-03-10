@@ -1,0 +1,16 @@
+{
+  "name": "Sports Betting Analytics",
+  "short_name": "SBA",
+  "description": "ML-powered sports betting analytics platform",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0e17",
+  "theme_color": "#0a0e17",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><defs><linearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'><stop offset='0%25' stop-color='%2300e68a'/><stop offset='100%25' stop-color='%235b9aff'/></linearGradient></defs><rect width='100' height='100' rx='20' fill='url(%23g)'/><text x='50' y='68' text-anchor='middle' fill='%230a0e17' font-family='sans-serif' font-weight='800' font-size='40'>SBA</text></svg>",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

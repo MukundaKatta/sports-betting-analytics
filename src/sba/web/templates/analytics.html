@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}Analytics{% endblock %}
+
+{% block content %}
+<h1 class="page-title">
+    Analytics
+    <span class="badge">Pro</span>
+</h1>
+
+<!-- Summary Stats -->
+<div class="stats-grid" id="analytics-summary">
+    <div class="stat-card green">
+        <div class="stat-label">Total P/L</div>
+        <div class="stat-value">—</div>
+    </div>
+    <div class="stat-card blue">
+        <div class="stat-label">Win Rate</div>
+        <div class="stat-value">—</div>
+    </div>
+    <div class="stat-card yellow">
+        <div class="stat-label">ROI</div>
+        <div class="stat-value">—</div>
+    </div>
+    <div class="stat-card purple">
+        <div class="stat-label">Current Streak</div>
+        <div class="stat-value">—</div>
+    </div>
+</div>
+
+<div class="dashboard-grid">
+    <!-- P/L Timeline Chart -->
+    <div class="card full-width">
+        <div class="card-header">
+            <h3>
+                <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+                Cumulative P/L Over Time
+            </h3>
+        </div>
+        <div class="card-body padded" id="pnl-chart-container">
+            <div class="loading-spinner"><div class="spinner"></div> Loading chart data...</div>
+        </div>
+    </div>
+
+    <!-- Performance by Market -->
+    <div class="card">
+        <div class="card-header">
+            <h3>
+                <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><rect x="2" y="3" width="20" height="18" rx="2"/><line x1="2" y1="9" x2="22" y2="9"/></svg>
+                By Market
+            </h3>
+        </div>
+        <div class="card-body" id="market-breakdown">
+            <div class="loading-spinner"><div class="spinner"></div> Loading...</div>
+        </div>
+    </div>
+
+    <!-- Performance by Bookmaker -->
+    <div class="card">
+        <div class="card-header">
+            <h3>
+                <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                By Bookmaker
+            </h3>
+        </div>
+        <div class="card-body" id="bookmaker-breakdown">
+            <div class="loading-spinner"><div class="spinner"></div> Loading...</div>
+        </div>
+    </div>
+
+    <!-- Best & Worst Bets -->
+    <div class="card full-width">
+        <div class="card-header">
+            <h3>
+                <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                Notable Bets
+            </h3>
+        </div>
+        <div class="card-body padded" id="notable-bets">
+            <div class="loading-spinner"><div class="spinner"></div> Loading...</div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', () => SBA.loadAnalytics());
+</script>
+{% endblock %}

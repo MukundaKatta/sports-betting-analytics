@@ -33,6 +33,21 @@ def bets_page(request: Request):
     return templates.TemplateResponse(request, "bets.html")
 
 
+@router.get("/analytics")
+def analytics_page(request: Request):
+    return templates.TemplateResponse(request, "analytics.html")
+
+
+@router.get("/settings")
+def settings_page(request: Request):
+    return templates.TemplateResponse(request, "settings.html")
+
+
+@router.get("/line-movement")
+def line_movement_page(request: Request):
+    return templates.TemplateResponse(request, "line-movement.html")
+
+
 @router.get("/player/{name}")
 def player_page(request: Request, name: str):
     return templates.TemplateResponse(request, "player.html", {"player_name": name})

@@ -2,7 +2,19 @@
 {% block title %}My Bets{% endblock %}
 
 {% block content %}
-<h1 class="page-title">My Bets</h1>
+<h1 class="page-title">
+    My Bets
+    <div style="margin-left:auto;display:flex;gap:8px">
+        <a href="/api/bets/export" class="btn btn-outline btn-sm" style="font-size:12px" download>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Export CSV
+        </a>
+        <a href="/analytics" class="btn btn-outline btn-sm" style="font-size:12px">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/></svg>
+            View Analytics
+        </a>
+    </div>
+</h1>
 
 <div class="stats-grid" id="bets-summary">
     <div class="stat-card green">
@@ -43,10 +55,11 @@
                         <th class="right sortable" onclick="SBA.sortTable('bets-table-body', 5)">Book</th>
                         <th class="center sortable" onclick="SBA.sortTable('bets-table-body', 6)">Status</th>
                         <th class="right sortable" onclick="SBA.sortTable('bets-table-body', 7, 'number')">P/L</th>
+                        <th class="center">Actions</th>
                     </tr>
                 </thead>
                 <tbody id="bets-table-body">
-                    <tr><td colspan="8" class="loading-spinner"><div class="spinner"></div> Loading bet history...</td></tr>
+                    <tr><td colspan="9" class="loading-spinner"><div class="spinner"></div> Loading bet history...</td></tr>
                 </tbody>
             </table>
         </div>

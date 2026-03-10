@@ -2,9 +2,14 @@
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime
 
+import httpx
+
 from sba.data.clients.base import BaseAPIClient
+
+logger = logging.getLogger(__name__)
 from sba.models.domain import BookmakerOdds, Event, EventOdds, Outcome, Sport
 from sba.utils.odds_math import american_to_decimal, decimal_to_american
 
@@ -44,7 +49,8 @@ class OddsAPIClient(BaseAPIClient):
         try:
             data = self.fetch(f"/sports/{sport}/events/{event_id}/odds", params)
             return self._parse_event_odds(data, sport)
-        except Exception:
+        except (httpx.HTTPError, KeyError, ValueError) as exc:
+            logger.debug("Failed to fetch event odds for %s: %s", event_id, exc)
             return None
 
     def get_scores(self, sport: str, days_from: int = 1) -> list[Event]:

@@ -334,6 +334,7 @@ CREATE INDEX IF NOT EXISTS idx_events_sport ON events(sport);
 CREATE INDEX IF NOT EXISTS idx_bankroll_date ON bankroll_log(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_closing_lines_bet ON closing_lines(bet_id);
 CREATE INDEX IF NOT EXISTS idx_players_name ON players(name COLLATE NOCASE);
+CREATE INDEX IF NOT EXISTS idx_bets_status_settled ON bets(status, settled_at);
 CREATE INDEX IF NOT EXISTS idx_odds_event_time ON odds_snapshots(event_id, market, snapshot_time DESC);
 CREATE INDEX IF NOT EXISTS idx_sharp_moves_event ON sharp_moves(event_id, detected_at);
 CREATE INDEX IF NOT EXISTS idx_public_picks_user ON public_picks(username, created_at);

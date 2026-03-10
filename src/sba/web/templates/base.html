@@ -135,6 +135,9 @@
     <!-- Toast Container -->
     <div class="toast-container" id="toast-container"></div>
 
+    <!-- Command Palette Backdrop -->
+    <div id="cmd-backdrop" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);backdrop-filter:blur(4px);z-index:999;opacity:0;pointer-events:none;transition:opacity 0.2s"></div>
+
     <script src="/static/js/app.js"></script>
     {% block scripts %}{% endblock %}
 </body>

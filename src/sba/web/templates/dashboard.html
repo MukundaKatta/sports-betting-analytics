@@ -7,6 +7,14 @@
     <span class="badge">Live</span>
 </h1>
 
+<!-- Live Activity Ticker -->
+<div class="live-ticker" id="live-ticker">
+    <div class="ticker-label"><span class="ticker-dot"></span> LIVE</div>
+    <div class="ticker-content" id="ticker-content">
+        <span class="ticker-item">System online &middot; Ready to scan edges</span>
+    </div>
+</div>
+
 <div class="stats-grid" id="dashboard-stats">
     <div class="stat-card green">
         <div class="stat-label">Events Tracked</div>
@@ -152,10 +160,10 @@
 
 <!-- Keyboard shortcuts hint -->
 <div style="margin-top:24px;display:flex;gap:16px;justify-content:center;flex-wrap:wrap">
-    <span class="text-dim" style="font-size:11px"><span class="kbd">/</span> Search players</span>
-    <span class="text-dim" style="font-size:11px"><span class="kbd">B</span> Toggle bet slip</span>
-    <span class="text-dim" style="font-size:11px"><span class="kbd">T</span> Toggle theme</span>
-    <span class="text-dim" style="font-size:11px"><span class="kbd">Esc</span> Close panels</span>
+    <span class="text-dim" style="font-size:11px"><span class="kbd">Ctrl+K</span> Command palette</span>
+    <span class="text-dim" style="font-size:11px"><span class="kbd">/</span> Search</span>
+    <span class="text-dim" style="font-size:11px"><span class="kbd">G</span> then <span class="kbd">D</span> Navigate</span>
+    <span class="text-dim" style="font-size:11px"><span class="kbd">?</span> All shortcuts</span>
 </div>
 {% endblock %}
 

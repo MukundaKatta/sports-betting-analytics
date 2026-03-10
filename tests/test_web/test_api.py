@@ -50,7 +50,7 @@ class TestHealthEndpoint:
         assert resp.status_code == 200
         data = resp.json()
         assert data["status"] == "ok"
-        assert data["version"] == "0.3.0"
+        assert data["version"] == "0.4.0"
         assert data["database"] == "healthy"
         assert "uptime" in data
 
@@ -320,3 +320,52 @@ class TestOddsComparisonPage:
         resp = client.get("/odds-comparison")
         assert resp.status_code == 200
         assert "Odds Comparison" in resp.text
+
+
+class TestSimulatorEndpoint:
+    def test_simulate_default(self, client):
+        resp = client.post("/api/simulate", json={})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "percentiles" in data
+        assert "summary" in data
+        assert "p50" in data["percentiles"]
+        assert data["summary"]["profitable_pct"] >= 0
+
+    def test_simulate_custom(self, client):
+        resp = client.post("/api/simulate", json={
+            "bankroll": 5000,
+            "num_bets": 50,
+            "avg_odds": 150,
+            "win_rate": 0.45,
+            "kelly_fraction": 0.1,
+            "simulations": 10,
+        })
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["simulations"] == 10
+        assert data["num_bets"] == 50
+        assert len(data["percentiles"]["p50"]) == 51  # 0 to 50
+
+
+class TestLiveOddsEndpoint:
+    def test_live_odds_returns_list(self, client):
+        resp = client.get("/api/live-odds")
+        assert resp.status_code == 200
+        assert isinstance(resp.json(), list)
+
+    def test_live_odds_with_limit(self, client):
+        resp = client.get("/api/live-odds?limit=5")
+        assert resp.status_code == 200
+
+
+class TestNewPages:
+    def test_simulator_page_loads(self, client):
+        resp = client.get("/simulator")
+        assert resp.status_code == 200
+        assert "Simulator" in resp.text
+
+    def test_live_feed_page_loads(self, client):
+        resp = client.get("/live-feed")
+        assert resp.status_code == 200
+        assert "Live" in resp.text

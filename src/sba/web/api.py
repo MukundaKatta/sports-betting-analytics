@@ -188,7 +188,7 @@ def health_check():
 
     return HealthResponse(
         status="ok",
-        version="0.3.0",
+        version="0.4.0",
         uptime=f"{hours}h {minutes}m {seconds}s",
         database=db_status,
     )
@@ -694,3 +694,110 @@ def clear_alerts():
     """Clear all alerts."""
     _alerts.clear()
     return {"cleared": True}
+
+
+# ── Bankroll Simulator ─────────────────────────────────────────────
+
+class SimulationRequest(BaseModel):
+    bankroll: float = 1000
+    num_bets: int = 100
+    avg_odds: int = -110
+    win_rate: float = 0.53
+    kelly_fraction: float = 0.25
+    simulations: int = 50
+
+
+@router.post("/simulate")
+def run_simulation(req: SimulationRequest):
+    """Run Monte Carlo bankroll simulation."""
+    import random
+
+    random.seed(42)
+    results = []
+
+    # Convert American odds to decimal payout
+    if req.avg_odds > 0:
+        payout_mult = req.avg_odds / 100
+    else:
+        payout_mult = 100 / abs(req.avg_odds)
+
+    for _ in range(req.simulations):
+        bankroll = req.bankroll
+        path = [bankroll]
+        for _ in range(req.num_bets):
+            stake = bankroll * req.kelly_fraction * 0.1  # scaled kelly
+            if stake <= 0:
+                path.append(bankroll)
+                continue
+            if random.random() < req.win_rate:
+                bankroll += stake * payout_mult
+            else:
+                bankroll -= stake
+            path.append(round(bankroll, 2))
+        results.append(path)
+
+    # Calculate percentiles
+    num_steps = req.num_bets + 1
+    p10 = []
+    p25 = []
+    p50 = []
+    p75 = []
+    p90 = []
+    for i in range(num_steps):
+        vals = sorted(r[i] for r in results)
+        n = len(vals)
+        p10.append(round(vals[int(n * 0.1)], 2))
+        p25.append(round(vals[int(n * 0.25)], 2))
+        p50.append(round(vals[int(n * 0.5)], 2))
+        p75.append(round(vals[int(n * 0.75)], 2))
+        p90.append(round(vals[int(n * 0.9)], 2))
+
+    final_values = [r[-1] for r in results]
+    profitable = sum(1 for v in final_values if v > req.bankroll)
+
+    return {
+        "percentiles": {"p10": p10, "p25": p25, "p50": p50, "p75": p75, "p90": p90},
+        "summary": {
+            "median_final": round(p50[-1], 2),
+            "best_case": round(max(final_values), 2),
+            "worst_case": round(min(final_values), 2),
+            "profitable_pct": round(profitable / req.simulations * 100, 1),
+            "median_roi": round((p50[-1] - req.bankroll) / req.bankroll * 100, 1),
+        },
+        "simulations": req.simulations,
+        "num_bets": req.num_bets,
+    }
+
+
+# ── Live Odds Feed ─────────────────────────────────────────────────
+
+@router.get("/live-odds")
+def get_live_odds(limit: int = Query(20)):
+    """Get most recent odds snapshots as a live feed."""
+    init_db()
+    with get_connection() as conn:
+        rows = conn.execute("""
+            SELECT os.bookmaker, os.outcome_name, os.price_american, os.price_decimal,
+                   os.outcome_point, os.snapshot_time,
+                   e.home_team, e.away_team, e.sport, os.market
+            FROM odds_snapshots os
+            JOIN events e ON os.event_id = e.id
+            ORDER BY os.snapshot_time DESC
+            LIMIT ?
+        """, (limit,)).fetchall()
+
+    return [
+        {
+            "bookmaker": r["bookmaker"],
+            "outcome": r["outcome_name"],
+            "odds_american": r["price_american"],
+            "odds_decimal": round(r["price_decimal"], 3),
+            "line": r["outcome_point"],
+            "time": str(r["snapshot_time"])[:19] if r["snapshot_time"] else "",
+            "home_team": r["home_team"],
+            "away_team": r["away_team"],
+            "sport": r["sport"],
+            "market": r["market"],
+        }
+        for r in rows
+    ]

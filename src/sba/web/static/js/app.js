@@ -40,11 +40,20 @@ const SBA = {
     // ── Navigation ────────────────────────────────────────────────────
     highlightActiveNav() {
         const path = window.location.pathname;
+        // Sidebar nav
         document.querySelectorAll('.nav-link').forEach(link => {
             link.classList.remove('active');
             const href = link.getAttribute('href');
             if (path === href || (path === '/' && href === '/')) {
                 link.classList.add('active');
+            }
+        });
+        // Mobile bottom nav
+        document.querySelectorAll('.mobile-nav-item').forEach(item => {
+            item.classList.remove('active');
+            const href = item.getAttribute('href');
+            if (path === href || (path === '/' && href === '/')) {
+                item.classList.add('active');
             }
         });
     },
@@ -535,6 +544,8 @@ const SBA = {
     async loadDashboard() {
         // Populate live ticker
         this.loadTicker();
+        // Load onboarding progress
+        this.loadOnboarding();
 
         // Load status with count-up animations
         try {
@@ -1393,6 +1404,8 @@ const SBA = {
         { name: 'Go to Line Movement', icon: 'activity', action: () => location.href = '/line-movement', keys: 'G L' },
         { name: 'Go to Odds Comparison', icon: 'grid', action: () => location.href = '/odds-comparison', keys: 'G O' },
         { name: 'Go to Settings', icon: 'settings', action: () => location.href = '/settings', keys: 'G S' },
+        { name: 'Go to Live Feed', icon: 'activity', action: () => location.href = '/live-feed', keys: 'G F' },
+        { name: 'Go to Simulator', icon: 'trending', action: () => location.href = '/simulator', keys: 'G M' },
         { name: 'Toggle Dark/Light Theme', icon: 'theme', action: () => SBA.toggleTheme(), keys: 'T' },
         { name: 'Toggle Bet Slip', icon: 'slip', action: () => SBA.toggleSlip(), keys: 'B' },
         { name: 'Focus Search', icon: 'search', action: () => document.getElementById('player-search')?.focus(), keys: '/' },
@@ -1546,6 +1559,41 @@ const SBA = {
             document.body.appendChild(modal);
         }
         setTimeout(() => modal.classList.add('open'), 10);
+    },
+
+    // ── Onboarding Progress ────────────────────────────────────────────
+    async loadOnboarding() {
+        const el = document.getElementById('onboarding-progress');
+        if (!el) return;
+        try {
+            const resp = await fetch('/api/status');
+            const status = await resp.json();
+            const steps = [
+                { label: 'Sync Data', done: status.events > 0 },
+                { label: 'Backfill Players', done: status.players > 0 },
+                { label: 'Train Models', done: status.game_logs > 0 },
+                { label: 'Find Edges', done: status.bets > 0 },
+            ];
+            const completedCount = steps.filter(s => s.done).length;
+            if (completedCount === steps.length) {
+                el.style.display = 'none';
+                return;
+            }
+            el.innerHTML = `
+                <span class="text-dim" style="font-size:11px;white-space:nowrap;font-weight:600">Setup</span>
+                ${steps.map((s, i) => {
+                    const cls = s.done ? 'completed' : (i === completedCount ? 'active' : '');
+                    return `${i > 0 ? `<div class="onboarding-connector ${s.done ? 'completed' : ''}"></div>` : ''}
+                        <div class="onboarding-step ${cls}">
+                            <div class="onboarding-step-check">${s.done ? '&#10003;' : i + 1}</div>
+                            <span>${s.label}</span>
+                        </div>`;
+                }).join('')}
+                <span class="text-dim" style="font-size:11px;margin-left:auto">${completedCount}/${steps.length}</span>
+            `;
+        } catch {
+            el.style.display = 'none';
+        }
     },
 
     // ── Live Ticker ────────────────────────────────────────────────────

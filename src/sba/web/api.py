@@ -6,6 +6,7 @@ import csv
 import io
 import logging
 from datetime import datetime
+from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import StreamingResponse
@@ -542,7 +543,7 @@ def get_analytics():
 
 # ── Players ──────────────────────────────────────────────────────────
 
-@router.get("/players/{name}", response_model=PlayerProfileResponse | None)
+@router.get("/players/{name}", response_model=Optional[PlayerProfileResponse])
 def get_player(name: str):
     """Get player profile and recent stats."""
     from sba.services.prop_analyzer import PropAnalyzer

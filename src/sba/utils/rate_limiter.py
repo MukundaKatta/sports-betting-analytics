@@ -11,9 +11,11 @@ class RateLimiter:
         self.max_calls = max_calls
         self.period = period
         self.calls: list[float] = []
-        self._lock = asyncio.Lock()
+        self._lock: asyncio.Lock | None = None
 
     async def acquire(self):
+        if self._lock is None:
+            self._lock = asyncio.Lock()
         async with self._lock:
             now = time.monotonic()
             # Remove expired timestamps

@@ -2765,7 +2765,6 @@ const SBA = {
             </div>
         `;
     },
-};
 
     // ── NProgress-style Top Loading Bar ──────────────────────────────
     setupProgressBar() {

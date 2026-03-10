@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<h1 class="page-title">
+    Dashboard
+    <span class="badge">Live</span>
+</h1>
+
+<div class="stats-grid" id="dashboard-stats">
+    <div class="stat-card green">
+        <div class="stat-label">Events Tracked</div>
+        <div class="stat-value">—</div>
+        <div class="stat-sub">across all sports</div>
+    </div>
+    <div class="stat-card blue">
+        <div class="stat-label">Odds Snapshots</div>
+        <div class="stat-value">—</div>
+        <div class="stat-sub">historical data points</div>
+    </div>
+    <div class="stat-card yellow">
+        <div class="stat-label">Players</div>
+        <div class="stat-value">—</div>
+        <div class="stat-sub">with game logs</div>
+    </div>
+    <div class="stat-card purple">
+        <div class="stat-label">Game Logs</div>
+        <div class="stat-value">—</div>
+        <div class="stat-sub">for ML training</div>
+    </div>
+</div>
+
+<div class="dashboard-grid">
+    <!-- Quick Edge Scan -->
+    <div class="card">
+        <div class="card-header">
+            <h3>
+                <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+                Quick Edge Scan
+            </h3>
+            <button class="btn btn-scan btn-sm" onclick="SBA.loadEdges(null, 'h2h,spreads,totals', null); this.textContent='Scanning...'">
+                Scan Now
+            </button>
+        </div>
+        <div class="card-body">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Event</th>
+                        <th>Selection</th>
+                        <th class="right">Odds</th>
+                        <th class="right">EV</th>
+                        <th class="right">Stake</th>
+                    </tr>
+                </thead>
+                <tbody id="edges-table-body">
+                    <tr><td colspan="5" class="empty-state" style="padding:40px 20px">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="36" height="36"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+                        <p>Click "Scan Now" to find +EV opportunities</p>
+                    </td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Bet Performance -->
+    <div class="card">
+        <div class="card-header">
+            <h3>
+                <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><rect x="2" y="3" width="20" height="18" rx="2"/><line x1="2" y1="9" x2="22" y2="9"/></svg>
+                Bet Performance
+            </h3>
+            <a href="/my-bets" class="btn btn-outline btn-sm">View All</a>
+        </div>
+        <div class="card-body" id="dashboard-bets">
+            <div class="loading-spinner"><div class="spinner"></div> Loading...</div>
+        </div>
+    </div>
+
+    <!-- Getting Started -->
+    <div class="card full-width">
+        <div class="card-header">
+            <h3>
+                <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                Getting Started
+            </h3>
+        </div>
+        <div class="card-body padded">
+            <div class="steps-grid">
+                <div class="step-card">
+                    <div class="step-number" style="background:var(--accent-green-dim);color:var(--accent-green)">1</div>
+                    <div class="step-title" style="color:var(--accent-green)">Sync Data</div>
+                    <code class="step-code">sba data sync</code>
+                    <p class="step-desc">Fetch live odds from 20+ sportsbooks via The Odds API</p>
+                </div>
+                <div class="step-card">
+                    <div class="step-number" style="background:var(--accent-blue-dim);color:var(--accent-blue)">2</div>
+                    <div class="step-title" style="color:var(--accent-blue)">Backfill Players</div>
+                    <code class="step-code">sba data backfill --player "LeBron James"</code>
+                    <p class="step-desc">Import historical game logs for ML model training</p>
+                </div>
+                <div class="step-card">
+                    <div class="step-number" style="background:var(--accent-yellow-dim);color:var(--accent-yellow)">3</div>
+                    <div class="step-title" style="color:var(--accent-yellow)">Train Models</div>
+                    <code class="step-code">sba models train --player "LeBron James"</code>
+                    <p class="step-desc">Train XGBoost prop prediction models with cross-validation</p>
+                </div>
+                <div class="step-card">
+                    <div class="step-number" style="background:var(--accent-purple-dim);color:var(--accent-purple)">4</div>
+                    <div class="step-title" style="color:var(--accent-purple)">Find Edges</div>
+                    <code class="step-code">Click "Scan Now" or visit Edge Finder</code>
+                    <p class="step-desc">Surface +EV opportunities using Kelly criterion sizing</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Keyboard shortcuts hint -->
+<div style="margin-top:24px;display:flex;gap:16px;justify-content:center;flex-wrap:wrap">
+    <span class="text-dim" style="font-size:11px"><span class="kbd">/</span> Search players</span>
+    <span class="text-dim" style="font-size:11px"><span class="kbd">B</span> Toggle bet slip</span>
+    <span class="text-dim" style="font-size:11px"><span class="kbd">Esc</span> Close panels</span>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', () => SBA.loadDashboard());
+</script>
+{% endblock %}

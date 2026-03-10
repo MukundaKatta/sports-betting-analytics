@@ -1,7 +1,10 @@
 """Main CLI application."""
 
+import logging
+
 import typer
 from rich.console import Console
+from rich.logging import RichHandler
 
 from sba.cli.commands.edge import edge_app
 from sba.cli.commands.props import props_app
@@ -24,17 +27,51 @@ app.command("monitor")(monitor_command)
 console = Console()
 
 
+@app.command("web")
+def web_command(
+    host: str = typer.Option("0.0.0.0", "--host", "-h", help="Bind host"),
+    port: int = typer.Option(8000, "--port", "-p", help="Bind port"),
+    reload: bool = typer.Option(False, "--reload", help="Auto-reload on changes"),
+):
+    """Launch the web dashboard."""
+    import uvicorn
+
+    console.print(f"[bold green]Starting SBA Web Dashboard[/bold green]")
+    console.print(f"[dim]Open http://localhost:{port} in your browser[/dim]\n")
+    uvicorn.run(
+        "sba.web.app:app",
+        host=host,
+        port=port,
+        reload=reload,
+        log_level="info",
+    )
+
+
+def _setup_logging(level: str = "INFO"):
+    """Configure structured logging with Rich output."""
+    logging.basicConfig(
+        level=getattr(logging, level.upper(), logging.INFO),
+        format="%(message)s",
+        datefmt="[%X]",
+        handlers=[RichHandler(console=console, rich_tracebacks=True, show_path=False)],
+    )
+
+
 @app.command("version")
 def version():
     """Show version."""
     from sba import __version__
+
     console.print(f"sba v{__version__}")
 
 
 @app.callback()
 def callback():
     """Sports Betting Analytics — Find +EV opportunities and analyze player props."""
-    pass
+    from sba.config import get_settings
+
+    settings = get_settings()
+    _setup_logging(settings.LOG_LEVEL)
 
 
 def main():

@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}{{ player_name }}{% endblock %}
+
+{% block content %}
+<div id="player-content">
+    <div class="loading-spinner"><div class="spinner"></div> Loading player data...</div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', () => SBA.loadPlayer('{{ player_name }}'));
+</script>
+{% endblock %}

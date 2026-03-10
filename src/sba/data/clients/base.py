@@ -24,6 +24,7 @@ class BaseAPIClient:
         url = f"{self.BASE_URL}{endpoint}"
         headers = self._get_headers()
 
+        last_exc: Exception | None = None
         for attempt in range(3):
             try:
                 with httpx.Client(timeout=30.0) as client:
@@ -36,12 +37,16 @@ class BaseAPIClient:
                     wait = 2 ** attempt * 5
                     logger.warning(f"Rate limited, waiting {wait}s")
                     time.sleep(wait)
+                    last_exc = e
                     continue
                 raise
             except httpx.RequestError as e:
+                last_exc = e
                 if attempt == 2:
                     raise
+                logger.warning(f"Request error (attempt {attempt + 1}/3): {e}")
                 time.sleep(2 ** attempt)
+        raise RuntimeError(f"All retry attempts failed for {endpoint}") from last_exc
 
     def _get_headers(self) -> dict:
         return {}

@@ -10,7 +10,6 @@ from sba.data.clients.odds_api import OddsAPIClient
 from sba.data.clients.balldontlie import BallDontLieClient
 from sba.data.db import get_connection, init_db
 from sba.data.db.repository import Repository
-from sba.models.domain import OddsSnapshot
 
 logger = logging.getLogger(__name__)
 
@@ -30,24 +29,10 @@ class DataSyncer:
             regions=self.settings.DEFAULT_REGION,
             markets=markets,
         )
-        count = 0
         with get_connection() as conn:
-            for eo in events_odds:
-                self.repo.upsert_event(conn, eo.event)
-                for bm_odds in eo.bookmakers:
-                    for outcome in bm_odds.outcomes:
-                        self.repo.insert_odds_snapshot(conn, OddsSnapshot(
-                            event_id=eo.event.id,
-                            bookmaker=bm_odds.bookmaker,
-                            market=bm_odds.market,
-                            outcome_name=outcome.name,
-                            outcome_point=outcome.point,
-                            price_american=outcome.price_american,
-                            price_decimal=outcome.price_decimal,
-                        ))
-                count += 1
-        logger.info(f"Synced odds for {count} events")
-        return count
+            self.repo.store_event_odds(conn, events_odds)
+        logger.info(f"Synced odds for {len(events_odds)} events")
+        return len(events_odds)
 
     def sync_scores(self, sport: str) -> int:
         """Fetch scores and update completed events. Returns count updated."""

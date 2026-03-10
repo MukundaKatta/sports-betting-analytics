@@ -6,7 +6,7 @@ import json
 from datetime import datetime, date
 
 from sba.models.domain import (
-    Event, OddsSnapshot, Player, PlayerGameLog, TrackedBet,
+    Event, EventOdds, OddsSnapshot, Player, PlayerGameLog, TrackedBet,
 )
 
 
@@ -49,6 +49,22 @@ class Repository:
              snapshot.outcome_name, snapshot.outcome_point,
              snapshot.price_american, snapshot.price_decimal),
         )
+
+    def store_event_odds(self, conn, events_odds: list[EventOdds]):
+        """Store events and all their odds snapshots in one call."""
+        for eo in events_odds:
+            self.upsert_event(conn, eo.event)
+            for bm in eo.bookmakers:
+                for outcome in bm.outcomes:
+                    self.insert_odds_snapshot(conn, OddsSnapshot(
+                        event_id=eo.event.id,
+                        bookmaker=bm.bookmaker,
+                        market=bm.market,
+                        outcome_name=outcome.name,
+                        outcome_point=outcome.point,
+                        price_american=outcome.price_american,
+                        price_decimal=outcome.price_decimal,
+                    ))
 
     def get_latest_odds(self, conn, event_id: str, market: str) -> list[OddsSnapshot]:
         rows = conn.execute(
@@ -107,11 +123,18 @@ class Repository:
         )
 
     def get_player_logs(self, conn, player_id: int, last_n: int | None = None) -> list[PlayerGameLog]:
-        query = """SELECT * FROM player_game_logs
-                   WHERE player_id = ? ORDER BY game_date DESC"""
         if last_n:
-            query += f" LIMIT {last_n}"
-        rows = conn.execute(query, (player_id,)).fetchall()
+            rows = conn.execute(
+                """SELECT * FROM player_game_logs
+                   WHERE player_id = ? ORDER BY game_date DESC LIMIT ?""",
+                (player_id, last_n),
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                """SELECT * FROM player_game_logs
+                   WHERE player_id = ? ORDER BY game_date DESC""",
+                (player_id,),
+            ).fetchall()
         return [self._row_to_game_log(r) for r in rows]
 
     # --- Bets ---

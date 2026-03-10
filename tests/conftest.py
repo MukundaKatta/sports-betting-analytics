@@ -1,9 +1,13 @@
 """Shared test fixtures."""
 
+import os
 import sqlite3
 from datetime import date, datetime
 
 import pytest
+
+# Disable rate limiting during tests
+os.environ["SBA_RATE_LIMIT"] = "0"
 
 from sba.data.db.repository import Repository
 from sba.data.db.schema import SCHEMA_SQL

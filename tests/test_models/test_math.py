@@ -1,13 +1,17 @@
 """Tests for odds math, EV, Kelly, and Poisson calculations."""
 
 import pytest
-from sba.utils.odds_math import (
-    american_to_decimal, decimal_to_american,
-    american_to_implied_prob, remove_vig, calculate_vig,
-)
-from sba.models.statistical.kelly import full_kelly, fractional_kelly, kelly_stake
+
 from sba.models.statistical.ev import calculate_ev
-from sba.models.statistical.poisson import poisson_prob, over_under_prob
+from sba.models.statistical.kelly import fractional_kelly, full_kelly, kelly_stake
+from sba.models.statistical.poisson import over_under_prob, poisson_prob
+from sba.utils.odds_math import (
+    american_to_decimal,
+    american_to_implied_prob,
+    calculate_vig,
+    decimal_to_american,
+    remove_vig,
+)
 
 
 class TestOddsMath:

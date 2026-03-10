@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import pandas as pd
-import numpy as np
+
 from sba.models.domain import PlayerGameLog
 
 # Map prop market names to stat column names

@@ -1,12 +1,8 @@
 """Tests for the new store_event_odds repository method."""
 
-import sqlite3
-import pytest
 from datetime import datetime
 
-from sba.data.db.schema import SCHEMA_SQL
-from sba.data.db.repository import Repository
-from sba.models.domain import Event, Outcome, BookmakerOdds, EventOdds
+from sba.models.domain import BookmakerOdds, Event, EventOdds, Outcome
 
 
 class TestStoreEventOdds:

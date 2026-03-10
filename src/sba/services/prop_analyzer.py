@@ -3,14 +3,14 @@
 from __future__ import annotations
 
 import logging
+
 from sba.config import get_settings
 from sba.data.clients.odds_api import OddsAPIClient
 from sba.data.db import get_connection, init_db
 from sba.data.db.repository import Repository
-from sba.models.domain import PropPrediction, Outcome
+from sba.models.domain import PropPrediction
 from sba.models.ml.pipeline import MLPipeline
 from sba.models.statistical.ev import calculate_ev
-from sba.utils.odds_math import decimal_to_implied_prob
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +64,6 @@ class PropAnalyzer:
             if not logs:
                 return None
 
-        import pandas as pd
         from sba.models.ml.features import _logs_to_df
 
         df = _logs_to_df(logs)

@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from sba.models.domain import EventOdds, Outcome, EdgeOpportunity
-from sba.models.statistical.kelly import fractional_kelly, kelly_stake
 from sba.config import get_settings
+from sba.models.domain import EdgeOpportunity, EventOdds, Outcome
+from sba.models.statistical.kelly import fractional_kelly, kelly_stake
 
 
 def calculate_ev(model_prob: float, odds_decimal: float) -> float:

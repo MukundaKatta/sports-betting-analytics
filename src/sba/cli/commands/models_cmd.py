@@ -3,10 +3,9 @@
 import typer
 from rich.console import Console
 
-from sba.config import get_settings
-from sba.models.ml.pipeline import MLPipeline
 from sba.data.db import get_connection, init_db
 from sba.data.db.repository import Repository
+from sba.models.ml.pipeline import MLPipeline
 
 console = Console()
 models_app = typer.Typer(help="ML model training and management")
@@ -37,7 +36,7 @@ def train(
         console.print(f"[red]Training failed: {metrics['error']}[/red]")
         return
 
-    console.print(f"[green]Model trained successfully![/green]")
+    console.print("[green]Model trained successfully![/green]")
 
     from rich.table import Table
     table = Table(title="Model Metrics")

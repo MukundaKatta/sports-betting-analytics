@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Watchlist{% endblock %}
+
+{% block content %}
+<h1 class="page-title">
+    <span class="gradient-text">Watchlist</span>
+    <span class="badge" id="watchlist-count">0</span>
+</h1>
+
+<div class="summary-bar" style="margin-bottom:24px">
+    <div class="summary-item">
+        <span class="summary-item-label">Tracked Events</span>
+        <span class="summary-item-value" id="wl-tracked">0</span>
+    </div>
+    <div class="summary-item">
+        <span class="summary-item-label">Quick Actions</span>
+        <span class="summary-item-value text-dim" style="font-size:12px">Star events from Edge Finder or Odds Compare</span>
+    </div>
+    <div style="margin-left:auto;display:flex;gap:8px">
+        <button class="btn btn-outline btn-sm" onclick="SBA.loadWatchlist()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+            Refresh
+        </button>
+    </div>
+</div>
+
+<div class="watchlist-grid" id="watchlist-grid">
+    <div class="loading-spinner" style="grid-column:1/-1"><div class="spinner"></div> Loading watchlist...</div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', () => SBA.loadWatchlist());
+</script>
+{% endblock %}

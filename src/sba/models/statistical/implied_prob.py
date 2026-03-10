@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from sba.models.domain import BookmakerOdds
-from sba.utils.odds_math import decimal_to_implied_prob, remove_vig
+from sba.utils.odds_math import remove_vig
 
 
 def consensus_probability(bookmaker_odds: list[BookmakerOdds]) -> dict[str, float]:

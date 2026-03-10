@@ -3,14 +3,14 @@
 from __future__ import annotations
 
 import logging
+
 from sba.config import get_settings
 from sba.data.clients.odds_api import OddsAPIClient
 from sba.data.db import get_connection, init_db
 from sba.data.db.repository import Repository
-from sba.models.domain import EventOdds, EdgeOpportunity
-from sba.models.statistical.implied_prob import consensus_probability, sharp_probability
+from sba.models.domain import EdgeOpportunity, EventOdds
 from sba.models.statistical.ev import find_ev_opportunities
-from sba.models.statistical.poisson import over_under_prob
+from sba.models.statistical.implied_prob import consensus_probability, sharp_probability
 
 logger = logging.getLogger(__name__)
 

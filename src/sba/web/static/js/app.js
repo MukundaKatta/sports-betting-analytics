@@ -90,7 +90,7 @@ const SBA = {
             // G-key prefix navigation (g then d/e/p/b/a/l/o/s)
             if (this._gKeyPending) {
                 this._gKeyPending = false;
-                const navMap = {d:'/',e:'/edges',p:'/props',b:'/my-bets',a:'/analytics',l:'/line-movement',o:'/odds-comparison',s:'/settings',c:'/calculator',f:'/live-feed',m:'/simulator'};
+                const navMap = {d:'/',e:'/edges',p:'/props',b:'/my-bets',a:'/analytics',l:'/line-movement',o:'/odds-comparison',s:'/settings',c:'/calculator',f:'/live-feed',m:'/simulator',w:'/watchlist'};
                 if (navMap[e.key]) { location.href = navMap[e.key]; return; }
             }
 
@@ -431,7 +431,7 @@ const SBA = {
                 const payout = this.calcPayout(b.odds_american, b.recommended_stake);
                 const actions = b.status === 'pending' ? `
                     <div style="display:flex;gap:4px;justify-content:center">
-                        <button class="btn btn-sm" style="background:var(--accent-green-dim);color:var(--accent-green);padding:4px 8px;font-size:10px" onclick="SBA.settleBet(${b.id}, 'won', ${payout.toFixed(2)})">Won</button>
+                        <button class="btn btn-sm" style="background:var(--accent-green-dim);color:var(--accent-green);padding:4px 8px;font-size:10px" onclick="SBA.settleBetWithEffect(${b.id}, 'won', ${payout.toFixed(2)})">Won</button>
                         <button class="btn btn-sm" style="background:var(--accent-red-dim);color:var(--accent-red);padding:4px 8px;font-size:10px" onclick="SBA.settleBet(${b.id}, 'lost', ${(-b.recommended_stake).toFixed(2)})">Lost</button>
                         <button class="btn btn-sm" style="background:var(--accent-yellow-dim);color:var(--accent-yellow);padding:4px 8px;font-size:10px" onclick="SBA.settleBet(${b.id}, 'push', 0)">Push</button>
                     </div>` : `<button class="btn btn-sm" style="color:var(--text-tertiary);padding:4px 8px;font-size:10px" onclick="SBA.deleteBet(${b.id})">Delete</button>`;
@@ -883,7 +883,22 @@ const SBA = {
                 if (markets.length === 0) {
                     marketEl.innerHTML = '<div class="empty-state" style="padding:40px"><p>No market data yet</p></div>';
                 } else {
+                    const donutColors = ['var(--accent-green)', 'var(--accent-blue)', 'var(--accent-yellow)', 'var(--accent-purple)', 'var(--accent-cyan)', 'var(--accent-red)'];
+                    const totalBets = markets.reduce((sum, [, d]) => sum + d.bets, 0);
+                    const donutSegments = markets.map(([, d], i) => ({ value: d.bets, color: donutColors[i % donutColors.length] }));
+                    const donut = this.createDonutChart(donutSegments, totalBets.toString(), 'Total Bets');
+                    const legend = markets.map(([name, d], i) => `
+                        <div style="display:flex;align-items:center;gap:8px;padding:6px 0">
+                            <span style="width:10px;height:10px;border-radius:3px;background:${donutColors[i % donutColors.length]};flex-shrink:0"></span>
+                            <span style="font-size:13px;flex:1">${name}</span>
+                            <span class="font-mono font-bold" style="font-size:12px">${d.bets}</span>
+                        </div>
+                    `).join('');
                     marketEl.innerHTML = `
+                        <div style="padding:24px;display:grid;grid-template-columns:auto 1fr;gap:24px;align-items:center">
+                            ${donut}
+                            <div>${legend}</div>
+                        </div>
                         <table class="data-table">
                             <thead><tr><th>Market</th><th class="right">Bets</th><th class="right">Win Rate</th><th class="right">P/L</th><th class="right">ROI</th></tr></thead>
                             <tbody>
@@ -1305,12 +1320,7 @@ const SBA = {
     },
 
     toggleNotifications() {
-        const panel = document.getElementById('notification-panel');
-        if (panel) {
-            panel.classList.toggle('open');
-        } else {
-            this.toast('No new edge alerts', 'info');
-        }
+        this.toggleNotificationPanel();
     },
 
     // ── Parlay Calculator ────────────────────────────────────────────
@@ -1407,6 +1417,7 @@ const SBA = {
         { name: 'Go to Live Feed', icon: 'activity', action: () => location.href = '/live-feed', keys: 'G F' },
         { name: 'Go to Calculator', icon: 'chart', action: () => location.href = '/calculator', keys: 'G C' },
         { name: 'Go to Simulator', icon: 'trending', action: () => location.href = '/simulator', keys: 'G M' },
+        { name: 'Go to Watchlist', icon: 'home', action: () => location.href = '/watchlist', keys: 'G W' },
         { name: 'Export Bets (CSV)', icon: 'table', action: () => window.open('/api/bets/export', '_blank'), keys: '' },
         { name: 'Export Bets (JSON)', icon: 'table', action: () => window.open('/api/bets/export/json', '_blank'), keys: '' },
         { name: 'Toggle Dark/Light Theme', icon: 'theme', action: () => SBA.toggleTheme(), keys: 'T' },
@@ -1794,10 +1805,246 @@ const SBA = {
             this.toast('Watchlist error', 'error');
         }
     },
+
+    // ── Load Watchlist Page ────────────────────────────────────────────
+    async loadWatchlist() {
+        const grid = document.getElementById('watchlist-grid');
+        const countEl = document.getElementById('watchlist-count');
+        if (!grid) return;
+
+        grid.innerHTML = '<div class="loading-spinner"><div class="spinner"></div> Loading watchlist...</div>';
+
+        try {
+            const [wlResp, eventsResp] = await Promise.all([
+                fetch('/api/watchlist'),
+                fetch('/api/events'),
+            ]);
+            const wl = await wlResp.json();
+            const events = await eventsResp.json();
+
+            if (countEl) countEl.textContent = wl.count;
+
+            if (wl.items.length === 0) {
+                grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;padding:60px">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                    <p>No events in your watchlist</p>
+                    <p class="text-dim" style="font-size:12px">Click the star icon on any edge or event to add it here</p>
+                </div>`;
+                return;
+            }
+
+            const evtMap = {};
+            events.forEach(e => { evtMap[e.id] = e; });
+
+            grid.innerHTML = wl.items.map((item, i) => {
+                const evt = evtMap[item.event_id];
+                const teams = evt ? `${evt.away_team} @ ${evt.home_team}` : item.label || item.event_id;
+                const time = item.added_at ? new Date(item.added_at).toLocaleDateString() : '';
+                return `
+                <div class="watchlist-card" style="animation-delay:${i * 0.05}s;animation:stagger-in 0.5s cubic-bezier(0.2,0,0,1) forwards;opacity:0">
+                    <div class="watchlist-card-header">
+                        <div>
+                            <div class="watchlist-card-teams">${teams}</div>
+                            <div class="watchlist-card-time">Added ${time}</div>
+                        </div>
+                        <button class="watchlist-card-remove" onclick="SBA.removeWatchlistItem('${item.event_id}')" title="Remove">&times;</button>
+                    </div>
+                    <div class="watchlist-card-odds">
+                        ${evt ? `
+                            <a href="/line-movement?event=${item.event_id}" class="btn btn-outline btn-sm" style="font-size:11px">Line Movement</a>
+                            <a href="/odds-comparison?event=${item.event_id}" class="btn btn-outline btn-sm" style="font-size:11px">Compare Odds</a>
+                        ` : ''}
+                    </div>
+                </div>`;
+            }).join('');
+        } catch (err) {
+            grid.innerHTML = `<div class="empty-state text-red"><p>Error loading watchlist: ${err.message}</p></div>`;
+        }
+    },
+
+    async removeWatchlistItem(eventId) {
+        try {
+            await fetch(`/api/watchlist/${eventId}`, { method: 'DELETE' });
+            this.toast('Removed from watchlist', 'info');
+            this.loadWatchlist();
+        } catch {
+            this.toast('Error removing item', 'error');
+        }
+    },
+
+    // ── Confetti Effect ────────────────────────────────────────────────
+    showConfetti() {
+        const container = document.createElement('div');
+        container.className = 'confetti-container';
+        document.body.appendChild(container);
+
+        const colors = ['#00e68a', '#5b9aff', '#ffc234', '#a855f7', '#ff4d6a', '#22d3ee'];
+        for (let i = 0; i < 60; i++) {
+            const piece = document.createElement('div');
+            piece.className = 'confetti-piece';
+            piece.style.left = `${Math.random() * 100}%`;
+            piece.style.top = `${-10 + Math.random() * 20}px`;
+            piece.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+            piece.style.animationDelay = `${Math.random() * 0.5}s`;
+            piece.style.animationDuration = `${1.5 + Math.random() * 1.5}s`;
+            piece.style.width = `${4 + Math.random() * 8}px`;
+            piece.style.height = `${4 + Math.random() * 8}px`;
+            piece.style.transform = `rotate(${Math.random() * 360}deg)`;
+            container.appendChild(piece);
+        }
+
+        setTimeout(() => container.remove(), 3000);
+    },
+
+    // ── Scroll Progress Bar ────────────────────────────────────────────
+    setupScrollProgress() {
+        let bar = document.getElementById('scroll-progress');
+        if (!bar) {
+            bar = document.createElement('div');
+            bar.className = 'scroll-progress';
+            bar.id = 'scroll-progress';
+            bar.style.width = '0%';
+            document.body.appendChild(bar);
+        }
+
+        window.addEventListener('scroll', () => {
+            const winScroll = document.documentElement.scrollTop;
+            const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+            if (height > 0) {
+                bar.style.width = `${(winScroll / height) * 100}%`;
+            }
+        }, { passive: true });
+    },
+
+    // ── Intersection Observer for Reveal Animations ────────────────────
+    setupRevealAnimations() {
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                    observer.unobserve(entry.target);
+                }
+            });
+        }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+
+        document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+    },
+
+    // ── Notification Panel ─────────────────────────────────────────────
+    toggleNotificationPanel() {
+        let panel = document.getElementById('notification-panel');
+        if (!panel) {
+            panel = document.createElement('div');
+            panel.className = 'notification-panel';
+            panel.id = 'notification-panel';
+            panel.innerHTML = `
+                <div class="notification-panel-header">
+                    <h3>Edge Alerts</h3>
+                    <button onclick="document.getElementById('notification-panel').classList.remove('open')" style="background:none;border:none;color:var(--text-tertiary);font-size:20px;cursor:pointer">&times;</button>
+                </div>
+                <div class="notification-panel-body" id="notification-panel-body">
+                    <div class="empty-state" style="padding:40px">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="36" height="36"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+                        <p>No alerts right now</p>
+                        <p class="text-dim" style="font-size:11px">Alerts appear when high-EV edges are found</p>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(panel);
+        }
+        panel.classList.toggle('open');
+        if (panel.classList.contains('open')) this.loadNotifications();
+    },
+
+    async loadNotifications() {
+        const body = document.getElementById('notification-panel-body');
+        if (!body) return;
+        try {
+            const resp = await fetch('/api/alerts');
+            const data = await resp.json();
+            if (data.alerts && data.alerts.length > 0) {
+                body.innerHTML = data.alerts.map((a, i) => `
+                    <div class="notification-item ${a.type || 'edge'}" style="animation-delay:${i * 0.05}s">
+                        <div class="notif-title">${a.title || 'Edge Alert'}</div>
+                        <div class="notif-body">${a.message || a.description || 'New opportunity detected'}</div>
+                        <div class="notif-time">${a.time || 'Just now'}</div>
+                    </div>
+                `).join('');
+            } else {
+                body.innerHTML = `
+                    <div class="empty-state" style="padding:40px">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="36" height="36"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/></svg>
+                        <p>No alerts right now</p>
+                    </div>`;
+            }
+        } catch {
+            body.innerHTML = '<div class="empty-state"><p>Could not load alerts</p></div>';
+        }
+    },
+
+    // ── Donut Chart Generator ──────────────────────────────────────────
+    createDonutChart(segments, centerValue = '', centerLabel = '') {
+        const circumference = 2 * Math.PI * 58;
+        const total = segments.reduce((sum, s) => sum + s.value, 0) || 1;
+        let accumulated = 0;
+
+        const arcs = segments.map(s => {
+            const pct = s.value / total;
+            const dashArray = circumference * pct;
+            const dashOffset = -circumference * accumulated;
+            accumulated += pct;
+            return `<circle class="donut-segment" cx="70" cy="70" r="58"
+                stroke="${s.color}" stroke-dasharray="${dashArray} ${circumference - dashArray}"
+                stroke-dashoffset="${dashOffset}" />`;
+        }).join('');
+
+        return `<div class="donut-chart">
+            <svg viewBox="0 0 140 140">
+                <circle class="donut-bg" cx="70" cy="70" r="58"/>
+                ${arcs}
+            </svg>
+            <div class="donut-chart-center">
+                <div class="donut-value">${centerValue}</div>
+                <div class="donut-label">${centerLabel}</div>
+            </div>
+        </div>`;
+    },
+
+    // ── Floating Action Button ─────────────────────────────────────────
+    setupFAB() {
+        if (document.getElementById('fab-btn')) return;
+        const fab = document.createElement('button');
+        fab.className = 'fab';
+        fab.id = 'fab-btn';
+        fab.title = 'Quick Scan for Edges';
+        fab.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>';
+        fab.onclick = () => {
+            if (window.location.pathname === '/edges') {
+                document.querySelector('.btn-scan')?.click();
+            } else {
+                window.location.href = '/edges';
+            }
+        };
+        document.body.appendChild(fab);
+    },
+
+    // ── Enhanced Settle with Confetti ──────────────────────────────────
+    async settleBetWithEffect(betId, status, profitLoss) {
+        await this.settleBet(betId, status, profitLoss);
+        if (status === 'won') {
+            this.showConfetti();
+        }
+    },
 };
 
 // Initialize on DOM ready
-document.addEventListener('DOMContentLoaded', () => SBA.init());
+document.addEventListener('DOMContentLoaded', () => {
+    SBA.init();
+    SBA.setupScrollProgress();
+    SBA.setupFAB();
+    // Setup reveal animations after a brief delay
+    setTimeout(() => SBA.setupRevealAnimations(), 100);
+});
 
 // Make globally accessible
 window.SBA = SBA;

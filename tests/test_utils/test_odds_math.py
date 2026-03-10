@@ -1,13 +1,12 @@
 """Extended tests for odds math utilities."""
 
-import pytest
 from sba.utils.odds_math import (
     american_to_decimal,
-    decimal_to_american,
     american_to_implied_prob,
+    calculate_vig,
+    decimal_to_american,
     decimal_to_implied_prob,
     remove_vig,
-    calculate_vig,
 )
 
 

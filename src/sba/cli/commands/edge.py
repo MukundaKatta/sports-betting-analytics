@@ -3,12 +3,12 @@
 import typer
 from rich.console import Console
 
+from sba.cli.display import render_bet_summary, render_edge_table
 from sba.config import get_settings
-from sba.services.edge_finder import EdgeFinder
 from sba.data.db import get_connection, init_db
 from sba.data.db.repository import Repository
 from sba.models.domain import TrackedBet
-from sba.cli.display import render_edge_table, render_bet_summary
+from sba.services.edge_finder import EdgeFinder
 
 console = Console()
 edge_app = typer.Typer(help="Betting edge finder - surfaces +EV opportunities")

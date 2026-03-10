@@ -188,7 +188,7 @@ def health_check():
 
     return HealthResponse(
         status="ok",
-        version="0.5.0",
+        version="1.0.0",
         uptime=f"{hours}h {minutes}m {seconds}s",
         database=db_status,
     )
@@ -365,8 +365,8 @@ def get_bets():
 @router.post("/bets/track")
 def track_bet(req: TrackBetRequest):
     """Track a new bet."""
-    from sba.utils.odds_math import american_to_decimal
     from sba.models.domain import TrackedBet
+    from sba.utils.odds_math import american_to_decimal
 
     init_db()
     bet = TrackedBet(

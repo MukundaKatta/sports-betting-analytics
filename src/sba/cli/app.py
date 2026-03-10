@@ -6,11 +6,11 @@ import typer
 from rich.console import Console
 from rich.logging import RichHandler
 
-from sba.cli.commands.edge import edge_app
-from sba.cli.commands.props import props_app
 from sba.cli.commands.data import data_app
+from sba.cli.commands.edge import edge_app
 from sba.cli.commands.models_cmd import models_app
 from sba.cli.commands.monitor import monitor_command
+from sba.cli.commands.props import props_app
 
 app = typer.Typer(
     name="sba",
@@ -36,7 +36,7 @@ def web_command(
     """Launch the web dashboard."""
     import uvicorn
 
-    console.print(f"[bold green]Starting SBA Web Dashboard[/bold green]")
+    console.print("[bold green]Starting SBA Web Dashboard[/bold green]")
     console.print(f"[dim]Open http://localhost:{port} in your browser[/dim]\n")
     uvicorn.run(
         "sba.web.app:app",

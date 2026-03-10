@@ -4,9 +4,8 @@ import typer
 from rich.console import Console
 
 from sba.config import get_settings
-from sba.data.sync import DataSyncer
 from sba.data.db import get_connection, init_db
-from sba.data.db.repository import Repository
+from sba.data.sync import DataSyncer
 
 console = Console()
 data_app = typer.Typer(help="Data sync and management")

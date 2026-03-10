@@ -2671,3 +2671,617 @@ input:focus-visible, select:focus-visible, button:focus-visible {
     background: var(--accent-green-dim);
     margin-top: 8px;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   World-Class Premium Upgrades v2.0
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── Animated Mesh Gradient Background ────────────────────────────────── */
+
+body::after {
+    content: '';
+    position: fixed;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: conic-gradient(
+        from 0deg at 50% 50%,
+        rgba(0, 230, 138, 0.03) 0deg,
+        transparent 60deg,
+        rgba(91, 154, 255, 0.03) 120deg,
+        transparent 180deg,
+        rgba(168, 85, 247, 0.03) 240deg,
+        transparent 300deg,
+        rgba(0, 230, 138, 0.03) 360deg
+    );
+    animation: mesh-rotate 60s linear infinite;
+    pointer-events: none;
+    z-index: 0;
+}
+
+@keyframes mesh-rotate {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* ── Stagger Fade-In for Cards ────────────────────────────────────────── */
+
+.stats-grid > *,
+.dashboard-grid > *,
+.steps-grid > *,
+.quick-actions-grid > * {
+    opacity: 0;
+    animation: stagger-in 0.5s cubic-bezier(0.2, 0, 0, 1) forwards;
+}
+
+.stats-grid > *:nth-child(1),
+.dashboard-grid > *:nth-child(1),
+.steps-grid > *:nth-child(1),
+.quick-actions-grid > *:nth-child(1) { animation-delay: 0.05s; }
+.stats-grid > *:nth-child(2),
+.dashboard-grid > *:nth-child(2),
+.steps-grid > *:nth-child(2),
+.quick-actions-grid > *:nth-child(2) { animation-delay: 0.1s; }
+.stats-grid > *:nth-child(3),
+.dashboard-grid > *:nth-child(3),
+.steps-grid > *:nth-child(3),
+.quick-actions-grid > *:nth-child(3) { animation-delay: 0.15s; }
+.stats-grid > *:nth-child(4),
+.dashboard-grid > *:nth-child(4),
+.steps-grid > *:nth-child(4),
+.quick-actions-grid > *:nth-child(4) { animation-delay: 0.2s; }
+.stats-grid > *:nth-child(n+5),
+.dashboard-grid > *:nth-child(n+5) { animation-delay: 0.25s; }
+
+@keyframes stagger-in {
+    from { opacity: 0; transform: translateY(16px) scale(0.97); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* ── Glassmorphism Depth Layers ───────────────────────────────────────── */
+
+.stat-card {
+    background: linear-gradient(
+        135deg,
+        rgba(20, 28, 47, 0.85) 0%,
+        rgba(26, 32, 53, 0.65) 100%
+    );
+    border: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.card {
+    background: linear-gradient(
+        180deg,
+        rgba(20, 28, 47, 0.8) 0%,
+        rgba(17, 24, 39, 0.9) 100%
+    );
+}
+
+/* ── Floating Action Button ───────────────────────────────────────────── */
+
+.fab {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: var(--gradient-premium);
+    color: var(--text-inverse);
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 24px rgba(0, 230, 138, 0.35), 0 0 0 0 rgba(0, 230, 138, 0.3);
+    transition: all var(--transition-normal);
+    z-index: 80;
+    animation: fab-pulse 3s ease-in-out infinite;
+}
+
+.fab:hover {
+    transform: scale(1.1) translateY(-2px);
+    box-shadow: 0 8px 32px rgba(0, 230, 138, 0.45);
+}
+
+.fab svg { width: 24px; height: 24px; }
+
+@keyframes fab-pulse {
+    0%, 100% { box-shadow: 0 4px 24px rgba(0, 230, 138, 0.35), 0 0 0 0 rgba(0, 230, 138, 0.3); }
+    50% { box-shadow: 0 4px 24px rgba(0, 230, 138, 0.35), 0 0 0 12px rgba(0, 230, 138, 0); }
+}
+
+@media (max-width: 1024px) {
+    .fab { bottom: 80px; }
+}
+
+/* ── Notification Panel ───────────────────────────────────────────────── */
+
+.notification-panel {
+    position: fixed;
+    top: var(--topbar-height);
+    right: 0;
+    width: 380px;
+    max-height: calc(100vh - var(--topbar-height));
+    background: var(--glass-bg);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border-left: 1px solid var(--glass-border);
+    border-bottom: 1px solid var(--glass-border);
+    border-radius: 0 0 0 var(--radius-lg);
+    box-shadow: var(--shadow-xl);
+    z-index: 90;
+    transform: translateX(100%);
+    transition: transform var(--transition-normal);
+    display: flex;
+    flex-direction: column;
+}
+
+.notification-panel.open { transform: translateX(0); }
+
+.notification-panel-header {
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--glass-border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.notification-panel-header h3 {
+    font-size: 15px;
+    font-weight: 700;
+}
+
+.notification-panel-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px;
+}
+
+.notification-item {
+    padding: 14px 16px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-light);
+    margin-bottom: 8px;
+    transition: all var(--transition-fast);
+    cursor: pointer;
+    animation: notif-in 0.3s ease-out;
+}
+
+.notification-item:hover {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: var(--accent-blue);
+}
+
+.notification-item .notif-title {
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.notification-item .notif-body {
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.4;
+}
+
+.notification-item .notif-time {
+    font-size: 10px;
+    color: var(--text-tertiary);
+    margin-top: 6px;
+}
+
+.notification-item.edge { border-left: 3px solid var(--accent-green); }
+.notification-item.alert { border-left: 3px solid var(--accent-yellow); }
+.notification-item.win { border-left: 3px solid var(--accent-blue); }
+
+@keyframes notif-in {
+    from { opacity: 0; transform: translateX(20px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+
+/* ── Donut Chart ──────────────────────────────────────────────────────── */
+
+.donut-chart {
+    position: relative;
+    width: 140px;
+    height: 140px;
+    margin: 0 auto;
+}
+
+.donut-chart svg {
+    width: 100%;
+    height: 100%;
+    transform: rotate(-90deg);
+}
+
+.donut-chart circle {
+    fill: none;
+    stroke-width: 8;
+    stroke-linecap: round;
+    cx: 70;
+    cy: 70;
+    r: 58;
+}
+
+.donut-chart .donut-bg {
+    stroke: rgba(255, 255, 255, 0.05);
+}
+
+.donut-chart .donut-segment {
+    transition: stroke-dashoffset 1.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.donut-chart-center {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+}
+
+.donut-chart-center .donut-value {
+    font-size: 24px;
+    font-weight: 800;
+    line-height: 1;
+}
+
+.donut-chart-center .donut-label {
+    font-size: 10px;
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-top: 4px;
+}
+
+/* ── Watchlist Page ───────────────────────────────────────────────────── */
+
+.watchlist-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 16px;
+}
+
+.watchlist-card {
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-lg);
+    padding: 20px;
+    transition: all var(--transition-normal);
+    position: relative;
+    overflow: hidden;
+}
+
+.watchlist-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: var(--gradient-premium);
+    opacity: 0;
+    transition: opacity var(--transition-fast);
+}
+
+.watchlist-card:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-lg);
+}
+
+.watchlist-card:hover::before { opacity: 1; }
+
+.watchlist-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: start;
+    margin-bottom: 12px;
+}
+
+.watchlist-card-teams {
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.watchlist-card-time {
+    font-size: 11px;
+    color: var(--text-tertiary);
+    margin-top: 4px;
+}
+
+.watchlist-card-remove {
+    background: none;
+    border: none;
+    color: var(--text-tertiary);
+    cursor: pointer;
+    font-size: 18px;
+    padding: 4px;
+    border-radius: 4px;
+    transition: all var(--transition-fast);
+}
+
+.watchlist-card-remove:hover {
+    color: var(--accent-red);
+    background: var(--accent-red-dim);
+}
+
+.watchlist-card-odds {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+/* ── Confetti Animation ───────────────────────────────────────────────── */
+
+.confetti-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 9999;
+    overflow: hidden;
+}
+
+.confetti-piece {
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    border-radius: 2px;
+    animation: confetti-fall 2s cubic-bezier(0.2, 0, 0.3, 1) forwards;
+    opacity: 0;
+}
+
+@keyframes confetti-fall {
+    0% { opacity: 1; transform: translateY(-10px) rotate(0deg) scale(1); }
+    80% { opacity: 1; }
+    100% { opacity: 0; transform: translateY(100vh) rotate(720deg) scale(0.5); }
+}
+
+/* ── Intersection Observer Reveal ─────────────────────────────────────── */
+
+.reveal {
+    opacity: 0;
+    transform: translateY(20px);
+    transition: all 0.6s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.reveal.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* ── Premium Gradient Text ────────────────────────────────────────────── */
+
+.gradient-text {
+    background: var(--gradient-premium);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+/* ── Sparkline Area Chart (inline SVG) ────────────────────────────────── */
+
+.mini-chart {
+    display: block;
+    width: 100%;
+    height: 48px;
+    margin-top: 8px;
+}
+
+.mini-chart .area-fill { opacity: 0.15; }
+.mini-chart .line-stroke { fill: none; stroke-width: 1.5; stroke-linecap: round; }
+
+/* ── Stat Card Micro-Chart Container ──────────────────────────────────── */
+
+.stat-micro-chart {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 40px;
+    opacity: 0.4;
+    pointer-events: none;
+}
+
+/* ── Premium Data Table Row States ────────────────────────────────────── */
+
+.data-table tbody tr.highlight-best {
+    border-left: 3px solid var(--accent-green);
+}
+
+.data-table tbody tr.highlight-worst {
+    border-left: 3px solid var(--accent-red);
+}
+
+/* ── Stat Card Shimmer on Hover ───────────────────────────────────────── */
+
+.stat-card::before {
+    transition: opacity var(--transition-normal);
+}
+
+.stat-card:hover::before {
+    opacity: 0.8;
+    filter: brightness(1.3);
+}
+
+/* ── Scroll Progress Indicator ────────────────────────────────────────── */
+
+.scroll-progress {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 2px;
+    background: var(--gradient-premium);
+    z-index: 9999;
+    transition: width 0.1s linear;
+    border-radius: 0 1px 1px 0;
+}
+
+/* ── Rich Tooltip ─────────────────────────────────────────────────────── */
+
+.rich-tooltip {
+    position: fixed;
+    z-index: 10000;
+    background: var(--bg-card);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-md);
+    padding: 12px 16px;
+    box-shadow: var(--shadow-xl);
+    font-size: 12px;
+    pointer-events: none;
+    max-width: 280px;
+    opacity: 0;
+    transform: translateY(4px);
+    transition: opacity 0.15s, transform 0.15s;
+}
+
+.rich-tooltip.show {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.rich-tooltip .tip-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-tertiary);
+    margin-bottom: 4px;
+}
+
+.rich-tooltip .tip-value {
+    font-size: 16px;
+    font-weight: 700;
+}
+
+/* ── Tab Indicator Animation ──────────────────────────────────────────── */
+
+.tabs {
+    position: relative;
+}
+
+.tab.active {
+    color: var(--accent-blue);
+    background: var(--accent-blue-dim);
+}
+
+/* ── Enhanced Filter Bar ──────────────────────────────────────────────── */
+
+.filters-bar {
+    background: var(--glass-bg);
+    backdrop-filter: blur(var(--glass-blur));
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-md);
+    padding: 12px 16px;
+}
+
+/* ── Animated Number Counter ──────────────────────────────────────────── */
+
+.counter-animate {
+    display: inline-block;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.counter-animate.bump {
+    animation: counter-bump 0.3s ease-out;
+}
+
+@keyframes counter-bump {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.2); }
+    100% { transform: scale(1); }
+}
+
+/* ── Premium Sidebar Logo Glow ────────────────────────────────────────── */
+
+.brand-icon {
+    position: relative;
+}
+
+.brand-icon::after {
+    content: '';
+    position: absolute;
+    inset: -4px;
+    background: var(--gradient-premium);
+    border-radius: inherit;
+    opacity: 0;
+    filter: blur(12px);
+    z-index: -1;
+    transition: opacity var(--transition-normal);
+}
+
+.sidebar:hover .brand-icon::after {
+    opacity: 0.4;
+}
+
+/* ── Table Cell Trend Micro-Bars ──────────────────────────────────────── */
+
+.trend-micro {
+    display: inline-flex;
+    align-items: flex-end;
+    gap: 1px;
+    height: 14px;
+    vertical-align: middle;
+    margin-left: 6px;
+}
+
+.trend-micro-bar {
+    width: 3px;
+    border-radius: 1px;
+    min-height: 2px;
+    transition: height var(--transition-fast);
+}
+
+/* ── Enhanced Empty States ────────────────────────────────────────────── */
+
+.empty-state svg {
+    color: var(--accent-blue);
+    opacity: 0.2;
+    animation: empty-float 3s ease-in-out infinite;
+}
+
+@keyframes empty-float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-8px); }
+}
+
+/* ── Light Theme v2 Overrides ─────────────────────────────────────────── */
+
+[data-theme="light"] .stat-card {
+    background: linear-gradient(
+        135deg,
+        rgba(255, 255, 255, 0.9) 0%,
+        rgba(245, 247, 250, 0.85) 100%
+    );
+}
+
+[data-theme="light"] .card {
+    background: linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 0.9) 0%,
+        rgba(248, 249, 252, 0.95) 100%
+    );
+}
+
+[data-theme="light"] body::after {
+    background: conic-gradient(
+        from 0deg at 50% 50%,
+        rgba(0, 179, 104, 0.04) 0deg,
+        transparent 60deg,
+        rgba(59, 125, 219, 0.04) 120deg,
+        transparent 180deg,
+        rgba(139, 63, 212, 0.03) 240deg,
+        transparent 300deg,
+        rgba(0, 179, 104, 0.04) 360deg
+    );
+}
+
+[data-theme="light"] .filters-bar {
+    background: rgba(255, 255, 255, 0.8);
+}
+
+[data-theme="light"] .notification-panel {
+    background: rgba(255, 255, 255, 0.92);
+}

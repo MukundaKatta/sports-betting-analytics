@@ -215,9 +215,32 @@ CREATE TABLE IF NOT EXISTS user_achievements (
 
 CREATE INDEX IF NOT EXISTS idx_achievements_id ON user_achievements(achievement_id);
 
+CREATE INDEX IF NOT EXISTS idx_odds_bookmaker ON odds_snapshots(bookmaker);
+CREATE INDEX IF NOT EXISTS idx_odds_time ON odds_snapshots(snapshot_time);
+CREATE INDEX IF NOT EXISTS idx_bets_placed ON bets(placed_at);
+CREATE INDEX IF NOT EXISTS idx_bets_status ON bets(status);
+CREATE INDEX IF NOT EXISTS idx_events_sport ON events(sport);
+CREATE INDEX IF NOT EXISTS idx_events_time ON events(commence_time);
+
 CREATE TABLE IF NOT EXISTS user_stats (
     key TEXT PRIMARY KEY,
     value REAL DEFAULT 0,
     updated_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE IF NOT EXISTS clv_records (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    bet_id INTEGER NOT NULL REFERENCES bets(id) ON DELETE CASCADE,
+    placed_odds_american INTEGER NOT NULL,
+    placed_odds_decimal REAL NOT NULL,
+    closing_odds_american INTEGER,
+    closing_odds_decimal REAL,
+    best_closing_odds_american INTEGER,
+    best_closing_odds_decimal REAL,
+    clv_placed REAL,
+    clv_best REAL,
+    recorded_at TEXT DEFAULT (datetime('now')),
+    UNIQUE(bet_id)
+);
+CREATE INDEX IF NOT EXISTS idx_clv_bet ON clv_records(bet_id);
 """

@@ -36,10 +36,10 @@ class Repository:
         row = conn.execute("SELECT * FROM events WHERE id = ?", (event_id,)).fetchone()
         return self._row_to_event(row) if row else None
 
-    def get_upcoming_events(self, conn, sport: str) -> list[Event]:
+    def get_upcoming_events(self, conn, sport: str, limit: int = 50, offset: int = 0) -> list[Event]:
         rows = conn.execute(
-            "SELECT * FROM events WHERE sport = ? AND completed = 0 ORDER BY commence_time",
-            (sport,),
+            "SELECT * FROM events WHERE sport = ? AND completed = 0 ORDER BY commence_time LIMIT ? OFFSET ?",
+            (sport, limit, offset),
         ).fetchall()
         return [self._row_to_event(r) for r in rows]
 
@@ -71,7 +71,7 @@ class Repository:
                         price_decimal=outcome.price_decimal,
                     ))
 
-    def get_latest_odds(self, conn, event_id: str, market: str) -> list[OddsSnapshot]:
+    def get_latest_odds(self, conn, event_id: str, market: str, limit: int = 100, offset: int = 0) -> list[OddsSnapshot]:
         rows = conn.execute(
             """SELECT * FROM odds_snapshots
                WHERE event_id = ? AND market = ?
@@ -79,8 +79,9 @@ class Repository:
                    SELECT MAX(snapshot_time) FROM odds_snapshots
                    WHERE event_id = ? AND market = ?
                )
-               ORDER BY bookmaker, outcome_name""",
-            (event_id, market, event_id, market),
+               ORDER BY bookmaker, outcome_name
+               LIMIT ? OFFSET ?""",
+            (event_id, market, event_id, market, limit, offset),
         ).fetchall()
         return [self._row_to_snapshot(r) for r in rows]
 
@@ -220,9 +221,9 @@ class Repository:
         ).fetchall()
         return [self._row_to_bet(r) for r in rows]
 
-    def get_bet_history(self, conn, sport: str | None = None) -> list[TrackedBet]:
-        query = "SELECT * FROM bets ORDER BY placed_at DESC"
-        rows = conn.execute(query).fetchall()
+    def get_bet_history(self, conn, sport: str | None = None, limit: int = 100, offset: int = 0) -> list[TrackedBet]:
+        query = "SELECT * FROM bets ORDER BY placed_at DESC LIMIT ? OFFSET ?"
+        rows = conn.execute(query, (limit, offset)).fetchall()
         return [self._row_to_bet(r) for r in rows]
 
     # --- Model Versions ---

@@ -9,11 +9,13 @@ from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from sba.data.db import init_db
 from sba.web.api import router as api_router
+from sba.web.middleware import RateLimitMiddleware
+from sba.web.sse import router as sse_router
 from sba.web.views import router as views_router
 
 logger = logging.getLogger(__name__)
@@ -40,10 +42,12 @@ app = FastAPI(
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["http://localhost:8000", "http://127.0.0.1:8000"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.add_middleware(RateLimitMiddleware)
 
 
 # Request timing middleware
@@ -59,15 +63,21 @@ async def add_timing_header(request: Request, call_next):
 # Global exception handler
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    logger.error(f"Unhandled error on {request.method} {request.url.path}: {exc}")
+    logger.error(f"Unhandled error on {request.method} {request.url.path}: {exc}", exc_info=True)
     return JSONResponse(
         status_code=500,
-        content={"error": "Internal server error", "detail": str(exc)},
+        content={"error": "Internal server error"},
     )
+
+
+@app.get("/sw.js", include_in_schema=False)
+async def service_worker():
+    return FileResponse(str(STATIC_DIR / "sw.js"), media_type="application/javascript")
 
 
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 app.include_router(api_router, prefix="/api")
+app.include_router(sse_router, prefix="/api")
 app.include_router(views_router)
 
 

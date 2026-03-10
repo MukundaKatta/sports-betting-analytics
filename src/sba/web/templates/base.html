@@ -261,6 +261,11 @@
     <!-- Particle Canvas -->
     <canvas id="particle-canvas" style="position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:0;opacity:0.4"></canvas>
 
+    <script>
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/static/sw.js').catch(() => {});
+}
+</script>
     <script src="/static/js/app.js"></script>
     {% block scripts %}{% endblock %}
 </body>

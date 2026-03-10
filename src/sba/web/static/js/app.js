@@ -2986,6 +2986,172 @@ const SBA = {
             bell.classList.add('has-alerts');
         }
     },
+
+    // ── 3D Card Tilt Effect ───────────────────────────────────────────
+    setup3DCardTilt() {
+        const cards = document.querySelectorAll('.stat-card, .quick-action-card');
+        cards.forEach(card => {
+            card.addEventListener('mousemove', (e) => {
+                const rect = card.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                const centerX = rect.width / 2;
+                const centerY = rect.height / 2;
+                const rotateX = ((y - centerY) / centerY) * -4;
+                const rotateY = ((x - centerX) / centerX) * 4;
+                card.style.transform = `perspective(800px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateY(-2px)`;
+            });
+            card.addEventListener('mouseleave', () => {
+                card.style.transform = '';
+            });
+        });
+    },
+
+    // ── Ripple Effect on Buttons ──────────────────────────────────────
+    setupRippleEffect() {
+        document.addEventListener('click', (e) => {
+            const btn = e.target.closest('.btn');
+            if (!btn) return;
+            const rect = btn.getBoundingClientRect();
+            const ripple = document.createElement('span');
+            ripple.className = 'ripple';
+            const size = Math.max(rect.width, rect.height);
+            ripple.style.width = ripple.style.height = size + 'px';
+            ripple.style.left = (e.clientX - rect.left - size / 2) + 'px';
+            ripple.style.top = (e.clientY - rect.top - size / 2) + 'px';
+            btn.appendChild(ripple);
+            setTimeout(() => ripple.remove(), 600);
+        });
+    },
+
+    // ── Confetti Celebration ──────────────────────────────────────────
+    showConfetti() {
+        const container = document.createElement('div');
+        container.className = 'confetti-container';
+        const colors = ['#00e68a', '#5b9aff', '#ffc234', '#a855f7', '#22d3ee', '#ff4d6a'];
+
+        for (let i = 0; i < 50; i++) {
+            const piece = document.createElement('div');
+            piece.className = 'confetti-piece';
+            piece.style.left = Math.random() * 100 + '%';
+            piece.style.background = colors[Math.floor(Math.random() * colors.length)];
+            piece.style.setProperty('--drift', (Math.random() - 0.5) * 200 + 'px');
+            piece.style.setProperty('--spin', Math.random() * 1440 + 'deg');
+            piece.style.animationDelay = Math.random() * 0.5 + 's';
+            piece.style.animationDuration = (2 + Math.random() * 2) + 's';
+            piece.style.width = (6 + Math.random() * 8) + 'px';
+            piece.style.height = (6 + Math.random() * 8) + 'px';
+            container.appendChild(piece);
+        }
+
+        document.body.appendChild(container);
+        setTimeout(() => container.remove(), 4000);
+    },
+
+    // ── Override settleBet for win celebration ────────────────────────
+    settleBetWithEffect(betId, status, profitLoss) {
+        this.settleBet(betId, status, profitLoss);
+        if (status === 'won') {
+            this.showConfetti();
+        }
+    },
+
+    // ── Floating Particles ───────────────────────────────────────────
+    setupParticles() {
+        const colors = ['rgba(0, 230, 138, 0.4)', 'rgba(91, 154, 255, 0.3)', 'rgba(168, 85, 247, 0.2)'];
+        for (let i = 0; i < 8; i++) {
+            const p = document.createElement('div');
+            p.className = 'particle';
+            p.style.left = Math.random() * 100 + '%';
+            p.style.background = colors[Math.floor(Math.random() * colors.length)];
+            p.style.setProperty('--duration', (15 + Math.random() * 25) + 's');
+            p.style.setProperty('--drift', (Math.random() - 0.5) * 200 + 'px');
+            p.style.setProperty('--max-opacity', (0.1 + Math.random() * 0.2).toString());
+            p.style.animationDelay = Math.random() * 20 + 's';
+            p.style.width = (2 + Math.random() * 4) + 'px';
+            p.style.height = p.style.width;
+            document.body.appendChild(p);
+        }
+    },
+
+    // ── Scroll Progress Bar ──────────────────────────────────────────
+    setupScrollProgressBar() {
+        const bar = document.createElement('div');
+        bar.className = 'scroll-progress-bar';
+        document.body.appendChild(bar);
+
+        const contentArea = document.querySelector('.content-area');
+        if (!contentArea) return;
+
+        const mainContent = document.querySelector('.main-content');
+        if (!mainContent) return;
+
+        mainContent.addEventListener('scroll', () => {
+            const scrollTop = mainContent.scrollTop;
+            const scrollHeight = mainContent.scrollHeight - mainContent.clientHeight;
+            const progress = scrollHeight > 0 ? (scrollTop / scrollHeight) * 100 : 0;
+            bar.style.width = progress + '%';
+        });
+
+        // Also handle window scroll
+        window.addEventListener('scroll', () => {
+            const scrollTop = document.documentElement.scrollTop || document.body.scrollTop;
+            const scrollHeight = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+            const progress = scrollHeight > 0 ? (scrollTop / scrollHeight) * 100 : 0;
+            bar.style.width = progress + '%';
+        });
+    },
+
+    // ── Enhanced Reveal Animations (v2) ──────────────────────────────
+    setupRevealAnimationsV2() {
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('revealed');
+                    observer.unobserve(entry.target);
+                }
+            });
+        }, { threshold: 0.1, rootMargin: '0px 0px -50px 0px' });
+
+        document.querySelectorAll('.card, .stat-card, .step-card').forEach((el, i) => {
+            el.classList.add('reveal-up');
+            el.style.transitionDelay = `${i * 0.05}s`;
+            observer.observe(el);
+        });
+    },
+
+    // ── Enhanced Odds Comparison with Heat Colors ────────────────────
+    applyOddsHeatMap() {
+        const tables = document.querySelectorAll('.data-table');
+        tables.forEach(table => {
+            const rows = table.querySelectorAll('tbody tr');
+            if (rows.length === 0) return;
+
+            rows.forEach(row => {
+                const cells = row.querySelectorAll('td .odds-badge');
+                if (cells.length < 2) return;
+
+                const values = Array.from(cells).map(cell => {
+                    const text = cell.textContent.trim().replace('+', '');
+                    return parseFloat(text) || 0;
+                });
+
+                const max = Math.max(...values);
+                const min = Math.min(...values);
+                const range = max - min;
+                if (range === 0) return;
+
+                cells.forEach((cell, idx) => {
+                    const v = values[idx];
+                    const pct = (v - min) / range;
+                    if (pct === 1) cell.closest('td').classList.add('odds-heat-best');
+                    else if (pct > 0.7) cell.closest('td').classList.add('odds-heat-good');
+                    else if (pct > 0.3) cell.closest('td').classList.add('odds-heat-mid');
+                    else cell.closest('td').classList.add('odds-heat-worst');
+                });
+            });
+        });
+    },
 };
 
 // Initialize on DOM ready
@@ -2995,14 +3161,21 @@ document.addEventListener('DOMContentLoaded', () => {
     SBA.setupFAB();
     SBA.setupProgressBar();
     SBA.setupTickerTape();
+    SBA.setupRippleEffect();
+    SBA.setupScrollProgressBar();
 
     // Setup reveal animations after a brief delay
-    setTimeout(() => SBA.setupRevealAnimations(), 100);
+    setTimeout(() => {
+        SBA.setupRevealAnimations();
+        SBA.setup3DCardTilt();
+        SBA.setupParticles();
+    }, 100);
 
-    // Animate counters and chart paths after content loads
+    // Animate counters, chart paths, and apply heat colors after content loads
     setTimeout(() => {
         SBA.animateCounters();
         SBA.animateChartPaths();
+        SBA.applyOddsHeatMap();
     }, 300);
 
     // Show onboarding for first-time users

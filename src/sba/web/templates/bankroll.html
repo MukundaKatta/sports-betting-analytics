@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+{% block title %}Bankroll Management{% endblock %}
+
+{% block content %}
+<h1 class="page-title reveal-up">
+    <span class="gradient-text animated-gradient-text">Bankroll Management</span>
+    <span class="tag-elite">Pro</span>
+</h1>
+
+<!-- Summary Cards -->
+<div class="stats-grid reveal-up" style="animation-delay:0.1s" id="bankroll-summary">
+    <div class="stat-card green card-3d-tilt">
+        <div class="stat-label">Current Balance</div>
+        <div class="stat-value text-green glow-green" id="br-balance">$0.00</div>
+        <div class="stat-sub" id="br-roi">ROI: 0%</div>
+    </div>
+    <div class="stat-card blue card-3d-tilt">
+        <div class="stat-label">Total Deposited</div>
+        <div class="stat-value" id="br-deposited">$0.00</div>
+        <div class="stat-sub" id="br-withdrawn">Withdrawn: $0.00</div>
+    </div>
+    <div class="stat-card yellow card-3d-tilt">
+        <div class="stat-label">Total Profit</div>
+        <div class="stat-value" id="br-profit">$0.00</div>
+        <div class="stat-sub">Lifetime P&L</div>
+    </div>
+    <div class="stat-card purple card-3d-tilt">
+        <div class="stat-label">Unit Size (1%)</div>
+        <div class="stat-value" id="br-unit">$0.00</div>
+        <div class="stat-sub">Based on current balance</div>
+    </div>
+</div>
+
+<div class="dashboard-grid">
+    <!-- Actions -->
+    <div class="card frosted-panel reveal-left" style="animation-delay:0.15s">
+        <div class="card-header">
+            <h3>
+                <svg class="header-icon icon-bounce" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                Bankroll Actions
+            </h3>
+        </div>
+        <div class="card-body padded">
+            <div style="display:grid;gap:12px">
+                <div>
+                    <label class="stat-label" style="margin-bottom:6px;display:block">Amount ($)</label>
+                    <input type="number" id="br-amount" value="100" class="premium-input" style="width:100%">
+                </div>
+                <div>
+                    <label class="stat-label" style="margin-bottom:6px;display:block">Note (optional)</label>
+                    <input type="text" id="br-reason" placeholder="e.g. Monthly deposit" class="premium-input" style="width:100%">
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+                    <button class="btn btn-primary" onclick="brAction('initialize')">Initialize</button>
+                    <button class="btn btn-outline" onclick="brAction('deposit')" style="border-color:var(--accent-green);color:var(--accent-green)">Deposit</button>
+                    <button class="btn btn-outline" onclick="brAction('withdraw')" style="border-color:var(--accent-red);color:var(--accent-red)">Withdraw</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Daily P&L Chart -->
+    <div class="card reveal-scale" style="animation-delay:0.2s">
+        <div class="card-header">
+            <h3>
+                <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/></svg>
+                Daily P&L
+            </h3>
+        </div>
+        <div class="card-body padded" id="br-daily-chart">
+            <div class="empty-state" style="padding:30px">
+                <p class="text-dim">Daily P&L will appear once you have transactions</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Transaction History -->
+    <div class="card full-width reveal-up" style="animation-delay:0.25s">
+        <div class="card-header">
+            <h3>
+                <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><rect x="2" y="3" width="20" height="18" rx="2"/><line x1="2" y1="9" x2="22" y2="9"/></svg>
+                Transaction History
+            </h3>
+        </div>
+        <div class="card-body">
+            <table class="data-table">
+                <thead>
+                    <tr><th>Date</th><th>Change</th><th>Balance</th><th>Reason</th></tr>
+                </thead>
+                <tbody id="br-history">
+                    <tr><td colspan="4" class="empty-state"><p>No transactions yet</p></td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function loadBankroll() {
+    try {
+        const resp = await fetch('/api/bankroll');
+        const d = await resp.json();
+        document.getElementById('br-balance').textContent = `$${d.current_balance.toFixed(2)}`;
+        document.getElementById('br-roi').textContent = `ROI: ${d.roi_pct}%`;
+        document.getElementById('br-deposited').textContent = `$${d.total_deposited.toFixed(2)}`;
+        document.getElementById('br-withdrawn').textContent = `Withdrawn: $${d.total_withdrawn.toFixed(2)}`;
+        document.getElementById('br-profit').textContent = `$${d.total_profit.toFixed(2)}`;
+        document.getElementById('br-profit').className = `stat-value ${d.total_profit >= 0 ? 'text-green' : 'text-red'}`;
+        document.getElementById('br-unit').textContent = `$${(d.current_balance * 0.01).toFixed(2)}`;
+
+        const tbody = document.getElementById('br-history');
+        if (d.history.length > 0) {
+            tbody.innerHTML = d.history.map(h => `
+                <tr>
+                    <td class="font-mono text-dim">${h.created_at ? h.created_at.slice(0, 16) : ''}</td>
+                    <td class="font-bold ${h.change >= 0 ? 'text-green' : 'text-red'}">${h.change >= 0 ? '+' : ''}$${h.change.toFixed(2)}</td>
+                    <td class="font-mono">$${h.amount.toFixed(2)}</td>
+                    <td>${h.reason || '—'}</td>
+                </tr>
+            `).join('');
+        }
+
+        // Load daily P&L
+        const dailyResp = await fetch('/api/bankroll/daily');
+        const daily = await dailyResp.json();
+        if (daily.length > 0) {
+            const chart = document.getElementById('br-daily-chart');
+            chart.innerHTML = '<div style="display:grid;gap:4px;max-height:200px;overflow-y:auto">' +
+                daily.map(d => `
+                    <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;border-radius:6px;background:var(--bg-secondary)">
+                        <span class="font-mono text-dim" style="font-size:12px">${d.date}</span>
+                        <span class="font-bold ${d.daily_change >= 0 ? 'text-green' : 'text-red'}">${d.daily_change >= 0 ? '+' : ''}$${d.daily_change.toFixed(2)}</span>
+                        <span class="font-mono" style="font-size:12px">Bal: $${d.end_balance.toFixed(2)}</span>
+                    </div>
+                `).join('') + '</div>';
+        }
+    } catch (err) {
+        console.error('Failed to load bankroll:', err);
+    }
+}
+
+async function brAction(action) {
+    const amount = parseFloat(document.getElementById('br-amount').value);
+    const reason = document.getElementById('br-reason').value;
+    if (!amount || amount <= 0) { SBA.toast('Enter a valid amount', 'error'); return; }
+
+    try {
+        const resp = await fetch(`/api/bankroll/${action}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ amount, reason }),
+        });
+        const d = await resp.json();
+        SBA.toast(`${action}: $${amount.toFixed(2)} — Balance: $${d.balance.toFixed(2)}`, 'success');
+        loadBankroll();
+    } catch (err) {
+        SBA.toast('Error: ' + err.message, 'error');
+    }
+}
+
+document.addEventListener('DOMContentLoaded', loadBankroll);
+</script>
+{% endblock %}

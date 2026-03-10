@@ -107,6 +107,109 @@
         </div>
     </div>
 
+    <!-- Parlay Calculator -->
+    <div class="card full-width frosted-panel reveal-up" style="animation-delay:0.25s">
+        <div class="card-header">
+            <h3>
+                <svg class="header-icon icon-bounce" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+                Parlay Calculator
+            </h3>
+            <span class="text-dim" style="font-size:12px">Combine legs for parlay odds &amp; payouts</span>
+        </div>
+        <div class="card-body padded">
+            <div id="parlay-legs">
+                <div class="parlay-leg" style="display:grid;grid-template-columns:1fr 120px 40px;gap:8px;margin-bottom:8px;align-items:end">
+                    <div>
+                        <label class="stat-label" style="margin-bottom:4px;display:block">Leg 1 Description</label>
+                        <input type="text" class="premium-input parlay-desc" placeholder="e.g. Lakers ML" style="width:100%">
+                    </div>
+                    <div>
+                        <label class="stat-label" style="margin-bottom:4px;display:block">Odds</label>
+                        <input type="number" class="premium-input parlay-odds" value="-110" style="width:100%">
+                    </div>
+                    <div></div>
+                </div>
+                <div class="parlay-leg" style="display:grid;grid-template-columns:1fr 120px 40px;gap:8px;margin-bottom:8px;align-items:end">
+                    <div><input type="text" class="premium-input parlay-desc" placeholder="e.g. Celtics -3.5" style="width:100%"></div>
+                    <div><input type="number" class="premium-input parlay-odds" value="+150" style="width:100%"></div>
+                    <button class="btn btn-outline btn-sm" onclick="this.closest('.parlay-leg').remove()" style="height:36px">&times;</button>
+                </div>
+            </div>
+            <div style="display:flex;gap:8px;margin-top:12px">
+                <button class="btn btn-outline btn-sm" onclick="addParlayLeg()">+ Add Leg</button>
+                <div style="flex:1"></div>
+                <div>
+                    <label class="stat-label" style="margin-bottom:4px;display:block">Stake ($)</label>
+                    <input type="number" id="parlay-stake" value="100" class="premium-input" style="width:120px">
+                </div>
+                <button class="btn btn-primary" onclick="calcParlay()" style="align-self:flex-end">Calculate</button>
+            </div>
+            <div id="parlay-results" class="stats-grid" style="margin-top:16px"></div>
+        </div>
+    </div>
+
+    <!-- Free Bet Converter -->
+    <div class="card frosted-panel reveal-left" style="animation-delay:0.3s">
+        <div class="card-header">
+            <h3>
+                <svg class="header-icon icon-bounce" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4"/><path d="M4 6v12a2 2 0 0 0 2 2h14v-4"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg>
+                Free Bet Converter
+            </h3>
+            <span class="tag-elite">Pro</span>
+        </div>
+        <div class="card-body padded">
+            <div style="display:grid;gap:14px">
+                <div>
+                    <label class="stat-label" style="margin-bottom:6px;display:block">Free Bet Amount ($)</label>
+                    <input type="number" id="fb-amount" value="100" class="premium-input" style="width:100%">
+                </div>
+                <div>
+                    <label class="stat-label" style="margin-bottom:6px;display:block">Free Bet Odds (American)</label>
+                    <input type="number" id="fb-odds" value="200" class="premium-input" style="width:100%">
+                </div>
+                <div>
+                    <label class="stat-label" style="margin-bottom:6px;display:block">Hedge Odds (American)</label>
+                    <input type="number" id="fb-hedge" value="-200" class="premium-input" style="width:100%">
+                </div>
+                <button class="btn btn-primary btn-block" onclick="calcFreeBet()">Convert Free Bet</button>
+            </div>
+            <div id="freebet-results" class="stats-grid" style="margin-top:16px"></div>
+        </div>
+    </div>
+
+    <!-- No-Vig Calculator -->
+    <div class="card reveal-scale" style="animation-delay:0.35s">
+        <div class="card-header">
+            <h3>
+                <svg class="header-icon icon-bounce" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/></svg>
+                No-Vig Fair Odds
+            </h3>
+            <span class="tag-elite">Pro</span>
+        </div>
+        <div class="card-body padded">
+            <div style="display:grid;gap:14px">
+                <div>
+                    <label class="stat-label" style="margin-bottom:6px;display:block">Side 1 Name</label>
+                    <input type="text" id="nv-name1" value="Team A" class="premium-input" style="width:100%">
+                </div>
+                <div>
+                    <label class="stat-label" style="margin-bottom:6px;display:block">Side 1 Odds (American)</label>
+                    <input type="number" id="nv-odds1" value="-110" class="premium-input" style="width:100%">
+                </div>
+                <div>
+                    <label class="stat-label" style="margin-bottom:6px;display:block">Side 2 Name</label>
+                    <input type="text" id="nv-name2" value="Team B" class="premium-input" style="width:100%">
+                </div>
+                <div>
+                    <label class="stat-label" style="margin-bottom:6px;display:block">Side 2 Odds (American)</label>
+                    <input type="number" id="nv-odds2" value="-110" class="premium-input" style="width:100%">
+                </div>
+                <button class="btn btn-primary btn-block" onclick="calcNoVig()">Remove Vig</button>
+            </div>
+            <div id="novig-results" class="stats-grid" style="margin-top:16px"></div>
+        </div>
+    </div>
+
     <!-- Quick Reference -->
     <div class="card full-width">
         <div class="card-header">
@@ -244,6 +347,140 @@ async function calcHedge() {
         SBA.toast('Hedge calculated', 'success');
     } catch (err) {
         document.getElementById('hedge-results').innerHTML = `<div class="stat-card red"><div class="stat-value text-red">Error: ${err.message}</div></div>`;
+    }
+}
+
+// ── Parlay Calculator ───────────────────────────────────────
+function addParlayLeg() {
+    const container = document.getElementById('parlay-legs');
+    const div = document.createElement('div');
+    div.className = 'parlay-leg';
+    div.style.cssText = 'display:grid;grid-template-columns:1fr 120px 40px;gap:8px;margin-bottom:8px;align-items:end';
+    div.innerHTML = `
+        <div><input type="text" class="premium-input parlay-desc" placeholder="Description" style="width:100%"></div>
+        <div><input type="number" class="premium-input parlay-odds" value="-110" style="width:100%"></div>
+        <button class="btn btn-outline btn-sm" onclick="this.closest('.parlay-leg').remove()" style="height:36px">&times;</button>
+    `;
+    container.appendChild(div);
+}
+
+async function calcParlay() {
+    const oddsEls = document.querySelectorAll('.parlay-odds');
+    const descEls = document.querySelectorAll('.parlay-desc');
+    const legs = [];
+    oddsEls.forEach((el, i) => {
+        const odds = parseInt(el.value);
+        if (odds && odds !== 0) {
+            legs.push({ odds_american: odds, description: descEls[i] ? descEls[i].value : '' });
+        }
+    });
+    if (legs.length < 2) { SBA.toast('Need at least 2 legs', 'error'); return; }
+    const stake = parseFloat(document.getElementById('parlay-stake').value) || 100;
+    try {
+        const resp = await fetch('/api/calculator/parlay', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ legs, stake }),
+        });
+        const d = await resp.json();
+        if (resp.status !== 200) { SBA.toast(d.detail || 'Error', 'error'); return; }
+        document.getElementById('parlay-results').innerHTML = `
+            <div class="stat-card green card-3d-tilt">
+                <div class="stat-label">Combined Odds</div>
+                <div class="stat-value text-green glow-green">${d.combined_odds_american > 0 ? '+' : ''}${d.combined_odds_american}</div>
+                <div class="stat-sub">Decimal: ${d.combined_odds_decimal}</div>
+            </div>
+            <div class="stat-card blue card-3d-tilt">
+                <div class="stat-label">Total Payout</div>
+                <div class="stat-value">$${d.payout.toFixed(2)}</div>
+                <div class="stat-sub">Profit: $${d.profit.toFixed(2)}</div>
+            </div>
+            <div class="stat-card yellow card-3d-tilt">
+                <div class="stat-label">Win Probability</div>
+                <div class="stat-value">${(d.combined_probability * 100).toFixed(1)}%</div>
+                <div class="stat-sub">${d.num_legs}-leg parlay</div>
+            </div>
+        `;
+        SBA.toast('Parlay calculated', 'success');
+    } catch (err) {
+        SBA.toast('Error: ' + err.message, 'error');
+    }
+}
+
+// ── Free Bet Converter ──────────────────────────────────────
+async function calcFreeBet() {
+    const body = {
+        free_bet_amount: parseFloat(document.getElementById('fb-amount').value),
+        free_bet_odds: parseInt(document.getElementById('fb-odds').value),
+        hedge_odds: parseInt(document.getElementById('fb-hedge').value),
+    };
+    try {
+        const resp = await fetch('/api/calculator/freebet', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+        });
+        const d = await resp.json();
+        document.getElementById('freebet-results').innerHTML = `
+            <div class="stat-card green card-3d-tilt">
+                <div class="stat-label">Hedge Stake</div>
+                <div class="stat-value text-green">$${d.hedge_stake.toFixed(2)}</div>
+                <div class="stat-sub">Amount to wager on hedge side</div>
+            </div>
+            <div class="stat-card blue card-3d-tilt">
+                <div class="stat-label">Guaranteed Cash</div>
+                <div class="stat-value text-green glow-green">$${d.guaranteed_profit.toFixed(2)}</div>
+                <div class="stat-sub">${d.conversion_rate}% conversion rate</div>
+            </div>
+            <div class="stat-card yellow card-3d-tilt">
+                <div class="stat-label">If Free Bet Wins</div>
+                <div class="stat-value">$${d.profit_if_free_bet_wins.toFixed(2)}</div>
+            </div>
+            <div class="stat-card purple card-3d-tilt">
+                <div class="stat-label">If Hedge Wins</div>
+                <div class="stat-value">$${d.profit_if_hedge_wins.toFixed(2)}</div>
+            </div>
+        `;
+        SBA.toast(`${d.conversion_rate}% conversion`, 'success');
+    } catch (err) {
+        SBA.toast('Error: ' + err.message, 'error');
+    }
+}
+
+// ── No-Vig Fair Odds ────────────────────────────────────────
+async function calcNoVig() {
+    const outcomes = [
+        { name: document.getElementById('nv-name1').value, odds_american: parseInt(document.getElementById('nv-odds1').value) },
+        { name: document.getElementById('nv-name2').value, odds_american: parseInt(document.getElementById('nv-odds2').value) },
+    ];
+    try {
+        const resp = await fetch('/api/calculator/novig', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ outcomes }),
+        });
+        const d = await resp.json();
+        const el = document.getElementById('novig-results');
+        let html = `
+            <div class="stat-card red card-3d-tilt" style="grid-column:1/-1">
+                <div class="stat-label">Total Vig</div>
+                <div class="stat-value text-red">${d.vig_percentage}%</div>
+                <div class="stat-sub">Total implied: ${d.total_implied_probability}%</div>
+            </div>
+        `;
+        d.outcomes.forEach(o => {
+            html += `
+                <div class="stat-card blue card-3d-tilt">
+                    <div class="stat-label">${o.name}</div>
+                    <div class="stat-value">${o.fair_odds_american > 0 ? '+' : ''}${o.fair_odds_american}</div>
+                    <div class="stat-sub">Fair prob: ${o.fair_probability}% (was ${o.original_implied_prob}%)</div>
+                </div>
+            `;
+        });
+        el.innerHTML = html;
+        SBA.toast('Vig removed', 'success');
+    } catch (err) {
+        SBA.toast('Error: ' + err.message, 'error');
     }
 }
 

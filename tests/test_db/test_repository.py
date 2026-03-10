@@ -121,7 +121,7 @@ class TestBetCRUD:
         assert len(pending) == 1
         assert pending[0].odds_american == 150
 
-    def test_settle_bet(self, db, repo):
+    def test_settle_bet_via_update(self, db, repo):
         repo.upsert_event(db, Event(
             id="g1", sport="nba", home_team="A", away_team="B",
             commence_time=datetime(2025, 1, 1),
@@ -140,3 +140,88 @@ class TestBetCRUD:
         history = repo.get_bet_history(db)
         assert history[0].status == "won"
         assert history[0].profit_loss == 37.50
+
+    def test_settle_bet_won(self, db, repo):
+        """settle_bet('won') should compute profit as stake * (decimal - 1)."""
+        repo.upsert_event(db, Event(
+            id="g2", sport="nba", home_team="X", away_team="Y",
+            commence_time=datetime(2025, 2, 1),
+        ))
+        bet = TrackedBet(
+            event_id="g2", market="h2h", selection="X", line=None,
+            odds_american=150, odds_decimal=2.5,
+            model_probability=0.55, expected_value=0.05,
+            kelly_fraction=0.025, recommended_stake=100.0,
+            bookmaker="draftkings",
+        )
+        bet_id = repo.insert_bet(db, bet)
+        db.commit()
+        result = repo.settle_bet(db, bet_id, "won")
+        assert result is not None
+        assert result.status == "won"
+        # profit = 100.0 * (2.5 - 1) = 150.0
+        assert result.profit_loss == pytest.approx(150.0)
+        assert result.settled_at is not None
+
+    def test_settle_bet_lost(self, db, repo):
+        """settle_bet('lost') should set profit_loss to -stake."""
+        repo.upsert_event(db, Event(
+            id="g3", sport="nba", home_team="X", away_team="Y",
+            commence_time=datetime(2025, 2, 1),
+        ))
+        bet = TrackedBet(
+            event_id="g3", market="h2h", selection="X", line=None,
+            odds_american=150, odds_decimal=2.5,
+            model_probability=0.55, expected_value=0.05,
+            kelly_fraction=0.025, recommended_stake=50.0,
+            bookmaker="fanduel",
+        )
+        bet_id = repo.insert_bet(db, bet)
+        db.commit()
+        result = repo.settle_bet(db, bet_id, "lost")
+        assert result is not None
+        assert result.status == "lost"
+        assert result.profit_loss == pytest.approx(-50.0)
+
+    def test_settle_bet_push(self, db, repo):
+        """settle_bet('push') should set profit_loss to 0."""
+        repo.upsert_event(db, Event(
+            id="g4", sport="nba", home_team="X", away_team="Y",
+            commence_time=datetime(2025, 2, 1),
+        ))
+        bet = TrackedBet(
+            event_id="g4", market="h2h", selection="X", line=None,
+            odds_american=-110, odds_decimal=1.91,
+            model_probability=0.55, expected_value=0.03,
+            kelly_fraction=0.02, recommended_stake=20.0,
+            bookmaker="betmgm",
+        )
+        bet_id = repo.insert_bet(db, bet)
+        db.commit()
+        result = repo.settle_bet(db, bet_id, "push")
+        assert result is not None
+        assert result.status == "push"
+        assert result.profit_loss == pytest.approx(0.0)
+
+    def test_settle_bet_not_found(self, db, repo):
+        """settle_bet on a nonexistent bet_id should return None."""
+        result = repo.settle_bet(db, 9999, "won")
+        assert result is None
+
+    def test_settle_bet_invalid_result(self, db, repo):
+        """settle_bet with an invalid result string should raise ValueError."""
+        repo.upsert_event(db, Event(
+            id="g5", sport="nba", home_team="X", away_team="Y",
+            commence_time=datetime(2025, 2, 1),
+        ))
+        bet = TrackedBet(
+            event_id="g5", market="h2h", selection="X", line=None,
+            odds_american=100, odds_decimal=2.0,
+            model_probability=0.55, expected_value=0.05,
+            kelly_fraction=0.025, recommended_stake=25.0,
+            bookmaker="fanduel",
+        )
+        bet_id = repo.insert_bet(db, bet)
+        db.commit()
+        with pytest.raises(ValueError):
+            repo.settle_bet(db, bet_id, "invalid")

@@ -120,6 +120,43 @@ class PropPrediction:
 
 
 @dataclass
+class ArbOutcome:
+    """A single side of an arbitrage opportunity."""
+    outcome_name: str
+    bookmaker: str
+    odds_decimal: float
+    odds_american: int
+    implied_prob: float
+    stake_fraction: float = 0.0
+
+
+@dataclass
+class ArbOpportunity:
+    """A sure-bet arbitrage opportunity across bookmakers."""
+    event: Event
+    market: str
+    outcomes: list[ArbOutcome] = field(default_factory=list)
+    total_implied_prob: float = 0.0
+    profit_pct: float = 0.0
+    stakes: list[float] = field(default_factory=list)
+
+
+@dataclass
+class BacktestResult:
+    player_name: str
+    market: str
+    total_predictions: int
+    correct_predictions: int
+    accuracy: float
+    total_bets: int  # only when EV was positive
+    winning_bets: int
+    roi: float
+    total_profit: float
+    profit_curve: list[float] = field(default_factory=list)  # cumulative profit over time
+    calibration: dict[str, float] = field(default_factory=dict)  # predicted prob bucket -> actual hit rate
+
+
+@dataclass
 class TrackedBet:
     event_id: str
     market: str

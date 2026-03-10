@@ -3,7 +3,7 @@
 import typer
 from rich.console import Console
 
-from sba.cli.display import render_bet_summary, render_edge_table
+from sba.cli.display import render_arb_table, render_bet_summary, render_edge_table
 from sba.config import get_settings
 from sba.data.db import get_connection, init_db
 from sba.data.db.repository import Repository
@@ -113,3 +113,82 @@ def history():
         return
 
     console.print(render_bet_summary(bets))
+
+
+@edge_app.command("settle")
+def settle(
+    bet_id: int = typer.Argument(..., help="Bet ID to settle"),
+    result: str = typer.Argument(..., help="Result: won, lost, or push"),
+):
+    """Settle a tracked bet with its outcome."""
+    if result not in ("won", "lost", "push"):
+        console.print("[red]Error: result must be one of: won, lost, push[/red]")
+        raise typer.Exit(1)
+
+    init_db()
+    repo = Repository()
+
+    with get_connection() as conn:
+        repo.settle_bet(conn, bet_id, result)
+
+    console.print(f"[green]Bet {bet_id} settled as {result}[/green]")
+
+
+@edge_app.command("arbs")
+def arbs(
+    sport: str = typer.Option(None, "--sport", "-s", help="Sport key (e.g. basketball_nba)"),
+    market: str = typer.Option("h2h,spreads,totals", "--market", "-m", help="Markets to scan"),
+):
+    """Scan for arbitrage opportunities across sportsbooks."""
+    settings = get_settings()
+    if not settings.ODDS_API_KEY:
+        console.print("[red]Error: Set SBA_ODDS_API_KEY in your .env file[/red]")
+        raise typer.Exit(1)
+
+    with console.status("Scanning for arbitrage opportunities..."):
+        finder = EdgeFinder()
+        arb_results = finder.scan_arbs(sport, market)
+
+    if not arb_results:
+        console.print("[yellow]No arbitrage opportunities found[/yellow]")
+        return
+
+    console.print(render_arb_table(arb_results))
+    console.print(f"\n[green]Found {len(arb_results)} arbitrage opportunity(ies)[/green]")
+
+    credits = finder.credits_remaining()
+    if credits is not None:
+        console.print(f"[dim]API credits remaining: {credits}[/dim]")
+
+
+@edge_app.command("clv")
+def clv(
+    bet_id: int = typer.Argument(..., help="Bet ID to calculate CLV for"),
+):
+    """Calculate closing line value for a tracked bet."""
+    init_db()
+    finder = EdgeFinder()
+    repo = Repository()
+
+    with get_connection() as conn:
+        bets = repo.get_bet_history(conn)
+        bet = next((b for b in bets if b.id == bet_id), None)
+
+    if bet is None:
+        console.print(f"[red]Error: Bet {bet_id} not found[/red]")
+        raise typer.Exit(1)
+
+    with console.status("Calculating closing line value..."):
+        clv_result = finder.calculate_clv(bet)
+
+    if clv_result is None:
+        console.print("[yellow]Could not calculate CLV — closing odds not available[/yellow]")
+        return
+
+    clv_pct = clv_result * 100
+    style = "green" if clv_result > 0 else "red"
+    console.print(f"Bet {bet_id}: CLV = [{style}]{clv_pct:+.2f}%[/{style}]")
+    if clv_result > 0:
+        console.print("[dim]Positive CLV means you beat the closing line — nice![/dim]")
+    else:
+        console.print("[dim]Negative CLV means the closing line moved against you[/dim]")

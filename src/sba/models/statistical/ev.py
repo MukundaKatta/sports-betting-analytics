@@ -5,6 +5,7 @@ from __future__ import annotations
 from sba.config import get_settings
 from sba.models.domain import EdgeOpportunity, EventOdds, Outcome
 from sba.models.statistical.kelly import fractional_kelly, kelly_stake
+from sba.utils.odds_math import decimal_to_implied_prob
 
 
 def calculate_ev(model_prob: float, odds_decimal: float) -> float:
@@ -68,7 +69,6 @@ def find_ev_opportunities(event_odds: EventOdds,
             elif ev >= 0.04:
                 confidence = "medium"
 
-            from sba.utils.odds_math import decimal_to_implied_prob
             implied = decimal_to_implied_prob(odds.price_decimal)
 
             opportunities.append(EdgeOpportunity(

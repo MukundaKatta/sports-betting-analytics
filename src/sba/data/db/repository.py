@@ -84,6 +84,25 @@ class Repository:
         ).fetchall()
         return [self._row_to_snapshot(r) for r in rows]
 
+    def get_closing_odds(self, conn, event_id: str, market: str,
+                         outcome_name: str) -> OddsSnapshot | None:
+        """Get the last odds snapshot before the event's commence_time.
+
+        This represents the closing line for a given outcome.
+        """
+        row = conn.execute(
+            """SELECT os.* FROM odds_snapshots os
+               JOIN events e ON os.event_id = e.id
+               WHERE os.event_id = ?
+                 AND os.market = ?
+                 AND os.outcome_name = ?
+                 AND os.snapshot_time <= e.commence_time
+               ORDER BY os.snapshot_time DESC
+               LIMIT 1""",
+            (event_id, market, outcome_name),
+        ).fetchone()
+        return self._row_to_snapshot(row) if row else None
+
     def get_odds_history(self, conn, event_id: str, market: str) -> list[OddsSnapshot]:
         rows = conn.execute(
             """SELECT * FROM odds_snapshots
@@ -128,18 +147,13 @@ class Repository:
         )
 
     def get_player_logs(self, conn, player_id: int, last_n: int | None = None) -> list[PlayerGameLog]:
+        query = """SELECT * FROM player_game_logs
+                   WHERE player_id = ? ORDER BY game_date DESC"""
+        params: list = [player_id]
         if last_n:
-            rows = conn.execute(
-                """SELECT * FROM player_game_logs
-                   WHERE player_id = ? ORDER BY game_date DESC LIMIT ?""",
-                (player_id, last_n),
-            ).fetchall()
-        else:
-            rows = conn.execute(
-                """SELECT * FROM player_game_logs
-                   WHERE player_id = ? ORDER BY game_date DESC""",
-                (player_id,),
-            ).fetchall()
+            query += " LIMIT ?"
+            params.append(int(last_n))
+        rows = conn.execute(query, params).fetchall()
         return [self._row_to_game_log(r) for r in rows]
 
     # --- Bets ---
@@ -162,6 +176,43 @@ class Repository:
             "UPDATE bets SET status = ?, profit_loss = ?, settled_at = CURRENT_TIMESTAMP WHERE id = ?",
             (status, profit_loss, bet_id),
         )
+
+    def settle_bet(self, conn, bet_id: int, result: str) -> TrackedBet | None:
+        """Settle a bet as won, lost, or push from CLI.
+
+        Args:
+            bet_id: The bet ID.
+            result: One of 'won', 'lost', 'push'.
+
+        Returns:
+            The updated TrackedBet, or None if not found.
+        """
+        result = result.lower().strip()
+        if result not in ("won", "lost", "push"):
+            raise ValueError(f"Invalid result '{result}', must be 'won', 'lost', or 'push'")
+
+        row = conn.execute("SELECT * FROM bets WHERE id = ?", (bet_id,)).fetchone()
+        if not row:
+            return None
+
+        bet = self._row_to_bet(row)
+        if result == "won":
+            profit_loss = bet.recommended_stake * (bet.odds_decimal - 1)
+        elif result == "lost":
+            profit_loss = -bet.recommended_stake
+        else:  # push
+            profit_loss = 0.0
+
+        self.update_bet_result(conn, bet_id, result, profit_loss)
+        conn.commit()
+
+        # Return the updated bet
+        updated_row = conn.execute("SELECT * FROM bets WHERE id = ?", (bet_id,)).fetchone()
+        return self._row_to_bet(updated_row)
+
+    def get_bet_by_id(self, conn, bet_id: int) -> TrackedBet | None:
+        row = conn.execute("SELECT * FROM bets WHERE id = ?", (bet_id,)).fetchone()
+        return self._row_to_bet(row) if row else None
 
     def get_pending_bets(self, conn) -> list[TrackedBet]:
         rows = conn.execute(

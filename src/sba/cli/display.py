@@ -7,7 +7,7 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
-from sba.models.domain import EdgeOpportunity, PropPrediction, TrackedBet
+from sba.models.domain import BacktestResult, EdgeOpportunity, PlayerGameLog, PropPrediction, TrackedBet
 
 
 def format_odds(american: int) -> Text:
@@ -153,6 +153,135 @@ def render_player_profile(profile: dict) -> Group:
         )
 
     return Group(header, avg_table, games_table)
+
+
+def render_arb_table(arbs: list) -> Table:
+    """Render arbitrage opportunities in a rich table."""
+    table = Table(
+        title="Arbitrage Opportunities",
+        show_header=True,
+        header_style="bold green",
+        expand=True,
+    )
+    table.add_column("Event", style="white", max_width=30)
+    table.add_column("Market", style="dim")
+    table.add_column("Side 1", style="cyan")
+    table.add_column("Side 2", style="cyan")
+    table.add_column("Profit%", justify="right")
+    table.add_column("Stakes", justify="right")
+
+    if not arbs:
+        table.add_row("No arbitrage opportunities found", *[""] * 5)
+        return table
+
+    for arb in arbs:
+        event_str = getattr(arb, "event_name", None) or (
+            f"{arb.event.away_team} @ {arb.event.home_team}"
+            if hasattr(arb, "event") else str(getattr(arb, "event_id", ""))
+        )
+        market_str = getattr(arb, "market", "")
+
+        side1_book = getattr(arb, "side1_book", "")
+        side1_odds = getattr(arb, "side1_odds", 0)
+        side1_name = getattr(arb, "side1_name", "Side 1")
+        side1_str = f"{side1_name} ({side1_book}@{side1_odds:+d})"
+
+        side2_book = getattr(arb, "side2_book", "")
+        side2_odds = getattr(arb, "side2_odds", 0)
+        side2_name = getattr(arb, "side2_name", "Side 2")
+        side2_str = f"{side2_name} ({side2_book}@{side2_odds:+d})"
+
+        profit_pct = getattr(arb, "profit_pct", 0.0)
+        profit_style = "bold green" if profit_pct > 0 else "red"
+
+        stake1 = getattr(arb, "stake1", 0.0)
+        stake2 = getattr(arb, "stake2", 0.0)
+        stakes_str = f"${stake1:.0f} / ${stake2:.0f}"
+
+        table.add_row(
+            event_str,
+            market_str,
+            side1_str,
+            side2_str,
+            Text(f"{profit_pct:.2f}%", style=profit_style),
+            stakes_str,
+        )
+
+    return table
+
+
+def render_backtest_result(result: BacktestResult) -> Panel:
+    """Render backtest metrics in a rich panel with a profit sparkline."""
+
+    # Sparkline from profit curve
+    sparkline = _sparkline(result.profit_curve) if result.profit_curve else ""
+
+    profit_style = "green" if result.total_profit >= 0 else "red"
+    roi_style = "green" if result.roi >= 0 else "red"
+
+    metrics_table = Table(show_header=False, box=None, padding=(0, 2))
+    metrics_table.add_column("Metric", style="bold")
+    metrics_table.add_column("Value", justify="right")
+
+    metrics_table.add_row("Predictions", str(result.total_predictions))
+    metrics_table.add_row("Correct", f"{result.correct_predictions} ({result.accuracy:.1%})")
+    metrics_table.add_row("Bets Placed (+EV)", str(result.total_bets))
+    metrics_table.add_row("Winning Bets", str(result.winning_bets))
+    metrics_table.add_row(
+        "Win Rate",
+        f"{result.winning_bets / max(result.total_bets, 1):.1%}",
+    )
+    metrics_table.add_row(
+        "Total Profit",
+        Text(f"${result.total_profit:+.2f}", style=profit_style),
+    )
+    metrics_table.add_row(
+        "ROI",
+        Text(f"{result.roi:+.1f}%", style=roi_style),
+    )
+
+    # Calibration sub-table
+    if result.calibration:
+        cal_table = Table(
+            title="Calibration",
+            show_header=True,
+            header_style="bold dim",
+            box=None,
+            padding=(0, 2),
+        )
+        cal_table.add_column("Predicted Bucket")
+        cal_table.add_column("Actual Over%", justify="right")
+
+        for bucket, hit_rate in result.calibration.items():
+            cal_table.add_row(bucket, f"{hit_rate:.1%}")
+    else:
+        cal_table = Text("")
+
+    profit_label = Text(f"\nProfit Curve: {sparkline}", style="dim")
+
+    content = Group(metrics_table, cal_table, profit_label)
+
+    return Panel(
+        content,
+        title=f"[bold]{result.player_name}[/bold] — {result.market.replace('player_', '').title()} Backtest",
+        border_style="cyan",
+    )
+
+
+def _sparkline(values: list[float]) -> str:
+    """Create a simple unicode sparkline string from a list of values."""
+    if not values:
+        return ""
+    blocks = " ▁▂▃▄▅▆▇█"
+    mn = min(values)
+    mx = max(values)
+    rng = mx - mn
+    if rng == 0:
+        return blocks[4] * min(len(values), 60)
+    # Downsample if too many points
+    step = max(1, len(values) // 60)
+    sampled = values[::step]
+    return "".join(blocks[int((v - mn) / rng * 8)] for v in sampled)
 
 
 def render_bet_summary(bets: list[TrackedBet]) -> Table:

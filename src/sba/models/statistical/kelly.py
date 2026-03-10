@@ -19,11 +19,15 @@ def fractional_kelly(prob: float, odds_decimal: float, fraction: float = 0.25) -
 
     Quarter-Kelly (0.25) is standard for sports betting.
     """
+    if odds_decimal <= 1.0:
+        return 0.0
     return full_kelly(prob, odds_decimal) * fraction
 
 
 def kelly_stake(prob: float, odds_decimal: float, bankroll: float,
                 fraction: float = 0.25) -> float:
     """Dollar amount to wager using fractional Kelly."""
+    if odds_decimal <= 1.0:
+        return 0.0
     pct = fractional_kelly(prob, odds_decimal, fraction)
     return round(bankroll * pct, 2)

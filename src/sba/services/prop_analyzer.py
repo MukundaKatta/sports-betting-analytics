@@ -25,7 +25,8 @@ class PropAnalyzer:
 
     def analyze(self, sport: str | None = None,
                 event_id: str | None = None,
-                prop_markets: list[str] | None = None) -> list[PropPrediction]:
+                prop_markets: list[str] | None = None,
+                max_events: int | None = None) -> list[PropPrediction]:
         """Analyze player props for upcoming games.
 
         Fetches prop odds, runs ML predictions, surfaces +EV props.
@@ -40,7 +41,8 @@ class PropAnalyzer:
             event_ids = [event_id]
         else:
             events = self.odds_client.get_events(sport)
-            event_ids = [e.id for e in events[:5]]  # Limit to save API credits
+            limit = max_events if max_events else len(events)
+            event_ids = [e.id for e in events[:limit]]
 
         for eid in event_ids:
             for market in prop_markets:
@@ -110,12 +112,25 @@ class PropAnalyzer:
                 continue
             for outcome in bm.outcomes:
                 name = outcome.name
-                key = name.split(" ")[0] if " " in name else name
+                # Parse player name: strip trailing "Over"/"Under" qualifiers
+                # e.g. "LeBron James Over" -> "LeBron James"
+                #      "LeBron James" (with point) -> "LeBron James"
+                parts = name.rsplit(" ", 1)
+                if len(parts) == 2 and parts[1] in ("Over", "Under"):
+                    key = parts[0]
+                    direction = parts[1].lower()
+                else:
+                    key = name
+                    direction = "over" if outcome.point is not None else None
+
+                if not key:
+                    continue
+
                 player_odds.setdefault(key, {"over": [], "under": []})
 
-                if "Over" in name or outcome.point is not None:
+                if direction == "over" or outcome.point is not None:
                     player_odds[key]["over"].append((bm.bookmaker, outcome))
-                if "Under" in name:
+                if direction == "under":
                     player_odds[key]["under"].append((bm.bookmaker, outcome))
 
         for player_name, odds_data in player_odds.items():

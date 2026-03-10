@@ -34,14 +34,17 @@ class BaseAPIClient:
                     resp.raise_for_status()
                     return resp.json()
             except httpx.HTTPStatusError as e:
-                if e.response.status_code == 429:
+                status = e.response.status_code
+                if status == 429 or 500 <= status < 600:
                     wait = 2 ** attempt * 5
-                    logger.warning(f"Rate limited, waiting {wait}s")
+                    logger.warning(f"HTTP {status} on {url}, waiting {wait}s (attempt {attempt + 1}/3)")
                     time.sleep(wait)
                     last_exc = e
                     continue
+                logger.error(f"HTTP {status} on {url}: {e.response.text[:500]}")
                 raise
             except httpx.RequestError as e:
+                logger.error(f"Request error on {url}: {e}")
                 last_exc = e
                 if attempt == 2:
                     raise

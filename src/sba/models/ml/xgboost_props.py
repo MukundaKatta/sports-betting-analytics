@@ -14,6 +14,9 @@ from sklearn.model_selection import TimeSeriesSplit
 logger = logging.getLogger(__name__)
 
 
+MIN_TRAINING_SAMPLES = 30
+
+
 class PropPredictionModel:
     """Dual model: regressor for stat value + classifier for over/under."""
 
@@ -21,6 +24,7 @@ class PropPredictionModel:
         self.regressor = None
         self.classifier = None
         self.feature_names: list[str] = []
+        self._target_std: float | None = None
 
     def train(self, X: pd.DataFrame, y: pd.Series,
               line: float | None = None) -> dict:
@@ -33,10 +37,20 @@ class PropPredictionModel:
         """
         from xgboost import XGBClassifier, XGBRegressor
 
+        if len(X) < MIN_TRAINING_SAMPLES:
+            logger.warning(
+                f"Insufficient training samples ({len(X)} < {MIN_TRAINING_SAMPLES}). "
+                "Skipping training."
+            )
+            return {"error": "insufficient_samples", "n_samples": len(X)}
+
         self.feature_names = list(X.columns)
 
         # Handle NaN/inf
         X = X.fillna(0).replace([np.inf, -np.inf], 0)
+
+        # Store target std for data-driven fallback predictions
+        self._target_std = float(y.std()) if len(y) > 1 else None
 
         # Train regressor
         self.regressor = XGBRegressor(
@@ -76,11 +90,15 @@ class PropPredictionModel:
         if line is not None:
             y_binary = (y > line).astype(int)
             if y_binary.sum() > 5 and (1 - y_binary).sum() > 5:
+                neg_count = int((y_binary == 0).sum())
+                pos_count = int((y_binary == 1).sum())
+                spw = neg_count / pos_count if pos_count > 0 else 1.0
                 self.classifier = XGBClassifier(
                     n_estimators=100,
                     max_depth=4,
                     learning_rate=0.1,
                     subsample=0.8,
+                    scale_pos_weight=spw,
                     random_state=42,
                 )
                 self.classifier.fit(X, y_binary)
@@ -117,8 +135,11 @@ class PropPredictionModel:
         # Fallback: use regressor prediction + assumed normal distribution
         if self.regressor is not None:
             predicted = self.predict_value(X)
-            # Rough estimate using typical prop variance
-            std = max(abs(predicted) * 0.2, 1.0)
+            # Use actual target std from training data if available
+            if self._target_std and self._target_std > 0:
+                std = self._target_std
+            else:
+                std = max(abs(predicted) * 0.2, 1.0)
             z = (line - predicted) / std
             from sba.models.statistical.poisson import _normal_cdf
             return 1.0 - _normal_cdf(z)
@@ -140,6 +161,7 @@ class PropPredictionModel:
             "regressor": self.regressor,
             "classifier": self.classifier,
             "feature_names": self.feature_names,
+            "target_std": self._target_std,
         }, path)
 
     def load(self, path: Path):
@@ -147,3 +169,4 @@ class PropPredictionModel:
         self.regressor = data["regressor"]
         self.classifier = data.get("classifier")
         self.feature_names = data.get("feature_names", [])
+        self._target_std = data.get("target_std")

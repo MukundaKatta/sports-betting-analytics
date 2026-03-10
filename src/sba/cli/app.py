@@ -66,12 +66,21 @@ def version():
 
 
 @app.callback()
-def callback():
+def callback(
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable verbose/debug logging"),
+    debug: bool = typer.Option(False, "--debug", help="Enable debug logging (alias for --verbose)"),
+):
     """Sports Betting Analytics — Find +EV opportunities and analyze player props."""
     from sba.config import get_settings
 
     settings = get_settings()
-    _setup_logging(settings.LOG_LEVEL)
+    if verbose or debug:
+        level = "DEBUG"
+    else:
+        level = settings.LOG_LEVEL
+    _setup_logging(level)
+    if verbose or debug:
+        logging.debug("Debug logging enabled")
 
 
 def main():

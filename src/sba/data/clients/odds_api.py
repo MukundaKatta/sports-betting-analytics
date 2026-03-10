@@ -82,8 +82,10 @@ class OddsAPIClient(BaseAPIClient):
                 for o in market_data.get("outcomes", []):
                     price = o.get("price", 0)
                     point = o.get("point")
-                    # Handle both american and decimal formats
-                    if isinstance(price, float) and price > 0 and price < 50:
+                    # We request oddsFormat="american", so prices are american integers.
+                    # Fallback: if price looks like a decimal (between 1.0 and 50.0 exclusive
+                    # and is a float with a fractional part), treat as decimal.
+                    if isinstance(price, float) and 1.0 < price < 50.0 and price != int(price):
                         price_decimal = price
                         price_american = decimal_to_american(price)
                     else:

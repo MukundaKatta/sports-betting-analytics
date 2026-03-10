@@ -77,3 +77,80 @@ def status():
     table.add_row("Tracked Bets", str(bets))
 
     console.print(table)
+
+
+@data_app.command("export")
+def export(
+    format: str = typer.Option("csv", "--format", "-f", help="Export format: csv or json"),
+    output: str = typer.Option(None, "--output", "-o", help="Output file path"),
+):
+    """Export bet history to CSV or JSON."""
+    import csv
+    import json
+    import sys
+    from io import StringIO
+
+    if format not in ("csv", "json"):
+        console.print("[red]Error: format must be csv or json[/red]")
+        raise typer.Exit(1)
+
+    init_db()
+    repo = Repository()
+
+    with get_connection() as conn:
+        bets = repo.get_bet_history(conn)
+
+    if not bets:
+        console.print("[yellow]No bets to export[/yellow]")
+        return
+
+    if format == "csv":
+        buf = StringIO()
+        fieldnames = [
+            "id", "event_id", "market", "selection", "line",
+            "odds_american", "odds_decimal", "bookmaker",
+            "recommended_stake", "status", "profit_loss",
+        ]
+        writer = csv.DictWriter(buf, fieldnames=fieldnames)
+        writer.writeheader()
+        for bet in bets:
+            writer.writerow({
+                "id": bet.id,
+                "event_id": bet.event_id,
+                "market": bet.market,
+                "selection": bet.selection,
+                "line": bet.line or "",
+                "odds_american": bet.odds_american,
+                "odds_decimal": f"{bet.odds_decimal:.4f}",
+                "bookmaker": bet.bookmaker,
+                "recommended_stake": f"{bet.recommended_stake:.2f}",
+                "status": bet.status,
+                "profit_loss": f"{bet.profit_loss:.2f}" if bet.profit_loss else "0.00",
+            })
+        content = buf.getvalue()
+    else:
+        records = []
+        for bet in bets:
+            records.append({
+                "id": bet.id,
+                "event_id": bet.event_id,
+                "market": bet.market,
+                "selection": bet.selection,
+                "line": bet.line,
+                "odds_american": bet.odds_american,
+                "odds_decimal": bet.odds_decimal,
+                "bookmaker": bet.bookmaker,
+                "recommended_stake": bet.recommended_stake,
+                "status": bet.status,
+                "profit_loss": bet.profit_loss,
+            })
+        content = json.dumps(records, indent=2)
+
+    if output:
+        with open(output, "w") as f:
+            f.write(content)
+        console.print(f"[green]Exported {len(bets)} bets to {output}[/green]")
+    else:
+        sys.stdout.write(content)
+        if not content.endswith("\n"):
+            sys.stdout.write("\n")

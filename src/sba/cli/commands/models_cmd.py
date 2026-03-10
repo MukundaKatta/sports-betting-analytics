@@ -52,6 +52,38 @@ def train(
     console.print(table)
 
 
+@models_app.command("backtest")
+def backtest(
+    player: str = typer.Option(..., "--player", "-p", help="Player name"),
+    market: str = typer.Option("player_points", "--market", "-m", help="Prop market"),
+    line_pct: float = typer.Option(1.0, "--line-pct", help="Fraction of season avg for line (1.0 = season avg)"),
+):
+    """Run a walk-forward backtest for a player prop model."""
+    init_db()
+    repo = Repository()
+
+    with get_connection() as conn:
+        player_obj = repo.get_player_by_name(conn, player)
+
+    if not player_obj:
+        console.print(f"[red]Player '{player}' not found. Run 'sba data backfill --player \"{player}\"' first.[/red]")
+        raise typer.Exit(1)
+
+    from sba.services.backtester import Backtester
+    from sba.cli.display import render_backtest_result
+
+    bt = Backtester()
+
+    with console.status(f"Running backtest for {player_obj.name} ({market}, line_pct={line_pct})..."):
+        result = bt.backtest_player_props(player_obj.id, market, line_pct=line_pct)
+
+    if result is None:
+        console.print("[red]Backtest failed — not enough game data (need 35+ games).[/red]")
+        raise typer.Exit(1)
+
+    console.print(render_backtest_result(result))
+
+
 @models_app.command("list")
 def list_models():
     """List all trained models."""

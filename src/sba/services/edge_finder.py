@@ -8,9 +8,12 @@ from sba.config import get_settings
 from sba.data.clients.odds_api import OddsAPIClient
 from sba.data.db import get_connection, init_db
 from sba.data.db.repository import Repository
-from sba.models.domain import EdgeOpportunity, EventOdds
+from sba.models.domain import ArbOpportunity, EdgeOpportunity, EventOdds, OddsSnapshot
+from sba.models.statistical.arbitrage import scan_arbitrage
 from sba.models.statistical.ev import find_ev_opportunities
 from sba.models.statistical.implied_prob import consensus_probability, sharp_probability
+from sba.models.statistical.poisson import over_under_prob
+from sba.utils.odds_math import decimal_to_implied_prob
 
 logger = logging.getLogger(__name__)
 
@@ -84,6 +87,64 @@ class EdgeFinder:
 
     def credits_remaining(self) -> int | None:
         return self.odds_client.remaining_credits
+
+    def scan_arbs(self, sport: str | None = None,
+                   markets: str = "h2h") -> list[ArbOpportunity]:
+        """Scan for arbitrage opportunities across all upcoming events.
+
+        Fetches live odds and detects sure-bet arbs where the best odds
+        on each side of a market sum to < 100% implied probability.
+        """
+        sport = sport or self.settings.DEFAULT_SPORT
+        market_list = [m.strip() for m in markets.split(",")]
+
+        events_odds = self.odds_client.get_odds(
+            sport=sport,
+            regions=self.settings.DEFAULT_REGION,
+            markets=markets,
+        )
+
+        self._store_snapshots(events_odds)
+
+        arbs = scan_arbitrage(events_odds, market_list)
+        logger.info(f"Found {len(arbs)} arbitrage opportunities")
+        return arbs
+
+    def calculate_clv(self, bet_id: int) -> float | None:
+        """Calculate Closing Line Value for a tracked bet.
+
+        Looks up the bet's event_id and market, finds the last odds
+        snapshot before the event's commence_time, and compares the
+        bet's taken odds vs closing odds.
+
+        Returns:
+            CLV as a percentage (positive = beat the close), or None if
+            closing odds are not available.
+        """
+        with get_connection() as conn:
+            bet = self.repo.get_bet_by_id(conn, bet_id)
+            if bet is None:
+                logger.warning(f"Bet {bet_id} not found")
+                return None
+
+            closing = self.repo.get_closing_odds(
+                conn, bet.event_id, bet.market, bet.selection,
+            )
+            if closing is None:
+                logger.info(f"No closing odds found for bet {bet_id}")
+                return None
+
+            # CLV = (taken_implied - closing_implied) / closing_implied * 100
+            # A positive value means the bettor got better odds than the
+            # closing line (i.e. the line moved in their favour).
+            taken_implied = decimal_to_implied_prob(bet.odds_decimal)
+            closing_implied = decimal_to_implied_prob(closing.price_decimal)
+
+            if closing_implied == 0:
+                return None
+
+            clv = ((closing_implied - taken_implied) / closing_implied) * 100.0
+            return round(clv, 3)
 
     def _store_snapshots(self, events_odds: list[EventOdds]):
         with get_connection() as conn:

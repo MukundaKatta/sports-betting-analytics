@@ -3955,3 +3955,629 @@ body::after {
 [data-theme="light"] .live-ticker::after {
     background: linear-gradient(90deg, transparent, #f8f9fb);
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   World-Class Premium Upgrades v4.0 — Elite Edition
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Accent Theme System ──────────────────────────────────────── */
+
+[data-accent="emerald"] {
+    --accent-green: #10b981;
+    --accent-green-dim: rgba(16, 185, 129, 0.12);
+    --accent-green-glow: rgba(16, 185, 129, 0.25);
+    --gradient-premium: linear-gradient(135deg, #10b981 0%, #5b9aff 100%);
+}
+
+[data-accent="neon"] {
+    --accent-green: #39ff14;
+    --accent-green-dim: rgba(57, 255, 20, 0.12);
+    --accent-green-glow: rgba(57, 255, 20, 0.25);
+    --gradient-premium: linear-gradient(135deg, #39ff14 0%, #00e5ff 100%);
+}
+
+[data-accent="gold"] {
+    --accent-green: #f59e0b;
+    --accent-green-dim: rgba(245, 158, 11, 0.12);
+    --accent-green-glow: rgba(245, 158, 11, 0.25);
+    --gradient-premium: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%);
+}
+
+[data-accent="ocean"] {
+    --accent-green: #06b6d4;
+    --accent-green-dim: rgba(6, 182, 212, 0.12);
+    --accent-green-glow: rgba(6, 182, 212, 0.25);
+    --gradient-premium: linear-gradient(135deg, #06b6d4 0%, #8b5cf6 100%);
+}
+
+/* ── Player Profile Hero ──────────────────────────────────────── */
+
+.player-hero {
+    position: relative;
+    padding: 32px;
+    border-radius: var(--radius-lg);
+    background: linear-gradient(135deg, var(--bg-card) 0%, var(--bg-tertiary) 100%);
+    border: 1px solid var(--border-color);
+    overflow: hidden;
+    margin-bottom: 24px;
+}
+
+.player-hero::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: var(--gradient-premium);
+}
+
+.player-hero-content {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+}
+
+.player-avatar-lg {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: var(--gradient-premium);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    font-weight: 800;
+    color: var(--text-inverse);
+    flex-shrink: 0;
+    box-shadow: 0 0 24px rgba(0, 230, 138, 0.2);
+}
+
+.player-hero-info h2 {
+    font-size: 28px;
+    font-weight: 800;
+    margin: 0 0 4px 0;
+    background: var(--gradient-premium);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.player-hero-meta {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    color: var(--text-secondary);
+    font-size: 14px;
+}
+
+.player-hero-meta .sep {
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--text-tertiary);
+}
+
+.player-stat-pills {
+    display: flex;
+    gap: 8px;
+    margin-top: 16px;
+    flex-wrap: wrap;
+}
+
+.player-stat-pill {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: 20px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    font-size: 13px;
+}
+
+.player-stat-pill .pill-label {
+    color: var(--text-tertiary);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.player-stat-pill .pill-value {
+    font-weight: 700;
+    font-family: var(--font-mono);
+}
+
+/* ── Comparison Bar Charts ────────────────────────────────────── */
+
+.comparison-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 4px 0;
+}
+
+.comparison-bar-label {
+    font-size: 11px;
+    color: var(--text-tertiary);
+    min-width: 60px;
+    text-align: right;
+}
+
+.comparison-bar-track {
+    flex: 1;
+    height: 6px;
+    background: var(--bg-tertiary);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.comparison-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    background: var(--accent-green);
+}
+
+.comparison-bar-fill.blue { background: var(--accent-blue); }
+.comparison-bar-fill.yellow { background: var(--accent-yellow); }
+.comparison-bar-fill.purple { background: var(--accent-purple); }
+.comparison-bar-fill.red { background: var(--accent-red); }
+
+.comparison-bar-value {
+    font-size: 12px;
+    font-weight: 700;
+    font-family: var(--font-mono);
+    min-width: 40px;
+}
+
+/* ── Enhanced Edge Cards ──────────────────────────────────────── */
+
+.edge-summary-banner {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+    padding: 16px;
+    margin-bottom: 16px;
+    border-radius: var(--radius-md);
+    background: linear-gradient(135deg, rgba(0, 230, 138, 0.06) 0%, rgba(91, 154, 255, 0.06) 100%);
+    border: 1px solid var(--border-color);
+}
+
+.edge-summary-item {
+    text-align: center;
+}
+
+.edge-summary-item .edge-sum-value {
+    font-size: 22px;
+    font-weight: 800;
+    font-family: var(--font-mono);
+}
+
+.edge-summary-item .edge-sum-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-tertiary);
+    margin-top: 2px;
+}
+
+/* ── EV Heatmap Row Glow ──────────────────────────────────────── */
+
+.ev-heat-high {
+    background: rgba(0, 230, 138, 0.06);
+}
+
+.ev-heat-ultra {
+    background: rgba(0, 230, 138, 0.1);
+    box-shadow: inset 3px 0 0 var(--accent-green);
+}
+
+/* ── Settings Accent Picker ───────────────────────────────────── */
+
+.accent-picker {
+    display: flex;
+    gap: 10px;
+    padding: 8px 0;
+}
+
+.accent-swatch {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    cursor: pointer;
+    border: 3px solid transparent;
+    transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s;
+    position: relative;
+}
+
+.accent-swatch:hover {
+    transform: scale(1.15);
+}
+
+.accent-swatch.active {
+    border-color: var(--text-primary);
+    box-shadow: 0 0 12px rgba(255, 255, 255, 0.2);
+}
+
+.accent-swatch::after {
+    content: '';
+    position: absolute;
+    inset: -6px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    transition: border-color 0.15s;
+}
+
+.accent-swatch.active::after {
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+/* ── Line Movement SVG Chart ──────────────────────────────────── */
+
+.lm-visual-chart {
+    position: relative;
+    padding: 16px 0;
+}
+
+.lm-visual-chart svg {
+    width: 100%;
+    height: auto;
+}
+
+.lm-chart-dot {
+    transition: r 0.15s ease;
+    cursor: pointer;
+}
+
+.lm-chart-dot:hover {
+    r: 6;
+}
+
+/* ── Odds Comparison Highlights ───────────────────────────────── */
+
+.odds-badge.best-price {
+    background: var(--accent-green-dim);
+    color: var(--accent-green);
+    font-weight: 800;
+    box-shadow: 0 0 8px rgba(0, 230, 138, 0.2);
+}
+
+.odds-badge.worst-price {
+    opacity: 0.5;
+}
+
+/* ── Watchlist Card Premium ───────────────────────────────────── */
+
+.watchlist-card {
+    position: relative;
+    overflow: hidden;
+}
+
+.watchlist-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: var(--gradient-premium);
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.watchlist-card:hover::before {
+    opacity: 1;
+}
+
+/* ── Animated Number Ticker ───────────────────────────────────── */
+
+.num-ticker {
+    display: inline-flex;
+    overflow: hidden;
+    height: 1.2em;
+}
+
+.num-ticker-digit {
+    display: inline-block;
+    animation: num-tick-in 0.4s cubic-bezier(0.2, 0, 0, 1);
+}
+
+@keyframes num-tick-in {
+    from { transform: translateY(100%); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+/* ── Glassmorphism Modal ──────────────────────────────────────── */
+
+.glass-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s;
+}
+
+.glass-modal.open {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.glass-modal-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(8px);
+}
+
+.glass-modal-content {
+    position: relative;
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-lg);
+    padding: 32px;
+    max-width: 500px;
+    width: 90%;
+    box-shadow: var(--shadow-xl);
+    animation: modal-enter 0.3s cubic-bezier(0.2, 0, 0, 1);
+}
+
+@keyframes modal-enter {
+    from { transform: scale(0.95) translateY(10px); opacity: 0; }
+    to { transform: scale(1) translateY(0); opacity: 1; }
+}
+
+.glass-modal-close {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background: none;
+    border: none;
+    color: var(--text-tertiary);
+    cursor: pointer;
+    padding: 4px;
+    font-size: 18px;
+    line-height: 1;
+    transition: color 0.15s;
+}
+
+.glass-modal-close:hover {
+    color: var(--text-primary);
+}
+
+/* ── 3D Card Tilt (subtle) ────────────────────────────────────── */
+
+.tilt-card {
+    transform-style: preserve-3d;
+    perspective: 1000px;
+    transition: transform 0.3s ease;
+}
+
+.tilt-card:hover {
+    transform: rotateX(-1deg) rotateY(1deg) translateY(-2px);
+}
+
+/* ── Animated Gradient Border (premium cards) ─────────────────── */
+
+.animated-border {
+    position: relative;
+    overflow: hidden;
+}
+
+.animated-border::before {
+    content: '';
+    position: absolute;
+    inset: -2px;
+    background: conic-gradient(
+        from 0deg,
+        var(--accent-green),
+        var(--accent-blue),
+        var(--accent-purple),
+        var(--accent-yellow),
+        var(--accent-green)
+    );
+    border-radius: inherit;
+    z-index: -1;
+    opacity: 0;
+    animation: border-spin 4s linear infinite;
+    transition: opacity 0.3s;
+}
+
+.animated-border:hover::before {
+    opacity: 0.6;
+}
+
+@keyframes border-spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.animated-border::after {
+    content: '';
+    position: absolute;
+    inset: 1px;
+    background: var(--bg-card);
+    border-radius: inherit;
+    z-index: -1;
+}
+
+/* ── Enhanced Settings Rows ───────────────────────────────────── */
+
+.settings-row {
+    transition: background 0.15s;
+    padding: 12px 0;
+    border-radius: var(--radius-sm);
+}
+
+.settings-row:hover {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+/* ── Data Freshness Indicator ─────────────────────────────────── */
+
+.freshness-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 6px;
+}
+
+.freshness-dot.fresh { background: var(--accent-green); box-shadow: 0 0 6px var(--accent-green-glow); }
+.freshness-dot.stale { background: var(--accent-yellow); }
+.freshness-dot.old { background: var(--accent-red); }
+
+/* ── Premium Sidebar Active Link ──────────────────────────────── */
+
+.nav-link.active {
+    position: relative;
+}
+
+.nav-link.active::after {
+    content: '';
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 3px;
+    height: 60%;
+    background: var(--gradient-premium);
+    border-radius: 3px 0 0 3px;
+}
+
+/* ── Keyboard Shortcut Chips ──────────────────────────────────── */
+
+.kbd-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 22px;
+    height: 22px;
+    padding: 0 6px;
+    border-radius: 4px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    font-size: 10px;
+    font-family: var(--font-mono);
+    font-weight: 600;
+    color: var(--text-secondary);
+    line-height: 1;
+}
+
+/* ── Enhanced Badge Variants ──────────────────────────────────── */
+
+.badge-premium {
+    background: var(--gradient-premium);
+    color: var(--text-inverse);
+    font-weight: 700;
+    box-shadow: 0 2px 8px rgba(0, 230, 138, 0.2);
+}
+
+.badge-fire {
+    background: linear-gradient(135deg, #ff4d6a, #ff8c00);
+    color: white;
+    font-weight: 700;
+}
+
+.badge-ice {
+    background: linear-gradient(135deg, #5b9aff, #22d3ee);
+    color: white;
+    font-weight: 700;
+}
+
+/* ── Step Progress Indicator ──────────────────────────────────── */
+
+.step-progress {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    margin: 16px 0;
+}
+
+.step-progress-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+    position: relative;
+}
+
+.step-progress-dot {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 700;
+    background: var(--bg-tertiary);
+    color: var(--text-tertiary);
+    border: 2px solid var(--border-color);
+    flex-shrink: 0;
+    transition: all 0.3s;
+    z-index: 1;
+}
+
+.step-progress-item.active .step-progress-dot {
+    background: var(--accent-green);
+    color: var(--text-inverse);
+    border-color: var(--accent-green);
+    box-shadow: 0 0 12px var(--accent-green-glow);
+}
+
+.step-progress-item.done .step-progress-dot {
+    background: var(--accent-green-dim);
+    color: var(--accent-green);
+    border-color: var(--accent-green);
+}
+
+.step-progress-line {
+    flex: 1;
+    height: 2px;
+    background: var(--border-color);
+    margin: 0 -4px;
+}
+
+.step-progress-line.done {
+    background: var(--accent-green);
+}
+
+/* ── Light Theme v4 Overrides ─────────────────────────────────── */
+
+[data-theme="light"] .player-hero {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(245, 247, 250, 0.9) 100%);
+}
+
+[data-theme="light"] .edge-summary-banner {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.06) 0%, rgba(59, 130, 246, 0.06) 100%);
+}
+
+[data-theme="light"] .glass-modal-content {
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: blur(20px);
+}
+
+[data-theme="light"] .glass-modal-backdrop {
+    background: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="light"] .animated-border::after {
+    background: #fff;
+}
+
+[data-theme="light"] .accent-swatch.active {
+    border-color: #333;
+}
+
+[data-theme="light"] .nav-link.active::after {
+    display: block;
+}

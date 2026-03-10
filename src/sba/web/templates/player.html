@@ -2,13 +2,28 @@
 {% block title %}{{ player_name }}{% endblock %}
 
 {% block content %}
+<div class="breadcrumb">
+    <a href="/">Dashboard</a>
+    <span class="breadcrumb-sep">/</span>
+    <a href="/props">Player Props</a>
+    <span class="breadcrumb-sep">/</span>
+    <span>{{ player_name }}</span>
+</div>
 <div id="player-content">
-    <div class="loading-spinner"><div class="spinner"></div> Loading player data...</div>
+    <div style="display:grid;gap:16px">
+        <div class="skeleton" style="height:120px;border-radius:var(--radius-lg)"></div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px">
+            <div class="skeleton skeleton-card"></div>
+            <div class="skeleton skeleton-card"></div>
+            <div class="skeleton skeleton-card"></div>
+            <div class="skeleton skeleton-card"></div>
+        </div>
+    </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-document.addEventListener('DOMContentLoaded', () => SBA.loadPlayer('{{ player_name }}'));
+document.addEventListener('DOMContentLoaded', () => SBA.loadPlayerEnhanced('{{ player_name }}'));
 </script>
 {% endblock %}

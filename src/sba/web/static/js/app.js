@@ -12,6 +12,7 @@ const SBA = {
     // ── Initialization ────────────────────────────────────────────────
     init() {
         this.loadTheme();
+        this.loadAccent();
         this.setupClock();
         this.setupSearch();
         this.setupKeyboardShortcuts();
@@ -293,11 +294,18 @@ const SBA = {
                 countEl.textContent = edges.length;
             }
 
+            // Edge summary banner
+            const bannerEl = document.getElementById('edge-summary-banner');
+            if (bannerEl) {
+                bannerEl.innerHTML = this.createEdgeSummaryBanner(edges);
+            }
+
             if (edges.length === 0) {
                 container.innerHTML = `<tr><td colspan="11" class="empty-state">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
                     <p>No +EV opportunities found right now. Try adjusting filters or check back later.</p>
                 </td></tr>`;
+                if (bannerEl) bannerEl.innerHTML = '';
                 return;
             }
 
@@ -1195,8 +1203,12 @@ const SBA = {
             const colors = ['var(--accent-green)', 'var(--accent-blue)', 'var(--accent-yellow)', 'var(--accent-purple)', 'var(--accent-cyan)', 'var(--accent-red)'];
             let colorIdx = 0;
 
+            // SVG line chart visualization
+            const svgChart = this.createLineMovementChart(groups);
+
             chartEl.innerHTML = `
-                <div style="display:flex;flex-direction:column;gap:16px">
+                ${svgChart}
+                <div style="display:flex;flex-direction:column;gap:12px;margin-top:16px">
                     ${Object.entries(groups).map(([key, snaps]) => {
                         const color = colors[colorIdx++ % colors.length];
                         const latest = snaps[snaps.length - 1];
@@ -2456,6 +2468,302 @@ const SBA = {
             </svg>
             <div class="progress-ring-value">${label || Math.round(value) + '%'}</div>
         </div>`;
+    },
+
+    // ── Accent Theme System ─────────────────────────────────────────
+    setAccent(accent) {
+        document.documentElement.setAttribute('data-accent', accent);
+        localStorage.setItem('sba-accent', accent);
+        this.toast(`Accent theme: ${accent}`, 'success');
+    },
+
+    loadAccent() {
+        const saved = localStorage.getItem('sba-accent');
+        if (saved) document.documentElement.setAttribute('data-accent', saved);
+    },
+
+    // ── Enhanced Player Page ────────────────────────────────────────
+    async loadPlayerEnhanced(name) {
+        const container = document.getElementById('player-content');
+        if (!container) return;
+
+        container.innerHTML = `
+            <div style="display:grid;gap:16px">
+                <div class="skeleton" style="height:120px;border-radius:var(--radius-lg)"></div>
+                <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px">
+                    <div class="skeleton skeleton-card"></div>
+                    <div class="skeleton skeleton-card"></div>
+                    <div class="skeleton skeleton-card"></div>
+                    <div class="skeleton skeleton-card"></div>
+                </div>
+            </div>`;
+
+        try {
+            const resp = await fetch(`/api/players/${encodeURIComponent(name)}`);
+            if (!resp.ok) {
+                container.innerHTML = `<div class="empty-state" style="padding:60px">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+                    <p>Player "${name}" not found</p>
+                    <p class="text-dim" style="font-size:12px">Run <code class="step-code" style="display:inline">sba data backfill --player "${name}"</code> to import</p>
+                </div>`;
+                return;
+            }
+
+            const p = await resp.json();
+            const initials = p.name.split(' ').map(n => n[0]).join('');
+
+            // Build comparison bars for stats
+            const statBars = (stat, color, maxVal) => {
+                const l5 = p.last_5[stat] || 0;
+                const l20 = p.last_20[stat] || 0;
+                const trend = p.trends[stat + '_trend'];
+                const trendStr = trend !== undefined ? (trend >= 0 ? '+' : '') + trend.toFixed(1) : '';
+                const trendColor = trend >= 0 ? 'text-green' : 'text-red';
+                return `
+                    <div class="comparison-bar">
+                        <span class="comparison-bar-label">L5</span>
+                        <div class="comparison-bar-track"><div class="comparison-bar-fill ${color}" style="width:${Math.min(l5 / (maxVal || 1) * 100, 100)}%"></div></div>
+                        <span class="comparison-bar-value">${l5.toFixed(1)}</span>
+                    </div>
+                    <div class="comparison-bar">
+                        <span class="comparison-bar-label">L20</span>
+                        <div class="comparison-bar-track"><div class="comparison-bar-fill ${color}" style="width:${Math.min(l20 / (maxVal || 1) * 100, 100)}%;opacity:0.6"></div></div>
+                        <span class="comparison-bar-value text-dim">${l20.toFixed(1)}</span>
+                    </div>
+                    ${trendStr ? `<div style="font-size:11px;text-align:right" class="${trendColor}">Trend: ${trendStr}</div>` : ''}
+                `;
+            };
+
+            container.innerHTML = `
+                <div class="player-hero">
+                    <div class="player-hero-content">
+                        <div class="player-avatar-lg">${initials}</div>
+                        <div class="player-hero-info">
+                            <h2>${p.name}</h2>
+                            <div class="player-hero-meta">
+                                <span>${p.team}</span>
+                                <span class="sep"></span>
+                                <span>${p.position}</span>
+                                <span class="sep"></span>
+                                <span>${p.games} games</span>
+                            </div>
+                            <div class="player-stat-pills">
+                                <div class="player-stat-pill">
+                                    <span class="pill-label">PPG</span>
+                                    <span class="pill-value text-green">${(p.last_5.points || 0).toFixed(1)}</span>
+                                </div>
+                                <div class="player-stat-pill">
+                                    <span class="pill-label">RPG</span>
+                                    <span class="pill-value text-blue" style="color:var(--accent-blue)">${(p.last_5.rebounds || 0).toFixed(1)}</span>
+                                </div>
+                                <div class="player-stat-pill">
+                                    <span class="pill-label">APG</span>
+                                    <span class="pill-value text-yellow" style="color:var(--accent-yellow)">${(p.last_5.assists || 0).toFixed(1)}</span>
+                                </div>
+                                <div class="player-stat-pill">
+                                    <span class="pill-label">MPG</span>
+                                    <span class="pill-value" style="color:var(--accent-purple)">${(p.last_5.minutes || 0).toFixed(1)}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="dashboard-grid">
+                    <div class="card tilt-card">
+                        <div class="card-header"><h3 style="color:var(--accent-green)">Points</h3></div>
+                        <div class="card-body padded">${statBars('points', '', 40)}</div>
+                    </div>
+                    <div class="card tilt-card">
+                        <div class="card-header"><h3 style="color:var(--accent-blue)">Rebounds</h3></div>
+                        <div class="card-body padded">${statBars('rebounds', 'blue', 15)}</div>
+                    </div>
+                    <div class="card tilt-card">
+                        <div class="card-header"><h3 style="color:var(--accent-yellow)">Assists</h3></div>
+                        <div class="card-body padded">${statBars('assists', 'yellow', 12)}</div>
+                    </div>
+                    <div class="card tilt-card">
+                        <div class="card-header"><h3 style="color:var(--accent-purple)">Minutes</h3></div>
+                        <div class="card-body padded">${statBars('minutes', 'purple', 42)}</div>
+                    </div>
+
+                    <div class="card full-width">
+                        <div class="card-header">
+                            <h3>
+                                <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><rect x="2" y="3" width="20" height="18" rx="2"/><line x1="2" y1="9" x2="22" y2="9"/></svg>
+                                Recent Games
+                            </h3>
+                            <span class="text-dim" style="font-size:12px">${p.recent_games.length} games</span>
+                        </div>
+                        <div class="card-body">
+                            <div style="overflow-x:auto">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Date</th><th>Opp</th><th class="right">Min</th>
+                                            <th class="right">Pts</th><th class="right">Reb</th>
+                                            <th class="right">Ast</th><th class="right">3PM</th>
+                                            <th class="right">Stl</th><th class="right">Blk</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${p.recent_games.map((g, i) => {
+                                            const isHot = g.points >= (p.last_20.points || 0) * 1.3;
+                                            const isCold = g.points <= (p.last_20.points || 0) * 0.5;
+                                            return `
+                                            <tr class="new-row ${isHot ? 'hot-row' : isCold ? 'cold-row' : ''}" style="animation-delay:${i * 0.03}s">
+                                                <td class="text-dim">${g.date}</td>
+                                                <td>${g.opponent}</td>
+                                                <td class="right font-mono">${Math.round(g.minutes)}</td>
+                                                <td class="right font-mono font-bold">${g.points}</td>
+                                                <td class="right font-mono">${g.rebounds}</td>
+                                                <td class="right font-mono">${g.assists}</td>
+                                                <td class="right font-mono">${g.threes}</td>
+                                                <td class="right font-mono">${g.steals}</td>
+                                                <td class="right font-mono">${g.blocks}</td>
+                                            </tr>`;
+                                        }).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        } catch (err) {
+            container.innerHTML = `<div class="empty-state text-red">Error loading player: ${err.message}</div>`;
+        }
+    },
+
+    // ── Edge Summary Banner ─────────────────────────────────────────
+    createEdgeSummaryBanner(edges) {
+        if (!edges || edges.length === 0) return '';
+        const avgEv = edges.reduce((s, e) => s + e.ev, 0) / edges.length;
+        const totalStake = edges.reduce((s, e) => s + e.recommended_stake, 0);
+        const highConf = edges.filter(e => e.confidence === 'high').length;
+        const bestEv = Math.max(...edges.map(e => e.ev));
+        return `
+            <div class="edge-summary-banner">
+                <div class="edge-summary-item">
+                    <div class="edge-sum-value text-green">${edges.length}</div>
+                    <div class="edge-sum-label">Edges Found</div>
+                </div>
+                <div class="edge-summary-item">
+                    <div class="edge-sum-value text-green">${(avgEv * 100).toFixed(1)}%</div>
+                    <div class="edge-sum-label">Avg EV</div>
+                </div>
+                <div class="edge-summary-item">
+                    <div class="edge-sum-value" style="color:var(--accent-yellow)">${(bestEv * 100).toFixed(1)}%</div>
+                    <div class="edge-sum-label">Best EV</div>
+                </div>
+                <div class="edge-summary-item">
+                    <div class="edge-sum-value" style="color:var(--accent-blue)">${highConf}</div>
+                    <div class="edge-sum-label">High Confidence</div>
+                </div>
+                <div class="edge-summary-item">
+                    <div class="edge-sum-value" style="color:var(--accent-purple)">$${totalStake.toFixed(0)}</div>
+                    <div class="edge-sum-label">Total Stake</div>
+                </div>
+            </div>
+        `;
+    },
+
+    // ── EV Heat Class ───────────────────────────────────────────────
+    getEvHeatClass(ev) {
+        if (ev >= 0.08) return 'ev-heat-ultra';
+        if (ev >= 0.05) return 'ev-heat-high';
+        return '';
+    },
+
+    // ── Line Movement SVG Chart ─────────────────────────────────────
+    createLineMovementChart(groups) {
+        const allSnaps = Object.values(groups).flat();
+        if (allSnaps.length < 2) return '';
+
+        const width = 800, height = 200;
+        const padding = { top: 20, right: 20, bottom: 30, left: 60 };
+        const chartW = width - padding.left - padding.right;
+        const chartH = height - padding.top - padding.bottom;
+
+        // Get all odds values
+        const allOdds = allSnaps.map(s => s.odds_american);
+        const minOdds = Math.min(...allOdds);
+        const maxOdds = Math.max(...allOdds);
+        const rangeOdds = maxOdds - minOdds || 1;
+
+        const colors = ['var(--accent-green)', 'var(--accent-blue)', 'var(--accent-yellow)', 'var(--accent-purple)', 'var(--accent-cyan)', 'var(--accent-red)'];
+        let colorIdx = 0;
+
+        const scaleY = (v) => padding.top + chartH - ((v - minOdds) / rangeOdds) * chartH;
+
+        // Y-axis labels
+        const yTicks = 5;
+        const yLabels = Array.from({length: yTicks + 1}, (_, i) => {
+            const val = minOdds + (rangeOdds / yTicks) * i;
+            return { val: Math.round(val), y: scaleY(val) };
+        });
+
+        let paths = '';
+        let dots = '';
+        let legend = '';
+
+        Object.entries(groups).forEach(([key, snaps]) => {
+            const color = colors[colorIdx++ % colors.length];
+            const scaleX = (i) => padding.left + (i / Math.max(snaps.length - 1, 1)) * chartW;
+
+            const pathD = snaps.map((s, i) =>
+                `${i === 0 ? 'M' : 'L'} ${scaleX(i).toFixed(1)} ${scaleY(s.odds_american).toFixed(1)}`
+            ).join(' ');
+
+            paths += `<path d="${pathD}" fill="none" stroke="${color}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.8"/>`;
+            dots += snaps.map((s, i) =>
+                `<circle class="lm-chart-dot" cx="${scaleX(i).toFixed(1)}" cy="${scaleY(s.odds_american).toFixed(1)}" r="3.5" fill="${color}" stroke="var(--bg-card)" stroke-width="1.5" data-tooltip="${s.odds_american > 0 ? '+' : ''}${s.odds_american}"/>`
+            ).join('');
+
+            legend += `<span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--text-secondary)"><span style="width:10px;height:3px;background:${color};border-radius:2px"></span>${key}</span>`;
+        });
+
+        return `
+            <div class="lm-visual-chart">
+                <svg viewBox="0 0 ${width} ${height}" style="width:100%;height:auto;max-height:${height}px">
+                    ${yLabels.map(l => `
+                        <line x1="${padding.left}" y1="${l.y.toFixed(1)}" x2="${width - padding.right}" y2="${l.y.toFixed(1)}" stroke="var(--border-light)" stroke-width="1"/>
+                        <text x="${padding.left - 8}" y="${l.y.toFixed(1)}" text-anchor="end" dominant-baseline="middle" fill="var(--text-tertiary)" font-size="10" font-family="var(--font-mono)">${l.val > 0 ? '+' : ''}${l.val}</text>
+                    `).join('')}
+                    ${paths}
+                    ${dots}
+                </svg>
+                <div style="display:flex;gap:16px;padding:8px 0 0;flex-wrap:wrap">${legend}</div>
+            </div>
+        `;
+    },
+
+    // ── Enhanced Settings with Accent Picker ────────────────────────
+    renderAccentPicker() {
+        const currentAccent = localStorage.getItem('sba-accent') || '';
+        const accents = [
+            { id: '', label: 'Default', color: '#00e68a' },
+            { id: 'emerald', label: 'Emerald', color: '#10b981' },
+            { id: 'neon', label: 'Neon', color: '#39ff14' },
+            { id: 'gold', label: 'Gold', color: '#f59e0b' },
+            { id: 'ocean', label: 'Ocean', color: '#06b6d4' },
+        ];
+        return `
+            <div class="settings-row" style="border-bottom:none">
+                <div>
+                    <div class="font-bold">Accent Theme</div>
+                    <div class="text-dim" style="font-size:12px">Customize the app's primary accent color</div>
+                </div>
+                <div class="accent-picker">
+                    ${accents.map(a => `
+                        <div class="accent-swatch ${currentAccent === a.id ? 'active' : ''}"
+                             style="background:${a.color}"
+                             onclick="SBA.setAccent('${a.id}');document.querySelectorAll('.accent-swatch').forEach(s=>s.classList.remove('active'));this.classList.add('active')"
+                             data-tooltip="${a.label}"></div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
     },
 };
 

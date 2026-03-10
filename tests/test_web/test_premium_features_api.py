@@ -108,7 +108,7 @@ class TestBacktestAPI:
         assert resp.status_code == 200
         data = resp.json()
         assert data["strategy_name"] == "Test Strategy"
-        assert data["grade"] in ("A", "B", "C", "D", "F")
+        assert data["grade"] in ("A+", "A", "B+", "B", "C", "D")
         assert "equity_curve" in data
         assert "total_bets" in data
         assert "roi_pct" in data

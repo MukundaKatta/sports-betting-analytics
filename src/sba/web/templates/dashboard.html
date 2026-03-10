@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<h1 class="page-title">
+    Dashboard
+    <span class="badge">Live</span>
+</h1>
+
+<div class="stats-grid" id="dashboard-stats">
+    <div class="stat-card green">
+        <div class="stat-label">Events Tracked</div>
+        <div class="stat-value">—</div>
+    </div>
+    <div class="stat-card blue">
+        <div class="stat-label">Odds Snapshots</div>
+        <div class="stat-value">—</div>
+    </div>
+    <div class="stat-card yellow">
+        <div class="stat-label">Players</div>
+        <div class="stat-value">—</div>
+    </div>
+    <div class="stat-card purple">
+        <div class="stat-label">Game Logs</div>
+        <div class="stat-value">—</div>
+    </div>
+</div>
+
+<div class="dashboard-grid">
+    <!-- Quick Edge Scan -->
+    <div class="card">
+        <div class="card-header">
+            <h3>Quick Edge Scan</h3>
+            <button class="btn btn-scan btn-sm" onclick="SBA.loadEdges(null, 'h2h,spreads,totals', null); this.textContent='Scanning...'">
+                Scan Now
+            </button>
+        </div>
+        <div class="card-body">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Event</th>
+                        <th>Selection</th>
+                        <th class="right">Odds</th>
+                        <th class="right">EV</th>
+                        <th class="right">Stake</th>
+                    </tr>
+                </thead>
+                <tbody id="edges-table-body">
+                    <tr><td colspan="5" class="empty-state"><p>Click "Scan Now" to find +EV opportunities</p></td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Bet Performance -->
+    <div class="card">
+        <div class="card-header">
+            <h3>Bet Performance</h3>
+            <a href="/my-bets" class="btn btn-outline btn-sm">View All</a>
+        </div>
+        <div class="card-body" id="dashboard-bets">
+            <div class="loading-spinner"><div class="spinner"></div> Loading...</div>
+        </div>
+    </div>
+
+    <!-- Getting Started -->
+    <div class="card full-width">
+        <div class="card-header">
+            <h3>Getting Started</h3>
+        </div>
+        <div class="card-body padded">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(250px, 1fr));gap:16px">
+                <div style="padding:16px;background:var(--bg-tertiary);border-radius:var(--radius-md)">
+                    <div style="font-weight:600;margin-bottom:8px;color:var(--accent-green)">1. Sync Data</div>
+                    <code style="font-size:12px;color:var(--text-secondary)">sba data sync</code>
+                    <p style="font-size:12px;color:var(--text-tertiary);margin-top:6px">Fetch live odds from 20+ sportsbooks</p>
+                </div>
+                <div style="padding:16px;background:var(--bg-tertiary);border-radius:var(--radius-md)">
+                    <div style="font-weight:600;margin-bottom:8px;color:var(--accent-blue)">2. Backfill Players</div>
+                    <code style="font-size:12px;color:var(--text-secondary)">sba data backfill --player "LeBron James"</code>
+                    <p style="font-size:12px;color:var(--text-tertiary);margin-top:6px">Import historical game logs for ML</p>
+                </div>
+                <div style="padding:16px;background:var(--bg-tertiary);border-radius:var(--radius-md)">
+                    <div style="font-weight:600;margin-bottom:8px;color:var(--accent-yellow)">3. Train Models</div>
+                    <code style="font-size:12px;color:var(--text-secondary)">sba models train --player "LeBron James"</code>
+                    <p style="font-size:12px;color:var(--text-tertiary);margin-top:6px">Train XGBoost prop prediction models</p>
+                </div>
+                <div style="padding:16px;background:var(--bg-tertiary);border-radius:var(--radius-md)">
+                    <div style="font-weight:600;margin-bottom:8px;color:var(--accent-purple)">4. Find Edges</div>
+                    <code style="font-size:12px;color:var(--text-secondary)">Click "Scan Now" above or visit Edge Finder</code>
+                    <p style="font-size:12px;color:var(--text-tertiary);margin-top:6px">Surface +EV opportunities vs soft books</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', () => SBA.loadDashboard());
+</script>
+{% endblock %}

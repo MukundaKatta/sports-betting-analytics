@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}Edge Finder{% endblock %}
+
+{% block content %}
+<h1 class="page-title">
+    Edge Finder
+    <span class="badge" id="edges-count">0</span>
+</h1>
+
+<div class="filters-bar">
+    <select class="filter-select" id="sport-filter">
+        <option value="basketball_nba">NBA</option>
+        <option value="basketball_ncaab">NCAAB</option>
+        <option value="americanfootball_nfl">NFL</option>
+        <option value="icehockey_nhl">NHL</option>
+        <option value="baseball_mlb">MLB</option>
+        <option value="soccer_epl">EPL Soccer</option>
+        <option value="mma_mixed_martial_arts">MMA</option>
+    </select>
+
+    <select class="filter-select" id="market-filter">
+        <option value="h2h,spreads,totals">All Markets</option>
+        <option value="h2h">Moneyline</option>
+        <option value="spreads">Spreads</option>
+        <option value="totals">Totals</option>
+    </select>
+
+    <select class="filter-select" id="ev-filter">
+        <option value="">Any EV</option>
+        <option value="0.02">2%+ EV</option>
+        <option value="0.04">4%+ EV</option>
+        <option value="0.06">6%+ EV</option>
+        <option value="0.08">8%+ EV</option>
+    </select>
+
+    <button class="btn btn-scan" onclick="scanEdges()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+        Scan for Edges
+    </button>
+
+    <button class="btn btn-outline btn-sm" onclick="SBA.toggleSlip()" style="margin-left:auto">
+        Bet Slip (<span id="slip-count-header">0</span>)
+    </button>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <div style="overflow-x:auto">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Event</th>
+                        <th>Market</th>
+                        <th>Selection</th>
+                        <th class="right">Best Odds</th>
+                        <th>Book</th>
+                        <th class="right">Model %</th>
+                        <th class="right">Implied %</th>
+                        <th class="right">EV</th>
+                        <th class="right">Kelly %</th>
+                        <th class="right">Stake</th>
+                        <th class="center">Confidence</th>
+                    </tr>
+                </thead>
+                <tbody id="edges-table-body">
+                    <tr><td colspan="11" class="empty-state">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+                        <p>Click "Scan for Edges" to find +EV opportunities across all sportsbooks</p>
+                    </td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function scanEdges() {
+    const sport = document.getElementById('sport-filter').value;
+    const market = document.getElementById('market-filter').value;
+    const minEv = document.getElementById('ev-filter').value || null;
+    SBA.loadEdges(sport, market, minEv);
+}
+</script>
+{% endblock %}

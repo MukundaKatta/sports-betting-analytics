@@ -27,6 +27,26 @@ app.command("monitor")(monitor_command)
 console = Console()
 
 
+@app.command("web")
+def web_command(
+    host: str = typer.Option("0.0.0.0", "--host", "-h", help="Bind host"),
+    port: int = typer.Option(8000, "--port", "-p", help="Bind port"),
+    reload: bool = typer.Option(False, "--reload", help="Auto-reload on changes"),
+):
+    """Launch the web dashboard."""
+    import uvicorn
+
+    console.print(f"[bold green]Starting SBA Web Dashboard[/bold green]")
+    console.print(f"[dim]Open http://localhost:{port} in your browser[/dim]\n")
+    uvicorn.run(
+        "sba.web.app:app",
+        host=host,
+        port=port,
+        reload=reload,
+        log_level="info",
+    )
+
+
 def _setup_logging(level: str = "INFO"):
     """Configure structured logging with Rich output."""
     logging.basicConfig(

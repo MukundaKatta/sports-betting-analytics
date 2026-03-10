@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}My Bets{% endblock %}
+
+{% block content %}
+<h1 class="page-title">My Bets</h1>
+
+<div class="stats-grid" id="bets-summary">
+    <div class="stat-card green">
+        <div class="stat-label">Total P/L</div>
+        <div class="stat-value">—</div>
+    </div>
+    <div class="stat-card blue">
+        <div class="stat-label">Win Rate</div>
+        <div class="stat-value">—</div>
+    </div>
+    <div class="stat-card yellow">
+        <div class="stat-label">Total Staked</div>
+        <div class="stat-value">—</div>
+    </div>
+    <div class="stat-card purple">
+        <div class="stat-label">Pending</div>
+        <div class="stat-value">—</div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h3>Bet History</h3>
+    </div>
+    <div class="card-body">
+        <div style="overflow-x:auto">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Selection</th>
+                        <th>Market</th>
+                        <th class="right">Odds</th>
+                        <th class="right">Stake</th>
+                        <th class="right">Book</th>
+                        <th class="center">Status</th>
+                        <th class="right">P/L</th>
+                    </tr>
+                </thead>
+                <tbody id="bets-table-body">
+                    <tr><td colspan="8" class="loading-spinner"><div class="spinner"></div> Loading bet history...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', () => SBA.loadBets());
+</script>
+{% endblock %}

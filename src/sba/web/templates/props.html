@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}Player Props{% endblock %}
+
+{% block content %}
+<h1 class="page-title">
+    Player Props
+    <span class="badge" id="props-count">0</span>
+</h1>
+
+<div class="filters-bar">
+    <select class="filter-select" id="props-sport-filter">
+        <option value="basketball_nba">NBA</option>
+        <option value="basketball_ncaab">NCAAB</option>
+    </select>
+
+    <select class="filter-select" id="props-market-filter">
+        <option value="player_points,player_rebounds,player_assists">PTS / REB / AST</option>
+        <option value="player_points">Points</option>
+        <option value="player_rebounds">Rebounds</option>
+        <option value="player_assists">Assists</option>
+        <option value="player_threes">Three Pointers</option>
+        <option value="player_blocks">Blocks</option>
+        <option value="player_steals">Steals</option>
+        <option value="player_points_rebounds_assists">PRA Combined</option>
+    </select>
+
+    <button class="btn btn-scan" onclick="scanProps()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+        Analyze Props
+    </button>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <div style="overflow-x:auto">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Player</th>
+                        <th>Market</th>
+                        <th class="right">Predicted</th>
+                        <th class="right">Line</th>
+                        <th class="right">Over %</th>
+                        <th class="right">Over Odds</th>
+                        <th class="right">Over EV</th>
+                        <th class="right">Under EV</th>
+                        <th class="center">Rec</th>
+                        <th>Key Features</th>
+                    </tr>
+                </thead>
+                <tbody id="props-table-body">
+                    <tr><td colspan="10" class="empty-state">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                        <p>Click "Analyze Props" to run ML predictions on player props</p>
+                        <p class="text-dim" style="font-size:12px">Backfill player data first: <code>sba data backfill --player "Player Name"</code></p>
+                    </td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function scanProps() {
+    const sport = document.getElementById('props-sport-filter').value;
+    const markets = document.getElementById('props-market-filter').value;
+    SBA.loadProps(sport, markets);
+}
+</script>
+{% endblock %}

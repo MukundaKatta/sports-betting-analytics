@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+{% block title %}Power Ratings{% endblock %}
+
+{% block content %}
+<h1 class="page-title reveal-up">
+    <span class="gradient-text animated-gradient-text">Power Ratings</span>
+    <span class="tag-elite">Pro</span>
+</h1>
+
+<div class="dashboard-grid">
+    <!-- Ratings Table -->
+    <div class="card full-width featured-card frosted-panel reveal-up" style="animation-delay:0.1s">
+        <div class="card-header">
+            <h3>
+                <svg class="header-icon icon-bounce" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5C7 4 6 9 6 9z"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5C17 4 18 9 18 9z"/><path d="M4 22h16"/><path d="M10 22V2h4v20"/></svg>
+                Team Power Ratings
+                <span class="badge" id="pr-count">0</span>
+            </h3>
+            <select class="filter-select" id="pr-sport" onchange="loadRatings()" style="width:180px">
+                <option value="basketball_nba">NBA</option>
+                <option value="americanfootball_nfl">NFL</option>
+                <option value="baseball_mlb">MLB</option>
+                <option value="icehockey_nhl">NHL</option>
+            </select>
+        </div>
+        <div class="card-body">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>#</th><th>Team</th><th class="right">Rating</th>
+                        <th class="right">Win %</th><th class="right">Games</th>
+                        <th class="right">Trend</th>
+                    </tr>
+                </thead>
+                <tbody id="pr-table">
+                    <tr><td colspan="6" class="empty-state"><p>Loading ratings...</p></td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Matchup Analyzer -->
+    <div class="card frosted-panel reveal-left" style="animation-delay:0.15s">
+        <div class="card-header">
+            <h3>
+                <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                Matchup Analyzer
+            </h3>
+        </div>
+        <div class="card-body padded">
+            <div style="display:grid;gap:10px">
+                <div>
+                    <label class="stat-label" style="margin-bottom:6px;display:block">Home Team</label>
+                    <input type="text" id="mu-home" placeholder="e.g. Lakers" class="premium-input" style="width:100%">
+                </div>
+                <div>
+                    <label class="stat-label" style="margin-bottom:6px;display:block">Away Team</label>
+                    <input type="text" id="mu-away" placeholder="e.g. Celtics" class="premium-input" style="width:100%">
+                </div>
+                <button class="btn btn-primary btn-block" onclick="analyzeMatchup()">Analyze Matchup</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Matchup Result -->
+    <div class="card frosted-panel reveal-scale" style="animation-delay:0.2s">
+        <div class="card-header">
+            <h3>
+                <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                Matchup Result
+            </h3>
+        </div>
+        <div class="card-body padded" id="mu-result">
+            <div class="empty-state" style="padding:30px">
+                <p>Select two teams to analyze</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function loadRatings() {
+    const sport = document.getElementById('pr-sport').value;
+    try {
+        const resp = await fetch(`/api/power-ratings?sport=${sport}`);
+        const data = await resp.json();
+        const ratings = data.ratings || [];
+        document.getElementById('pr-count').textContent = ratings.length;
+        const tbody = document.getElementById('pr-table');
+        if (ratings.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="empty-state"><p>No ratings data available for this sport</p><p class="text-dim" style="font-size:12px">Ratings are derived from market odds data</p></td></tr>';
+        } else {
+            tbody.innerHTML = ratings.map((r, i) => `
+                <tr>
+                    <td class="font-bold ${i < 3 ? 'text-yellow' : ''}">${i + 1}</td>
+                    <td class="font-bold">${r.team}</td>
+                    <td class="right font-mono font-bold">${r.rating.toFixed(0)}</td>
+                    <td class="right font-mono ${r.win_pct >= 55 ? 'text-green' : r.win_pct <= 45 ? 'text-red' : ''}">${r.win_pct.toFixed(1)}%</td>
+                    <td class="right font-mono">${r.games || 0}</td>
+                    <td class="right font-mono ${r.trend > 0 ? 'text-green' : r.trend < 0 ? 'text-red' : 'text-dim'}">${r.trend > 0 ? '+' : ''}${r.trend.toFixed(0)}</td>
+                </tr>
+            `).join('');
+        }
+    } catch (err) {
+        console.error('Failed to load ratings:', err);
+    }
+}
+
+async function analyzeMatchup() {
+    const home = document.getElementById('mu-home').value.trim();
+    const away = document.getElementById('mu-away').value.trim();
+    if (!home || !away) { SBA.toast('Enter both teams', 'error'); return; }
+
+    try {
+        const resp = await fetch(`/api/matchup?home=${encodeURIComponent(home)}&away=${encodeURIComponent(away)}`);
+        const d = await resp.json();
+        if (resp.status !== 200) { SBA.toast(d.detail || 'Error', 'error'); return; }
+
+        const el = document.getElementById('mu-result');
+        el.innerHTML = `
+            <div style="text-align:center;margin-bottom:16px">
+                <div style="display:flex;align-items:center;justify-content:center;gap:16px">
+                    <div>
+                        <div class="font-bold" style="font-size:18px">${d.home_team}</div>
+                        <div class="stat-label">Rating: ${d.home_rating}</div>
+                    </div>
+                    <div class="tag" style="font-size:14px">VS</div>
+                    <div>
+                        <div class="font-bold" style="font-size:18px">${d.away_team}</div>
+                        <div class="stat-label">Rating: ${d.away_rating}</div>
+                    </div>
+                </div>
+            </div>
+            <div class="stats-grid" style="margin:0">
+                <div class="stat-card ${d.home_win_prob > 50 ? 'green' : 'red'} card-3d-tilt">
+                    <div class="stat-label">Home Win %</div>
+                    <div class="stat-value">${d.home_win_prob.toFixed(1)}%</div>
+                </div>
+                <div class="stat-card blue card-3d-tilt">
+                    <div class="stat-label">Predicted Spread</div>
+                    <div class="stat-value font-mono">${d.predicted_spread > 0 ? '+' : ''}${d.predicted_spread.toFixed(1)}</div>
+                    <div class="stat-sub">${d.predicted_spread < 0 ? d.home_team : d.away_team} favored</div>
+                </div>
+            </div>
+        `;
+        SBA.toast('Matchup analyzed!', 'success');
+    } catch (err) {
+        SBA.toast('Error: ' + err.message, 'error');
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    loadRatings();
+});
+</script>
+{% endblock %}

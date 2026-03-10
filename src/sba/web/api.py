@@ -2004,3 +2004,456 @@ def get_bet_notes(bet_id: int):
         {"id": r["id"], "note": r["note"], "created_at": r["created_at"]}
         for r in rows
     ]
+
+
+# ── Same-Game Parlay / Correlation Builder ───────────────────────
+
+class SGPLegRequest(BaseModel):
+    market: str
+    selection: str
+    direction: str  # over, under, cover, yes, no
+    odds_american: int
+    player_name: str = ""
+
+
+class SGPRequest(BaseModel):
+    legs: list[SGPLegRequest]
+    stake: float = 100.0
+
+
+@router.post("/calculator/sgp")
+def sgp_builder(req: SGPRequest):
+    """Build a same-game parlay with correlation adjustments.
+
+    Unlike naive parlay calculators, this accounts for statistical
+    correlations between markets (e.g., points & threes are correlated).
+    """
+    from sba.services.correlations import SGPLeg, build_sgp
+    from sba.utils.odds_math import american_to_decimal, decimal_to_implied_prob
+
+    if len(req.legs) < 2:
+        raise HTTPException(400, "SGP requires at least 2 legs")
+
+    legs = []
+    for leg in req.legs:
+        dec = american_to_decimal(leg.odds_american)
+        imp = decimal_to_implied_prob(dec)
+        legs.append(SGPLeg(
+            market=leg.market,
+            selection=leg.selection,
+            direction=leg.direction,
+            odds_american=leg.odds_american,
+            odds_decimal=round(dec, 4),
+            implied_prob=round(imp, 4),
+            player_name=leg.player_name,
+        ))
+
+    analysis = build_sgp(legs)
+
+    payout = round(req.stake * analysis.correlated_odds_decimal, 2)
+    profit = round(payout - req.stake, 2)
+
+    return {
+        "num_legs": len(legs),
+        "naive_odds_american": analysis.naive_odds_american,
+        "naive_odds_decimal": analysis.naive_odds_decimal,
+        "correlated_odds_american": analysis.correlated_odds_american,
+        "correlated_odds_decimal": analysis.correlated_odds_decimal,
+        "naive_probability": round(analysis.naive_probability * 100, 3),
+        "correlated_probability": round(analysis.correlated_probability * 100, 3),
+        "correlation_adjustment_pct": analysis.correlation_adjustment,
+        "correlations": analysis.correlations,
+        "stake": req.stake,
+        "payout": payout,
+        "profit": profit,
+        "legs": [
+            {
+                "player": l.player_name,
+                "market": l.market,
+                "direction": l.direction,
+                "odds_american": l.odds_american,
+                "implied_prob": round(l.implied_prob * 100, 1),
+            }
+            for l in legs
+        ],
+    }
+
+
+@router.get("/correlations")
+def get_correlation_matrix():
+    """Get the known correlation matrix for SGP pricing."""
+    from sba.services.correlations import CORRELATION_MATRIX
+
+    return [
+        {
+            "market_a": k[0],
+            "direction_a": k[1],
+            "market_b": k[2],
+            "direction_b": k[3],
+            "correlation": v,
+        }
+        for k, v in CORRELATION_MATRIX.items()
+        if v != 0
+    ]
+
+
+# ── Power Ratings ────────────────────────────────────────────────
+
+@router.get("/power-ratings")
+def get_power_ratings(sport: str = Query("basketball_nba")):
+    """Get team power ratings derived from market odds."""
+    from sba.services.power_ratings import calculate_ratings_from_odds
+
+    init_db()
+    with get_connection() as conn:
+        rows = conn.execute("""
+            SELECT DISTINCT e.home_team, e.away_team, e.sport,
+                   os_h.price_american as home_odds,
+                   os_a.price_american as away_odds
+            FROM events e
+            JOIN odds_snapshots os_h ON os_h.event_id = e.id
+                AND os_h.market = 'h2h' AND os_h.outcome_name = e.home_team
+            JOIN odds_snapshots os_a ON os_a.event_id = e.id
+                AND os_a.market = 'h2h' AND os_a.outcome_name = e.away_team
+                AND os_a.bookmaker = os_h.bookmaker
+            WHERE e.sport LIKE ?
+            ORDER BY os_h.snapshot_time DESC
+            LIMIT 200
+        """, (f"%{sport.split('_')[-1]}%",)).fetchall()
+
+    events = [
+        {
+            "home_team": r["home_team"],
+            "away_team": r["away_team"],
+            "sport": r["sport"],
+            "home_odds_american": r["home_odds"],
+            "away_odds_american": r["away_odds"],
+        }
+        for r in rows
+    ]
+
+    ratings = calculate_ratings_from_odds(events)
+    return {
+        "sport": sport,
+        "teams_rated": len(ratings),
+        "ratings": [
+            {
+                "rank": r.rank,
+                "team": r.team,
+                "rating": r.rating,
+                "win_pct": round(r.implied_win_pct * 100, 1),
+                "games_rated": r.games_rated,
+                "trend": r.trend,
+            }
+            for r in ratings
+        ],
+    }
+
+
+@router.get("/matchup")
+def analyze_matchup_endpoint(
+    home: str = Query(...),
+    away: str = Query(...),
+    sport: str = Query("basketball_nba"),
+    spread: float = Query(None),
+):
+    """Analyze a head-to-head matchup using power ratings."""
+    from sba.services.power_ratings import analyze_matchup, calculate_ratings_from_odds
+
+    init_db()
+    with get_connection() as conn:
+        rows = conn.execute("""
+            SELECT DISTINCT e.home_team, e.away_team, e.sport,
+                   os_h.price_american as home_odds,
+                   os_a.price_american as away_odds
+            FROM events e
+            JOIN odds_snapshots os_h ON os_h.event_id = e.id
+                AND os_h.market = 'h2h' AND os_h.outcome_name = e.home_team
+            JOIN odds_snapshots os_a ON os_a.event_id = e.id
+                AND os_a.market = 'h2h' AND os_a.outcome_name = e.away_team
+                AND os_a.bookmaker = os_h.bookmaker
+            ORDER BY os_h.snapshot_time DESC LIMIT 200
+        """).fetchall()
+
+    events = [
+        {
+            "home_team": r["home_team"], "away_team": r["away_team"],
+            "sport": r["sport"],
+            "home_odds_american": r["home_odds"],
+            "away_odds_american": r["away_odds"],
+        }
+        for r in rows
+    ]
+    ratings = calculate_ratings_from_odds(events)
+    analysis = analyze_matchup(home, away, ratings, market_spread=spread)
+
+    return {
+        "home_team": analysis.home_team,
+        "away_team": analysis.away_team,
+        "home_rating": analysis.home_rating,
+        "away_rating": analysis.away_rating,
+        "home_win_prob": round(analysis.home_win_prob * 100, 1),
+        "away_win_prob": round(analysis.away_win_prob * 100, 1),
+        "predicted_spread": analysis.predicted_spread,
+        "rating_diff": analysis.rating_diff,
+        "home_edge": analysis.home_edge,
+        "away_edge": analysis.away_edge,
+    }
+
+
+# ── Promo / Bonus Optimizer ──────────────────────────────────────
+
+class PromoRequest(BaseModel):
+    promo_type: str  # risk_free, deposit_match, profit_boost, free_bet
+    amount: float
+    rollover: float = 1.0  # Rollover requirement multiplier
+    min_odds: int = -200  # Minimum odds requirement
+
+
+@router.post("/calculator/promo")
+def promo_optimizer(req: PromoRequest):
+    """Calculate optimal strategy for sportsbook promotions.
+
+    Handles risk-free bets, deposit matches, profit boosts, and free bets.
+    """
+    from sba.utils.odds_math import american_to_decimal
+
+    if req.promo_type == "risk_free":
+        # Risk-free: if you lose, get the stake back as free bet
+        # Best strategy: bet on a heavy favorite, then convert free bet
+        # Expected conversion: ~70% on risk-free, ~65-70% free bet portion
+        expected_value = round(req.amount * 0.70, 2)
+        strategy = (
+            "Place on slight underdog (+200 to +300). If it loses, "
+            "convert the free bet using the Free Bet Converter at ~65-70% rate."
+        )
+        optimal_odds = "+250"
+
+    elif req.promo_type == "deposit_match":
+        # Deposit match: play through rollover, minimize expected loss
+        min_dec = american_to_decimal(req.min_odds)
+        implied_hold = 1.0 - (1.0 / min_dec)  # Approximate house edge
+        play_through = req.amount * req.rollover
+        expected_loss = round(play_through * 0.02, 2)  # ~2% house edge on low-hold
+        expected_value = round(req.amount - expected_loss, 2)
+        strategy = (
+            f"Bet ${play_through:.0f} total on low-hold markets (≤2% vig). "
+            f"Expected loss: ${expected_loss}. Net value: ${expected_value}."
+        )
+        optimal_odds = "-110 / -110 (low hold)"
+
+    elif req.promo_type == "profit_boost":
+        # Profit boost: increased odds on a bet
+        boosted_value = round(req.amount * 0.05 * req.rollover, 2)  # ~5% boost value
+        expected_value = round(boosted_value, 2)
+        strategy = (
+            "Use on a bet you'd make anyway. The boost adds ~5% to your EV. "
+            "Best used on heavy underdogs to maximize the dollar value of the boost."
+        )
+        optimal_odds = "+300 or longer"
+
+    elif req.promo_type == "free_bet":
+        # Same as free bet converter - ~65-70% conversion
+        expected_value = round(req.amount * 0.70, 2)
+        strategy = (
+            "Use the Free Bet Converter. Place the free bet on a long underdog "
+            "(+300 to +500) and hedge on a different book for ~70% conversion."
+        )
+        optimal_odds = "+400 free bet, hedge at -400"
+
+    else:
+        raise HTTPException(400, f"Unknown promo type: {req.promo_type}")
+
+    return {
+        "promo_type": req.promo_type,
+        "amount": req.amount,
+        "rollover": req.rollover,
+        "expected_value": expected_value,
+        "strategy": strategy,
+        "optimal_odds": optimal_odds,
+        "conversion_rate": round(expected_value / req.amount * 100, 1),
+    }
+
+
+# ── Odds Screen (Real-time Odds Dashboard) ───────────────────────
+
+@router.get("/odds-screen")
+def odds_screen(
+    sport: str = Query("basketball_nba"),
+    market: str = Query("h2h"),
+):
+    """Get a comprehensive odds screen showing all events with best odds.
+
+    Like OddsJam's main screen: every game, every book, best price highlighted.
+    """
+    init_db()
+    with get_connection() as conn:
+        # Get all upcoming events
+        events = conn.execute("""
+            SELECT * FROM events WHERE completed = 0
+            ORDER BY commence_time LIMIT 50
+        """).fetchall()
+
+        odds_screen_data = []
+        for event in events:
+            # Get latest odds for each bookmaker
+            snapshots = conn.execute("""
+                SELECT bookmaker, outcome_name, outcome_point,
+                       price_american, price_decimal,
+                       MAX(snapshot_time) as latest_time
+                FROM odds_snapshots
+                WHERE event_id = ? AND market = ?
+                GROUP BY bookmaker, outcome_name
+                ORDER BY bookmaker
+            """, (event["id"], market)).fetchall()
+
+            if not snapshots:
+                continue
+
+            # Organize by outcome
+            by_outcome: dict[str, list] = {}
+            for s in snapshots:
+                outcome = s["outcome_name"]
+                by_outcome.setdefault(outcome, []).append({
+                    "bookmaker": s["bookmaker"],
+                    "odds_american": s["price_american"],
+                    "odds_decimal": round(s["price_decimal"], 3),
+                    "line": s["outcome_point"],
+                })
+
+            # Find best odds for each outcome
+            best_odds = {}
+            for outcome, books in by_outcome.items():
+                best = max(books, key=lambda b: b["odds_decimal"])
+                best_odds[outcome] = {
+                    "bookmaker": best["bookmaker"],
+                    "odds_american": best["odds_american"],
+                }
+
+            odds_screen_data.append({
+                "event_id": event["id"],
+                "home_team": event["home_team"],
+                "away_team": event["away_team"],
+                "commence_time": event["commence_time"],
+                "sport": event["sport"],
+                "market": market,
+                "outcomes": by_outcome,
+                "best_odds": best_odds,
+                "num_books": len({s["bookmaker"] for s in snapshots}),
+            })
+
+    return {
+        "sport": sport,
+        "market": market,
+        "events": odds_screen_data,
+        "total_events": len(odds_screen_data),
+    }
+
+
+# ── Consensus / Expected Value Screen ────────────────────────────
+
+@router.get("/consensus/{event_id}")
+def get_consensus(event_id: str):
+    """Get consensus odds and implied probabilities across all books.
+
+    Like BettingPros' consensus feature - aggregates all bookmaker opinions.
+    """
+    init_db()
+    with get_connection() as conn:
+        rows = conn.execute("""
+            SELECT bookmaker, market, outcome_name, outcome_point,
+                   price_american, price_decimal,
+                   MAX(snapshot_time) as latest
+            FROM odds_snapshots
+            WHERE event_id = ?
+            GROUP BY bookmaker, market, outcome_name
+            ORDER BY market, outcome_name, bookmaker
+        """, (event_id,)).fetchall()
+
+    if not rows:
+        return {"event_id": event_id, "markets": {}}
+
+    from sba.utils.odds_math import decimal_to_implied_prob
+
+    markets: dict[str, dict] = {}
+    for r in rows:
+        mkt = r["market"]
+        outcome = r["outcome_name"]
+        if mkt not in markets:
+            markets[mkt] = {}
+        if outcome not in markets[mkt]:
+            markets[mkt][outcome] = {"books": [], "line": r["outcome_point"]}
+
+        dec = r["price_decimal"]
+        imp = decimal_to_implied_prob(dec)
+
+        markets[mkt][outcome]["books"].append({
+            "bookmaker": r["bookmaker"],
+            "odds_american": r["price_american"],
+            "odds_decimal": round(dec, 3),
+            "implied_prob": round(imp, 4),
+        })
+
+    # Calculate consensus for each outcome
+    for mkt in markets:
+        for outcome in markets[mkt]:
+            books = markets[mkt][outcome]["books"]
+            if books:
+                avg_prob = sum(b["implied_prob"] for b in books) / len(books)
+                best = max(books, key=lambda b: b["odds_decimal"])
+                worst = min(books, key=lambda b: b["odds_decimal"])
+
+                markets[mkt][outcome]["consensus_prob"] = round(avg_prob, 4)
+                markets[mkt][outcome]["best_odds"] = best["odds_american"]
+                markets[mkt][outcome]["best_book"] = best["bookmaker"]
+                markets[mkt][outcome]["worst_odds"] = worst["odds_american"]
+                markets[mkt][outcome]["num_books"] = len(books)
+                markets[mkt][outcome]["spread"] = best["odds_american"] - worst["odds_american"]
+
+    return {"event_id": event_id, "markets": markets}
+
+
+# ── Multi-Sport Support ──────────────────────────────────────────
+
+@router.get("/sports")
+def get_available_sports():
+    """Get all available sports with event counts."""
+    init_db()
+    with get_connection() as conn:
+        rows = conn.execute("""
+            SELECT sport, COUNT(*) as event_count,
+                   SUM(CASE WHEN completed = 0 THEN 1 ELSE 0 END) as upcoming
+            FROM events
+            GROUP BY sport
+            ORDER BY event_count DESC
+        """).fetchall()
+
+    sports = [
+        {
+            "key": r["sport"],
+            "name": r["sport"].replace("_", " ").title(),
+            "event_count": r["event_count"],
+            "upcoming": r["upcoming"],
+        }
+        for r in rows
+    ]
+
+    # Add known sports that might not have data yet
+    known_sports = [
+        {"key": "basketball_nba", "name": "NBA"},
+        {"key": "basketball_ncaab", "name": "NCAAB"},
+        {"key": "americanfootball_nfl", "name": "NFL"},
+        {"key": "baseball_mlb", "name": "MLB"},
+        {"key": "icehockey_nhl", "name": "NHL"},
+        {"key": "soccer_epl", "name": "EPL Soccer"},
+        {"key": "soccer_usa_mls", "name": "MLS"},
+        {"key": "mma_mixed_martial_arts", "name": "UFC/MMA"},
+        {"key": "tennis_atp", "name": "ATP Tennis"},
+    ]
+
+    existing_keys = {s["key"] for s in sports}
+    for ks in known_sports:
+        if ks["key"] not in existing_keys:
+            sports.append({**ks, "event_count": 0, "upcoming": 0})
+
+    return sports

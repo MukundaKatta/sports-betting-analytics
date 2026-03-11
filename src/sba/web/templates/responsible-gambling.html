@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+{% block title %}Responsible Gambling{% endblock %}
+
+{% block content %}
+<div class="frosted-panel reveal-up" style="padding:32px;margin-bottom:28px;position:relative;overflow:hidden">
+    <div style="position:absolute;top:0;right:0;width:300px;height:100%;opacity:0.07;background:linear-gradient(135deg,var(--accent-blue),var(--accent-purple));border-radius:50%;filter:blur(60px);transform:translate(30%,-30%)"></div>
+    <h1 class="page-title" style="margin:0 0 8px">
+        <span class="gradient-text animated-gradient-text">Responsible Gambling</span>
+    </h1>
+    <p class="text-dim" style="margin:0;font-size:13px;max-width:560px">
+        Stay in control. Monitor your betting activity, set limits, and bet responsibly.
+        Professional bettors treat this as a marathon, not a sprint.
+    </p>
+</div>
+
+<!-- Alerts Banner -->
+<div id="alerts-banner" style="margin-bottom:24px"></div>
+
+<!-- Limits Overview -->
+<div class="stat-grid-4 reveal-up" style="margin-bottom:24px" id="limits-overview">
+    <div class="frosted-panel" style="padding:20px">
+        <div class="stat-label">Today's P/L</div>
+        <div class="stat-value" id="today-pnl" style="font-size:24px">$0</div>
+        <div class="progress-bar" style="margin-top:8px"><div class="progress-fill" id="today-bar" style="width:0%"></div></div>
+        <div class="text-dim" style="font-size:11px;margin-top:4px" id="today-limit-text">of $0 daily limit</div>
+    </div>
+    <div class="frosted-panel" style="padding:20px">
+        <div class="stat-label">Weekly P/L</div>
+        <div class="stat-value" id="week-pnl" style="font-size:24px">$0</div>
+        <div class="progress-bar" style="margin-top:8px"><div class="progress-fill" id="week-bar" style="width:0%"></div></div>
+        <div class="text-dim" style="font-size:11px;margin-top:4px" id="week-limit-text">of $0 weekly limit</div>
+    </div>
+    <div class="frosted-panel" style="padding:20px">
+        <div class="stat-label">Today's Bets</div>
+        <div class="stat-value" id="today-bets" style="font-size:24px">0</div>
+        <div class="progress-bar" style="margin-top:8px"><div class="progress-fill" id="bets-bar" style="width:0%"></div></div>
+        <div class="text-dim" style="font-size:11px;margin-top:4px" id="bets-limit-text">of 20 bet limit</div>
+    </div>
+    <div class="frosted-panel" style="padding:20px">
+        <div class="stat-label">Losing Streak</div>
+        <div class="stat-value" id="lose-streak" style="font-size:24px">0</div>
+        <div class="text-dim" style="font-size:11px;margin-top:4px">consecutive losses</div>
+    </div>
+</div>
+
+<!-- Monthly Summary -->
+<div class="card frosted-panel reveal-up" style="margin-bottom:24px;animation-delay:0.1s">
+    <div class="card-header"><h3>30-Day Summary</h3></div>
+    <div class="card-body padded" id="monthly-summary">
+        <div class="stat-grid-4">
+            <div><div class="stat-label">Total Bets</div><div class="stat-value" id="month-bets">0</div></div>
+            <div><div class="stat-label">Total Staked</div><div class="stat-value" id="month-staked">$0</div></div>
+            <div><div class="stat-label">Net P/L</div><div class="stat-value" id="month-pnl">$0</div></div>
+            <div><div class="stat-label">Bankroll</div><div class="stat-value" id="curr-bankroll">$0</div></div>
+        </div>
+    </div>
+</div>
+
+<!-- Resources -->
+<div class="card frosted-panel reveal-up" style="animation-delay:0.2s">
+    <div class="card-header"><h3>Help & Resources</h3></div>
+    <div class="card-body padded" id="resources-list">
+        <div class="loading-spinner"><div class="spinner"></div></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', loadRGStatus);
+
+async function loadRGStatus() {
+    try {
+        const res = await fetch('/api/responsible-gambling/status');
+        const d = await res.json();
+        renderAlerts(d.alerts || []);
+        renderLimits(d);
+        renderMonthly(d);
+        renderResources(d.resources || []);
+    } catch(e) {
+        console.error('Failed to load RG status', e);
+    }
+}
+
+function renderAlerts(alerts) {
+    const el = document.getElementById('alerts-banner');
+    if (!alerts.length) {
+        el.innerHTML = '<div class="frosted-panel" style="padding:16px;border:1px solid var(--accent-green);border-radius:8px;color:var(--accent-green)">All clear — you\'re within all limits. Keep it up!</div>';
+        return;
+    }
+    el.innerHTML = alerts.map(a => {
+        const color = a.level === 'critical' ? 'var(--accent-red)' : 'var(--accent-yellow)';
+        return `<div class="frosted-panel" style="padding:16px;border:1px solid ${color};border-radius:8px;margin-bottom:8px;color:${color}">${a.message}</div>`;
+    }).join('');
+}
+
+function renderLimits(d) {
+    const today = d.today || {};
+    const week = d.week || {};
+
+    document.getElementById('today-pnl').textContent = '$' + (today.pnl || 0).toFixed(0);
+    document.getElementById('today-pnl').style.color = today.pnl >= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
+    document.getElementById('today-bar').style.width = Math.min(100, today.loss_used_pct || 0) + '%';
+    document.getElementById('today-bar').style.background = today.loss_used_pct > 80 ? 'var(--accent-red)' : 'var(--accent-yellow)';
+    document.getElementById('today-limit-text').textContent = `of $${(today.loss_limit || 0).toFixed(0)} daily limit`;
+
+    document.getElementById('week-pnl').textContent = '$' + (week.pnl || 0).toFixed(0);
+    document.getElementById('week-pnl').style.color = week.pnl >= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
+    document.getElementById('week-bar').style.width = Math.min(100, week.loss_used_pct || 0) + '%';
+    document.getElementById('week-bar').style.background = week.loss_used_pct > 80 ? 'var(--accent-red)' : 'var(--accent-yellow)';
+    document.getElementById('week-limit-text').textContent = `of $${(week.loss_limit || 0).toFixed(0)} weekly limit`;
+
+    document.getElementById('today-bets').textContent = today.bets || 0;
+    const betPct = today.bet_limit ? (today.bets / today.bet_limit * 100) : 0;
+    document.getElementById('bets-bar').style.width = Math.min(100, betPct) + '%';
+    document.getElementById('bets-limit-text').textContent = `of ${today.bet_limit || 20} bet limit`;
+
+    document.getElementById('lose-streak').textContent = d.losing_streak || 0;
+    if (d.losing_streak >= 5) document.getElementById('lose-streak').style.color = 'var(--accent-red)';
+    else if (d.losing_streak >= 3) document.getElementById('lose-streak').style.color = 'var(--accent-yellow)';
+}
+
+function renderMonthly(d) {
+    const month = d.month || {};
+    document.getElementById('month-bets').textContent = month.bets || 0;
+    document.getElementById('month-staked').textContent = '$' + (month.staked || 0).toFixed(0);
+    const pnlEl = document.getElementById('month-pnl');
+    pnlEl.textContent = '$' + (month.pnl || 0).toFixed(0);
+    pnlEl.style.color = month.pnl >= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
+    document.getElementById('curr-bankroll').textContent = '$' + (d.current_bankroll || 0).toFixed(0);
+}
+
+function renderResources(resources) {
+    const el = document.getElementById('resources-list');
+    el.innerHTML = resources.map(r =>
+        `<div class="frosted-panel" style="padding:16px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">
+            <span style="font-weight:600">${r.name}</span>
+            <span class="text-dim">${r.contact || ''} ${r.url ? '<a href="' + r.url + '" target="_blank" style="color:var(--accent-blue)">' + r.url + '</a>' : ''}</span>
+        </div>`
+    ).join('');
+}
+</script>
+{% endblock %}

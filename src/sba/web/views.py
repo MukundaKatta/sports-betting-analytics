@@ -143,6 +143,21 @@ def insights_page(request: Request):
     return templates.TemplateResponse(request, "insights.html")
 
 
+@router.get("/clv-dashboard")
+def clv_dashboard_page(request: Request):
+    return templates.TemplateResponse(request, "clv-dashboard.html")
+
+
+@router.get("/bonus-converter")
+def bonus_converter_page(request: Request):
+    return templates.TemplateResponse(request, "bonus-converter.html")
+
+
+@router.get("/responsible-gambling")
+def responsible_gambling_page(request: Request):
+    return templates.TemplateResponse(request, "responsible-gambling.html")
+
+
 @router.get("/player/{name}")
 def player_page(request: Request, name: str):
     return templates.TemplateResponse(request, "player.html", {"player_name": name})

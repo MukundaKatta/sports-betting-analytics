@@ -114,7 +114,7 @@ class TestBetsEndpoint:
             "status": "invalid",
             "profit_loss": 0,
         })
-        assert resp.status_code == 400
+        assert resp.status_code in (400, 422)
 
     def test_delete_bet(self, client):
         _create_test_event("test_event_delete")

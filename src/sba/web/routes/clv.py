@@ -8,9 +8,9 @@ from __future__ import annotations
 import logging
 
 from fastapi import APIRouter, HTTPException, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
-from sba.data.db import get_connection
+from sba.data.db import get_connection, init_db
 from sba.web.api import repo
 
 logger = logging.getLogger(__name__)
@@ -133,4 +133,126 @@ def clv_summary():
         "clv_by_market": clv_by_market,
         "clv_by_bookmaker": clv_by_book,
         "entries": entries[:50],
+    }
+
+
+# ── CLV Calculate (standalone) ───────────────────────────────────────
+
+
+class CLVCalculateRequest(BaseModel):
+    opening_odds: int
+    closing_odds: int
+
+    @field_validator("opening_odds", "closing_odds")
+    @classmethod
+    def non_zero(cls, v: int) -> int:
+        if v == 0:
+            raise ValueError("Odds cannot be zero")
+        return v
+
+
+@router.post("/clv/calculate")
+def clv_calculate(req: CLVCalculateRequest):
+    """Calculate CLV between opening and closing odds."""
+    from sba.services.clv_tracker import calculate_clv
+    return calculate_clv(req.opening_odds, req.closing_odds)
+
+
+@router.get("/clv/dashboard")
+def clv_dashboard():
+    """CLV tracking dashboard with comprehensive metrics."""
+    from sba.services.clv_tracker import analyze_clv_history, calculate_clv
+
+    init_db()
+    with get_connection() as conn:
+        rows = conn.execute("""
+            SELECT cl.bet_id, b.odds_american AS opening_odds,
+                   cl.closing_odds_american AS closing_odds,
+                   b.market, b.bookmaker, b.placed_at
+            FROM closing_lines cl
+            LEFT JOIN bets b ON b.id = cl.bet_id
+            ORDER BY b.placed_at
+        """).fetchall()
+
+    clv_records = []
+    for r in rows:
+        opening = r["opening_odds"] or -110
+        closing = r["closing_odds"] or -110
+        result = calculate_clv(opening, closing)
+        result["market"] = r["market"] or "unknown"
+        result["bookmaker"] = r["bookmaker"] or "unknown"
+        result["bet_id"] = r["bet_id"]
+        result["placed_at"] = r["placed_at"]
+        clv_records.append(result)
+
+    analysis = analyze_clv_history(clv_records)
+    analysis["records"] = clv_records[-50:]
+    return analysis
+
+
+# ── Bonus Bet Conversion Tool ────────────────────────────────────────
+
+
+class BonusBetRequest(BaseModel):
+    bonus_amount: float
+    conversion_pct: float = 70.0
+    min_odds: int = 200
+
+    @field_validator("bonus_amount")
+    @classmethod
+    def positive_amount(cls, v: float) -> float:
+        if v <= 0:
+            raise ValueError("Bonus amount must be positive")
+        return v
+
+    @field_validator("conversion_pct")
+    @classmethod
+    def valid_pct(cls, v: float) -> float:
+        if v < 10 or v > 100:
+            raise ValueError("Conversion percentage must be 10-100")
+        return v
+
+
+@router.post("/bonus/convert")
+def bonus_convert(req: BonusBetRequest):
+    """Calculate optimal bonus bet conversion strategy."""
+    bonus = req.bonus_amount
+    target_pct = req.conversion_pct / 100
+
+    strategies = []
+    for odds in [200, 300, 400, 500, 600, 700]:
+        decimal_odds = odds / 100 + 1
+        free_bet_payout = (decimal_odds - 1) * bonus
+        hedge_decimal = 1.909  # -110 hedge
+        hedge_amount = free_bet_payout / (1 + hedge_decimal - 1)
+        hedge_payout = hedge_amount * hedge_decimal
+        guaranteed_profit = hedge_payout - hedge_amount
+        conversion_rate = guaranteed_profit / bonus * 100
+
+        strategies.append({
+            "free_bet_odds": f"+{odds}",
+            "free_bet_decimal": round(decimal_odds, 3),
+            "free_bet_payout": round(free_bet_payout, 2),
+            "hedge_amount": round(hedge_amount, 2),
+            "hedge_odds": "-110",
+            "guaranteed_profit": round(guaranteed_profit, 2),
+            "conversion_rate": round(conversion_rate, 1),
+        })
+
+    risk_free_profit = bonus * target_pct
+    best_strategy = max(strategies, key=lambda s: s["conversion_rate"])
+
+    return {
+        "bonus_amount": bonus,
+        "target_conversion": req.conversion_pct,
+        "strategies": strategies,
+        "best_strategy": best_strategy,
+        "risk_free_expected_value": round(risk_free_profit, 2),
+        "tips": [
+            "Always check terms — some bonuses have rollover requirements",
+            "Use odds +300 to +500 for optimal free bet conversion",
+            "Place hedge bets on a sharp book with tight lines",
+            "Time your hedges close to game start for the best closing lines",
+            "Track all bonus conversions to measure your actual conversion rate",
+        ],
     }

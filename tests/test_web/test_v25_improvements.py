@@ -184,7 +184,8 @@ class TestDatabaseIndexes:
 
 class TestCSSAccessibility:
     def test_reduced_motion_in_css(self):
-        css_path = "/Users/ubl/sports-betting-analytics/src/sba/web/static/css/style.css"
+        from pathlib import Path
+        css_path = Path(__file__).resolve().parents[2] / "src" / "sba" / "web" / "static" / "css" / "style.css"
         with open(css_path) as f:
             css = f.read()
         assert "prefers-reduced-motion" in css

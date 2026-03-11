@@ -14,6 +14,9 @@ from __future__ import annotations
 
 import json
 import logging
+from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 import pytest
 from fastapi.testclient import TestClient
@@ -68,14 +71,14 @@ class TestAPIKeyAuth:
 class TestDockerDeployment:
     def test_dockerfile_exists(self):
         import os
-        assert os.path.exists("/Users/ubl/sports-betting-analytics/Dockerfile")
+        assert os.path.exists(str(PROJECT_ROOT / "Dockerfile"))
 
     def test_docker_compose_exists(self):
         import os
-        assert os.path.exists("/Users/ubl/sports-betting-analytics/docker-compose.yml")
+        assert os.path.exists(str(PROJECT_ROOT / "docker-compose.yml"))
 
     def test_dockerfile_content(self):
-        with open("/Users/ubl/sports-betting-analytics/Dockerfile") as f:
+        with open(str(PROJECT_ROOT / "Dockerfile")) as f:
             content = f.read()
         assert "python:3.11-slim" in content
         assert "HEALTHCHECK" in content
@@ -83,7 +86,7 @@ class TestDockerDeployment:
         assert "sba" in content
 
     def test_docker_compose_content(self):
-        with open("/Users/ubl/sports-betting-analytics/docker-compose.yml") as f:
+        with open(str(PROJECT_ROOT / "docker-compose.yml")) as f:
             content = f.read()
         assert "8000:8000" in content
         assert "sba-data" in content
@@ -94,7 +97,7 @@ class TestDockerDeployment:
 
 class TestFrontendImprovements:
     def test_modal_css_exists(self):
-        with open("/Users/ubl/sports-betting-analytics/src/sba/web/static/css/style.css") as f:
+        with open(str(PROJECT_ROOT / "src/sba/web/static/css/style.css")) as f:
             css = f.read()
         assert "sba-modal-overlay" in css
         assert "sba-modal-card" in css
@@ -102,7 +105,7 @@ class TestFrontendImprovements:
 
     def test_no_prompt_in_settings(self):
         """Settings should use modal forms, not prompt() dialogs."""
-        with open("/Users/ubl/sports-betting-analytics/src/sba/web/static/js/app.js") as f:
+        with open(str(PROJECT_ROOT / "src/sba/web/static/js/app.js")) as f:
             js = f.read()
         # Count remaining prompt() calls in settings area
         # editSetting should be used instead
@@ -111,7 +114,7 @@ class TestFrontendImprovements:
         assert "confirmAction(" in js
 
     def test_bet_slip_persistence(self):
-        with open("/Users/ubl/sports-betting-analytics/src/sba/web/static/js/app.js") as f:
+        with open(str(PROJECT_ROOT / "src/sba/web/static/js/app.js")) as f:
             js = f.read()
         assert "_saveSlip()" in js
         assert "_loadSlip()" in js
@@ -119,7 +122,7 @@ class TestFrontendImprovements:
         assert "localStorage" in js
 
     def test_delete_has_confirmation(self):
-        with open("/Users/ubl/sports-betting-analytics/src/sba/web/static/js/app.js") as f:
+        with open(str(PROJECT_ROOT / "src/sba/web/static/js/app.js")) as f:
             js = f.read()
         # deleteBet should use confirmAction
         assert "confirmAction" in js
@@ -204,7 +207,7 @@ class TestDeepHealthCheck:
 
 class TestEnvExample:
     def test_env_example_has_new_settings(self):
-        with open("/Users/ubl/sports-betting-analytics/.env.example") as f:
+        with open(str(PROJECT_ROOT / ".env.example")) as f:
             content = f.read()
         assert "SBA_API_KEY" in content
         assert "SBA_CORS_ORIGINS" in content

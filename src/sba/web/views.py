@@ -204,3 +204,8 @@ def bet_timing_page(request: Request):
 @router.get("/risk-metrics")
 def risk_metrics_page(request: Request):
     return templates.TemplateResponse(request, "risk-metrics.html")
+
+
+@router.get("/performance-digest")
+def performance_digest_page(request: Request):
+    return templates.TemplateResponse(request, "performance-digest.html")

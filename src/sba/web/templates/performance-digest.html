@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+{% block title %}Performance Digest{% endblock %}
+
+{% block content %}
+<div class="frosted-panel reveal-up" style="padding:32px;margin-bottom:28px;position:relative;overflow:hidden">
+    <div style="position:absolute;top:0;right:0;width:300px;height:100%;opacity:0.05;background:linear-gradient(135deg,var(--accent-yellow),var(--accent-green));border-radius:50%;filter:blur(60px);transform:translate(30%,-30%)"></div>
+    <h1 class="page-title" style="margin:0 0 8px">
+        <span class="gradient-text animated-gradient-text">Performance Digest</span>
+        <span class="tag-elite" style="margin-left:12px">Weekly</span>
+    </h1>
+    <p class="text-dim" style="margin:0;font-size:13px;max-width:520px">Comprehensive performance report with trends, breakdowns, and actionable takeaways</p>
+    <div style="margin-top:16px;display:flex;gap:8px">
+        <button class="btn btn-sm" id="btn-weekly" onclick="loadDigest('weekly')" style="background:var(--accent-green-dim);color:var(--accent-green)">Weekly</button>
+        <button class="btn btn-sm btn-outline" id="btn-monthly" onclick="loadDigest('monthly')">Monthly</button>
+    </div>
+</div>
+
+<!-- Grade Banner -->
+<div class="frosted-panel reveal-up" id="grade-banner" style="text-align:center;padding:32px;margin-bottom:24px;animation-delay:0.1s">
+    <div class="loading-spinner"><div class="spinner"></div> Generating digest...</div>
+</div>
+
+<!-- Trends -->
+<div class="stats-grid reveal-up" id="trends-grid" style="animation-delay:0.15s"></div>
+
+<!-- Period Comparison -->
+<div class="dashboard-grid" style="margin-top:24px">
+    <div class="card reveal-left" style="animation-delay:0.2s">
+        <div class="card-header"><h3>This Period</h3></div>
+        <div class="card-body padded" id="current-stats">
+            <div class="loading-spinner"><div class="spinner"></div></div>
+        </div>
+    </div>
+    <div class="card reveal-right" style="animation-delay:0.2s">
+        <div class="card-header"><h3>Previous Period</h3></div>
+        <div class="card-body padded" id="prev-stats">
+            <div class="loading-spinner"><div class="spinner"></div></div>
+        </div>
+    </div>
+</div>
+
+<!-- Breakdowns -->
+<div class="dashboard-grid" style="margin-top:24px">
+    <div class="card reveal-up" style="animation-delay:0.25s">
+        <div class="card-header"><h3>By Sport</h3></div>
+        <div class="card-body" id="by-sport"></div>
+    </div>
+    <div class="card reveal-up" style="animation-delay:0.25s">
+        <div class="card-header"><h3>By Market</h3></div>
+        <div class="card-body" id="by-market"></div>
+    </div>
+</div>
+
+<!-- Highlights & Warnings -->
+<div class="dashboard-grid" style="margin-top:24px">
+    <div class="card full-width reveal-up" style="animation-delay:0.3s">
+        <div class="card-header"><h3>Commentary</h3></div>
+        <div class="card-body padded" id="commentary">
+            <div class="loading-spinner"><div class="spinner"></div></div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function loadDigest(period) {
+    document.getElementById('btn-weekly').className = period === 'weekly' ? 'btn btn-sm' : 'btn btn-sm btn-outline';
+    document.getElementById('btn-monthly').className = period === 'monthly' ? 'btn btn-sm' : 'btn btn-sm btn-outline';
+    document.getElementById('btn-weekly').style.cssText = period === 'weekly' ? 'background:var(--accent-green-dim);color:var(--accent-green)' : '';
+    document.getElementById('btn-monthly').style.cssText = period === 'monthly' ? 'background:var(--accent-green-dim);color:var(--accent-green)' : '';
+
+    try {
+        const resp = await fetch(`/api/performance/digest?period=${period}`);
+        const d = await resp.json();
+        renderDigest(d);
+    } catch (err) {
+        console.error('Digest error:', err);
+    }
+}
+
+function renderDigest(d) {
+    const gradeColors = {'A+':'#00e68a','A':'#00e68a','B+':'#5b9aff','B':'#5b9aff','C+':'#ffc234','C':'#ffc234','D':'#ff8c42','F':'#ff4d6a'};
+    const trendArrows = {'improving':'&#9650;','declining':'&#9660;','stable':'&#9679;'};
+    const trendColors = {'improving':'var(--accent-green)','declining':'var(--accent-red)','stable':'var(--text-dim)'};
+
+    // Grade banner
+    document.getElementById('grade-banner').innerHTML = `
+        <div style="font-size:72px;font-weight:900;color:${gradeColors[d.grade]||'#888'};line-height:1">${d.grade}</div>
+        <div class="text-dim" style="font-size:13px;margin-top:8px">Period Grade &middot; <span style="color:${trendColors[d.grade_trend]}">${trendArrows[d.grade_trend]} ${d.grade_trend}</span></div>
+        <div style="display:flex;justify-content:center;gap:24px;margin-top:16px">
+            <div><span class="stat-label">Profit</span><div class="font-mono font-bold" style="color:${d.current.profit>=0?'var(--accent-green)':'var(--accent-red)'}">$${d.current.profit.toFixed(2)}</div></div>
+            <div><span class="stat-label">ROI</span><div class="font-mono font-bold">${d.current.roi_pct}%</div></div>
+            <div><span class="stat-label">Bets</span><div class="font-mono font-bold">${d.current.total_bets}</div></div>
+            <div><span class="stat-label">Win Rate</span><div class="font-mono font-bold">${d.current.win_rate}%</div></div>
+        </div>
+    `;
+
+    // Trends
+    const trendsHtml = d.trends.map(t => {
+        const c = t.sentiment === 'positive' ? 'green' : t.sentiment === 'negative' ? 'yellow' : 'blue';
+        const arrow = t.direction === 'up' ? '&#9650;' : t.direction === 'down' ? '&#9660;' : '&#9679;';
+        return `<div class="stat-card ${c} card-3d-tilt">
+            <div class="stat-label">${t.metric}</div>
+            <div class="stat-value">${t.current}</div>
+            <div class="stat-sub" style="color:${t.sentiment==='positive'?'var(--accent-green)':t.sentiment==='negative'?'var(--accent-red)':'var(--text-dim)'}">${arrow} ${t.change > 0 ? '+' : ''}${t.change} vs prior</div>
+        </div>`;
+    }).join('');
+    document.getElementById('trends-grid').innerHTML = trendsHtml || '<div class="text-dim" style="padding:20px;text-align:center">No prior period data for comparison.</div>';
+
+    // Period stats
+    function renderPeriod(el, p) {
+        if (!p || p.total_bets === 0) { el.innerHTML = '<div class="text-dim" style="text-align:center;padding:20px">No bets this period.</div>'; return; }
+        el.innerHTML = `
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                <div><span class="stat-label">W-L-P</span><div class="font-mono">${p.wins}-${p.losses}-${p.pushes}</div></div>
+                <div><span class="stat-label">ROI</span><div class="font-mono" style="color:${p.roi_pct>=0?'var(--accent-green)':'var(--accent-red)'}">${p.roi_pct}%</div></div>
+                <div><span class="stat-label">Profit</span><div class="font-mono" style="color:${p.profit>=0?'var(--accent-green)':'var(--accent-red)'}">$${p.profit.toFixed(2)}</div></div>
+                <div><span class="stat-label">Avg Odds</span><div class="font-mono">${p.avg_odds > 0 ? '+' : ''}${p.avg_odds}</div></div>
+            </div>
+            ${p.best_bet ? `<div style="margin-top:12px;padding:8px;border-radius:6px;background:rgba(0,230,138,0.06)"><span class="stat-label">Best Bet</span><div class="font-mono text-green" style="font-size:12px">${p.best_bet.selection} +$${p.best_bet.profit}</div></div>` : ''}
+        `;
+    }
+    renderPeriod(document.getElementById('current-stats'), d.current);
+    renderPeriod(document.getElementById('prev-stats'), d.previous);
+
+    // Breakdowns
+    function renderBreakdown(el, items) {
+        if (!items || items.length === 0) { el.innerHTML = '<div class="text-dim" style="text-align:center;padding:20px">No data.</div>'; return; }
+        el.innerHTML = `<table class="data-table"><thead><tr><th>Name</th><th class="right">Bets</th><th class="right">Win %</th><th class="right">ROI</th><th class="right">Profit</th></tr></thead><tbody>` +
+            items.map(i => `<tr><td>${i.name}</td><td class="right font-mono">${i.bets}</td><td class="right font-mono">${i.win_rate}%</td><td class="right font-mono" style="color:${i.roi_pct>=0?'var(--accent-green)':'var(--accent-red)'}">${i.roi_pct}%</td><td class="right font-mono" style="color:${i.profit>=0?'var(--accent-green)':'var(--accent-red)'}">$${i.profit.toFixed(2)}</td></tr>`
+            ).join('') + '</tbody></table>';
+    }
+    renderBreakdown(document.getElementById('by-sport'), d.by_sport);
+    renderBreakdown(document.getElementById('by-market'), d.by_market);
+
+    // Commentary
+    const highlights = (d.highlights || []).map(h => `<div style="padding:6px 0;display:flex;align-items:center;gap:8px"><span style="color:var(--accent-green);font-size:16px">&#10003;</span> ${h}</div>`).join('');
+    const warnings = (d.warnings || []).map(w => `<div style="padding:6px 0;display:flex;align-items:center;gap:8px"><span style="color:var(--accent-yellow);font-size:16px">&#9888;</span> ${w}</div>`).join('');
+    document.getElementById('commentary').innerHTML = highlights + warnings || '<div class="text-dim">No commentary available.</div>';
+}
+
+document.addEventListener('DOMContentLoaded', () => loadDigest('weekly'));
+</script>
+{% endblock %}

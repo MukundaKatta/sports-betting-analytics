@@ -920,3 +920,175 @@ def get_risk_metrics():
             "expectancy": metrics.distribution.expectancy,
         },
     }
+
+
+# ── Dashboard Summary ──────────────────────────────────────────
+
+@router.get("/dashboard/summary")
+def get_dashboard_summary():
+    """Aggregated dashboard data in a single API call.
+
+    Returns today's P&L, health score, bankroll status, recent insights,
+    achievement summary, and active signals — reducing N+1 API calls
+    from the dashboard to a single request.
+    """
+    from datetime import date as _date
+
+    from sba.services.health_score import calculate_health_score
+    from sba.services.insights import generate_insights
+    from sba.services.momentum import get_streak_analysis
+
+    today = _date.today().isoformat()
+
+    with get_connection() as conn:
+        # Today's bets
+        today_rows = conn.execute("""
+            SELECT status, profit_loss, recommended_stake
+            FROM bets WHERE DATE(placed_at) = ? AND status IN ('won','lost','push')
+        """, (today,)).fetchall()
+
+        pending_count = conn.execute(
+            "SELECT COUNT(*) as cnt FROM bets WHERE DATE(placed_at) = ? AND status = 'pending'",
+            (today,)
+        ).fetchone()["cnt"]
+
+        # Lifetime stats
+        lifetime = conn.execute("""
+            SELECT COUNT(*) as total,
+                   SUM(CASE WHEN status='won' THEN 1 ELSE 0 END) as wins,
+                   SUM(profit_loss) as profit,
+                   SUM(ABS(recommended_stake)) as wagered
+            FROM bets WHERE status IN ('won','lost','push')
+        """).fetchone()
+
+        # Bankroll
+        bankroll_row = conn.execute(
+            "SELECT amount FROM bankroll_log ORDER BY created_at DESC LIMIT 1"
+        ).fetchone()
+
+        # DB status
+        events = conn.execute("SELECT COUNT(*) as c FROM events").fetchone()["c"]
+        odds_snaps = conn.execute("SELECT COUNT(*) as c FROM odds_snapshots").fetchone()["c"]
+
+    # Today
+    today_profit = sum(r["profit_loss"] or 0 for r in today_rows)
+    today_bets = len(today_rows)
+    today_wins = sum(1 for r in today_rows if r["status"] == "won")
+    today_wagered = sum(abs(r["recommended_stake"] or 0) for r in today_rows) or 1
+
+    # Lifetime
+    lt_total = lifetime["total"] or 0
+    lt_wins = lifetime["wins"] or 0
+    lt_profit = lifetime["profit"] or 0
+    lt_wagered = lifetime["wagered"] or 1
+
+    # Health score (lightweight)
+    health = calculate_health_score()
+
+    # Streaks
+    streaks = get_streak_analysis()
+
+    # Insights (use settled bets)
+    settled = _get_settled_bets_dicts()
+    bankroll = bankroll_row["amount"] if bankroll_row else 1000
+    insights = generate_insights(settled, bankroll)
+
+    return {
+        "today": {
+            "profit": round(today_profit, 2),
+            "bets": today_bets,
+            "wins": today_wins,
+            "losses": today_bets - today_wins,
+            "pending": pending_count,
+            "roi_pct": round(today_profit / today_wagered * 100, 1),
+            "win_rate": round(today_wins / today_bets * 100, 1) if today_bets else 0,
+        },
+        "lifetime": {
+            "total_bets": lt_total,
+            "wins": lt_wins,
+            "profit": round(lt_profit, 2),
+            "roi_pct": round(lt_profit / lt_wagered * 100, 1),
+            "win_rate": round(lt_wins / lt_total * 100, 1) if lt_total else 0,
+        },
+        "bankroll": {
+            "current": round(bankroll, 2),
+        },
+        "health_score": {
+            "score": health.get("score"),
+            "grade": health.get("grade", "N/A"),
+        },
+        "streaks": {
+            "current": streaks.get("current_streak", 0),
+            "current_type": streaks.get("streak_type", "none"),
+            "momentum": streaks.get("momentum_score", 0),
+        },
+        "insights_count": len(insights),
+        "top_insights": [
+            {"title": i.title, "severity": i.severity, "action": i.action}
+            for i in insights[:3]
+        ],
+        "data_status": {
+            "events": events,
+            "odds_snapshots": odds_snaps,
+        },
+    }
+
+
+# ── Performance Digest ──────────────────────────────────────────
+
+@router.get("/performance/digest")
+def get_performance_digest(period: str = "weekly"):
+    """Get structured performance digest (weekly or monthly).
+
+    Returns comprehensive performance report with trends, breakdowns,
+    highlights, and a letter grade — like Action Network's weekly recap.
+    """
+    from sba.services.performance_digest import generate_digest
+
+    digest = generate_digest(period)
+
+    def _period_dict(p):
+        if not p:
+            return None
+        return {
+            "label": p.label,
+            "start_date": p.start_date,
+            "end_date": p.end_date,
+            "total_bets": p.total_bets,
+            "wins": p.wins,
+            "losses": p.losses,
+            "pushes": p.pushes,
+            "profit": p.profit,
+            "wagered": p.wagered,
+            "roi_pct": p.roi_pct,
+            "win_rate": p.win_rate,
+            "avg_odds": p.avg_odds,
+            "best_bet": p.best_bet,
+            "worst_bet": p.worst_bet,
+        }
+
+    return {
+        "period": digest.period,
+        "grade": digest.grade,
+        "grade_trend": digest.grade_trend,
+        "current": _period_dict(digest.current),
+        "previous": _period_dict(digest.previous),
+        "trends": [
+            {
+                "metric": t.metric,
+                "current": t.current,
+                "previous": t.previous,
+                "change": t.change,
+                "direction": t.direction,
+                "sentiment": t.sentiment,
+                "description": t.description,
+            }
+            for t in digest.trends
+        ],
+        "streaks": digest.streaks,
+        "by_sport": digest.by_sport,
+        "by_market": digest.by_market,
+        "by_book": digest.by_book,
+        "highlights": digest.highlights,
+        "warnings": digest.warnings,
+    }

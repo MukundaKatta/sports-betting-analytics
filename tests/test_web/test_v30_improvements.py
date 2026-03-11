@@ -25,10 +25,10 @@ client = TestClient(app, raise_server_exceptions=False)
 
 
 class TestVersionAlignment:
-    def test_version_is_3_0(self):
-        """__version__ should be 3.0.0."""
+    def test_version_is_3_0_plus(self):
+        """__version__ should be at least 3.0.0."""
         from sba import __version__
-        assert __version__ == "3.0.0"
+        assert __version__ >= "3.0.0"
 
     def test_app_version_matches(self):
         """FastAPI app.version should match __version__."""
@@ -36,16 +36,18 @@ class TestVersionAlignment:
         assert app.version == __version__
 
     def test_health_version(self):
-        """Health endpoint should report 3.0.0."""
+        """Health endpoint should report current version."""
+        from sba import __version__
         resp = client.get("/api/health")
         assert resp.status_code == 200
-        assert resp.json()["version"] == "3.0.0"
+        assert resp.json()["version"] == __version__
 
     def test_deep_health_version(self):
-        """Deep health should report 3.0.0."""
+        """Deep health should report current version."""
+        from sba import __version__
         resp = client.get("/api/health/deep")
         assert resp.status_code == 200
-        assert resp.json()["version"] == "3.0.0"
+        assert resp.json()["version"] == __version__
 
 
 # ── ROI Forecast Service ───────────────────────────────────────────

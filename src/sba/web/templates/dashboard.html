@@ -182,6 +182,35 @@
         </div>
     </div>
 
+    <!-- Betting Health Score -->
+    <div class="card featured-card reveal-scale" style="animation-delay:0.39s">
+        <div class="card-header">
+            <h3>
+                <svg class="header-icon icon-bounce" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                Betting Health Score
+                <span class="tag-elite" style="margin-left:8px">Pro</span>
+            </h3>
+            <a href="/risk-metrics" class="btn btn-outline btn-sm">Details</a>
+        </div>
+        <div class="card-body padded" id="dash-health-score">
+            <div class="loading-spinner"><div class="spinner"></div> Loading...</div>
+        </div>
+    </div>
+
+    <!-- Weekly Digest Preview -->
+    <div class="card reveal-scale" style="animation-delay:0.395s">
+        <div class="card-header">
+            <h3>
+                <svg class="header-icon icon-bounce" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                This Week
+            </h3>
+            <a href="/performance-digest" class="btn btn-outline btn-sm">Full Report</a>
+        </div>
+        <div class="card-body padded" id="dash-digest">
+            <div class="loading-spinner"><div class="spinner"></div> Loading...</div>
+        </div>
+    </div>
+
     <!-- Achievements Widget -->
     <div class="card reveal-scale" style="animation-delay:0.4s">
         <div class="card-header">
@@ -393,6 +422,67 @@ async function loadDashInsights() {
     }
 }
 
+async function loadHealthScore() {
+    try {
+        const resp = await fetch('/api/health-score');
+        const d = await resp.json();
+        const el = document.getElementById('dash-health-score');
+        if (!d.score && d.score !== 0) {
+            el.innerHTML = `<div class="text-dim" style="text-align:center;padding:16px">${d.message || 'Need more bets to calculate.'}</div>`;
+            return;
+        }
+        const gradeColors = {Elite:'#00e68a',Excellent:'#5b9aff',Good:'#ffc234',Fair:'#ff8c42',Poor:'#ff4d6a'};
+        const color = gradeColors[d.grade] || '#888';
+        const components = d.components || {};
+        const bars = Object.entries(components).map(([k, v]) => `
+            <div style="margin-bottom:6px">
+                <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px"><span>${v.label || k}</span><span class="font-mono">${v.score}/100</span></div>
+                <div style="height:4px;border-radius:2px;background:rgba(255,255,255,0.06)"><div style="height:100%;width:${v.score}%;background:${color};border-radius:2px;transition:width 0.6s"></div></div>
+            </div>
+        `).join('');
+        el.innerHTML = `
+            <div style="text-align:center;margin-bottom:12px">
+                <div style="font-size:44px;font-weight:900;color:${color};line-height:1">${d.score}</div>
+                <div style="font-size:13px;font-weight:700;color:${color};margin-top:2px">${d.grade}</div>
+            </div>
+            ${bars}
+            ${d.recommendations && d.recommendations.length > 0 ? `<div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.04);font-size:11px" class="text-dim">${d.recommendations[0].action}</div>` : ''}
+        `;
+    } catch (err) {
+        const el = document.getElementById('dash-health-score');
+        if (el) el.innerHTML = '<div class="text-dim" style="text-align:center;padding:16px">Track 10+ bets to unlock health score.</div>';
+    }
+}
+
+async function loadDashDigest() {
+    try {
+        const resp = await fetch('/api/performance/digest?period=weekly');
+        const d = await resp.json();
+        const el = document.getElementById('dash-digest');
+        if (!d.current || d.current.total_bets === 0) {
+            el.innerHTML = '<div class="text-dim" style="text-align:center;padding:16px">No bets this week yet.</div>';
+            return;
+        }
+        const gradeColors = {'A+':'#00e68a','A':'#00e68a','B+':'#5b9aff','B':'#5b9aff','C+':'#ffc234','C':'#ffc234','D':'#ff8c42','F':'#ff4d6a'};
+        const gc = gradeColors[d.grade] || '#888';
+        const profitColor = d.current.profit >= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
+        el.innerHTML = `
+            <div style="display:flex;align-items:center;gap:16px;margin-bottom:12px">
+                <div style="font-size:36px;font-weight:900;color:${gc};line-height:1">${d.grade}</div>
+                <div>
+                    <div class="font-mono font-bold" style="color:${profitColor};font-size:18px">${d.current.profit >= 0 ? '+' : ''}$${d.current.profit.toFixed(2)}</div>
+                    <div class="text-dim" style="font-size:11px">${d.current.total_bets} bets &middot; ${d.current.win_rate}% win rate &middot; ${d.current.roi_pct}% ROI</div>
+                </div>
+            </div>
+            ${d.highlights && d.highlights.length > 0 ? `<div style="font-size:11px;color:var(--accent-green);margin-bottom:4px">&#10003; ${d.highlights[0]}</div>` : ''}
+            ${d.warnings && d.warnings.length > 0 ? `<div style="font-size:11px;color:var(--accent-yellow)">&#9888; ${d.warnings[0]}</div>` : ''}
+        `;
+    } catch (err) {
+        const el = document.getElementById('dash-digest');
+        if (el) el.innerHTML = '<div class="text-dim" style="text-align:center;padding:16px">Place bets to generate your weekly digest.</div>';
+    }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     SBA.loadDashboard();
     SBA.loadDashboardRisk();
@@ -400,6 +490,8 @@ document.addEventListener('DOMContentLoaded', () => {
     loadEquityCurve();
     loadDashAchievements();
     loadDashInsights();
+    loadHealthScore();
+    loadDashDigest();
 });
 </script>
 {% endblock %}

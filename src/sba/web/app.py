@@ -9,6 +9,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -18,7 +19,12 @@ from sba.config.logging import setup_logging
 from sba.data.db import init_db
 from sba.web.api import router as api_router
 from sba.web.errors import APIError, api_error_response
-from sba.web.middleware import APIKeyMiddleware, RateLimitMiddleware, RequestIDMiddleware
+from sba.web.middleware import (
+    APIKeyMiddleware,
+    RateLimitMiddleware,
+    RequestIDMiddleware,
+    SecurityHeadersMiddleware,
+)
 from sba.web.sse import router as sse_router
 from sba.web.views import router as views_router
 
@@ -26,8 +32,18 @@ logger = logging.getLogger(__name__)
 STATIC_DIR = Path(__file__).parent / "static"
 
 
+_ALLOWED_PERSISTED_SETTINGS = {
+    "SBA_DEFAULT_SPORT", "SBA_DEFAULT_REGION", "SBA_EV_THRESHOLD",
+    "SBA_KELLY_FRACTION", "SBA_BANKROLL", "SBA_REFRESH_INTERVAL_SECONDS",
+    "SBA_LOG_LEVEL",
+}
+
+
 def _restore_persisted_settings():
-    """Load settings saved to DB and apply to environment."""
+    """Load settings saved to DB and apply to environment.
+
+    Only allows known SBA_ setting keys to prevent environment injection.
+    """
     import os
 
     try:
@@ -38,7 +54,10 @@ def _restore_persisted_settings():
             ).fetchall()
         for row in rows:
             env_key = row["key"].replace("setting_", "", 1)
-            os.environ[env_key] = row["value"]
+            if env_key not in _ALLOWED_PERSISTED_SETTINGS:
+                logger.warning("Blocked persisted setting %s (not in allowlist)", env_key)
+                continue
+            os.environ[env_key] = str(row["value"])
             logger.debug("Restored setting %s from DB", env_key)
     except Exception:
         logger.debug("No persisted settings to restore")
@@ -67,6 +86,9 @@ app = FastAPI(
 
 # ── Middleware stack (executed bottom-to-top) ────────────────────────
 
+# GZip compression for API responses (min 500 bytes to avoid overhead on small responses)
+app.add_middleware(GZipMiddleware, minimum_size=500)
+
 # CORS — loaded from settings so it works in production deployments
 settings = get_settings()
 cors_origins = [o.strip() for o in settings.CORS_ORIGINS.split(",") if o.strip()]
@@ -84,6 +106,9 @@ app.add_middleware(
     max_requests=settings.RATE_LIMIT_MAX_REQUESTS,
     window_seconds=settings.RATE_LIMIT_WINDOW_SECONDS,
 )
+
+# Security headers (CSP, X-Frame-Options, etc.)
+app.add_middleware(SecurityHeadersMiddleware)
 
 # Request ID for tracing
 app.add_middleware(RequestIDMiddleware)

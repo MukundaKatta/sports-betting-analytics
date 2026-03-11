@@ -46,7 +46,7 @@ def build_portfolio(
     portfolio = []
     total_stake = 0.0
     max_total_stake = bankroll * (max_exposure_pct / 100)
-    events_used: set[str] = set()
+    events_count: dict[str, int] = {}
     books_count: dict[str, int] = {}
 
     for edge in eligible:
@@ -59,7 +59,7 @@ def build_portfolio(
         # Diversification rules
         if diversify:
             # Max 2 bets per event
-            if events_used.count(edge.event.id) if hasattr(events_used, 'count') else list(events_used).count(edge.event.id) >= 2:
+            if events_count.get(edge.event.id, 0) >= 2:
                 continue
             # Max 5 bets per bookmaker
             if books_count.get(edge.bookmaker, 0) >= 5:
@@ -90,7 +90,7 @@ def build_portfolio(
         })
 
         total_stake += stake
-        events_used.add(edge.event.id)
+        events_count[edge.event.id] = events_count.get(edge.event.id, 0) + 1
         books_count[edge.bookmaker] = books_count.get(edge.bookmaker, 0) + 1
 
     # Portfolio summary stats
@@ -98,8 +98,8 @@ def build_portfolio(
         avg_ev = sum(b["ev_pct"] for b in portfolio) / len(portfolio)
         avg_odds = sum(b["odds_decimal"] for b in portfolio) / len(portfolio)
         expected_profit = sum(b["expected_profit"] for b in portfolio)
-        unique_events = len(set(b["event_id"] for b in portfolio))
-        unique_books = len(set(b["bookmaker"] for b in portfolio))
+        unique_events = len(events_count)
+        unique_books = len(books_count)
     else:
         avg_ev = avg_odds = expected_profit = 0
         unique_events = unique_books = 0

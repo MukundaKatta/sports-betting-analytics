@@ -8,6 +8,7 @@ Production-grade middleware stack:
 
 from __future__ import annotations
 
+import hmac
 import time
 import uuid
 from collections import defaultdict
@@ -137,7 +138,7 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
             or request.query_params.get("api_key")
         )
 
-        if not provided_key or provided_key != self.api_key:
+        if not provided_key or not hmac.compare_digest(provided_key, self.api_key):
             return JSONResponse(
                 status_code=401,
                 content={"error": "Invalid or missing API key"},
@@ -145,3 +146,35 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
             )
 
         return await call_next(request)
+
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    """Adds standard security headers to all responses.
+
+    - X-Content-Type-Options: prevents MIME sniffing
+    - X-Frame-Options: prevents clickjacking
+    - Referrer-Policy: limits referrer information leakage
+    - Permissions-Policy: restricts browser features
+    - Content-Security-Policy: restricts resource loading sources
+    """
+
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Permissions-Policy"] = (
+            "camera=(), microphone=(), geolocation=(), payment=()"
+        )
+        # CSP: allow self, inline styles/scripts (needed for Jinja templates),
+        # Google Fonts, and data: URIs for SVG favicon
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; "
+            "script-src 'self' 'unsafe-inline'; "
+            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+            "font-src 'self' https://fonts.gstatic.com; "
+            "img-src 'self' data:; "
+            "connect-src 'self'; "
+            "frame-ancestors 'none'"
+        )
+        return response

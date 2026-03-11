@@ -14,6 +14,7 @@ from pydantic import BaseModel, field_validator
 import json
 
 from sba.data.db import get_connection, init_db
+from sba.web.errors import safe_endpoint
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["simulation"])
@@ -122,6 +123,7 @@ class BacktestResponse(BaseModel):
 
 
 @router.post("/simulate", response_model=SimulationResponse)
+@safe_endpoint
 def run_simulation(req: SimulationRequest):
     """Run Monte Carlo bankroll simulation."""
     random.seed(42)
@@ -176,6 +178,7 @@ def run_simulation(req: SimulationRequest):
 
 
 @router.post("/backtest", response_model=BacktestResponse)
+@safe_endpoint
 def run_backtest_endpoint(req: BacktestRequest):
     """Backtest a strategy against historical bet data."""
     from sba.services.backtester import run_backtest
@@ -261,6 +264,7 @@ def run_backtest_endpoint(req: BacktestRequest):
 
 
 @router.get("/performance/expected-vs-actual")
+@safe_endpoint
 def expected_vs_actual():
     """Compare expected profit (based on EV) vs actual profit over time."""
     init_db()
@@ -382,6 +386,7 @@ class VarianceSimRequest(BaseModel):
 
 
 @router.post("/simulator/variance")
+@safe_endpoint
 def variance_simulator(req: VarianceSimRequest):
     """Monte Carlo variance simulator for understanding downswings."""
     win_rate = req.win_rate
@@ -520,6 +525,7 @@ class SaveFilterPresetRequest(BaseModel):
 
 
 @router.get("/presets")
+@safe_endpoint
 def get_filter_presets():
     """Get all saved filter presets."""
     init_db()
@@ -539,6 +545,7 @@ def get_filter_presets():
 
 
 @router.post("/presets")
+@safe_endpoint
 def save_filter_preset(req: SaveFilterPresetRequest):
     """Save a filter preset for reuse."""
     preset_key = f"preset_{req.name.lower().replace(' ', '_')}"
@@ -553,6 +560,7 @@ def save_filter_preset(req: SaveFilterPresetRequest):
 
 
 @router.delete("/presets/{preset_id}")
+@safe_endpoint
 def delete_filter_preset(preset_id: str):
     """Delete a saved filter preset."""
     init_db()
@@ -577,6 +585,7 @@ class ExplainBetRequest(BaseModel):
 
 
 @router.post("/explain")
+@safe_endpoint
 def explain_bet(req: ExplainBetRequest):
     """Explainable AI — shows the reasoning behind a bet's rating."""
     from sba.services.clv_tracker import _american_to_implied

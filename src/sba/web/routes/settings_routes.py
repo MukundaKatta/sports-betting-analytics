@@ -13,6 +13,8 @@ from sba.config import get_settings
 from sba.data.db import get_connection
 
 logger = logging.getLogger(__name__)
+from sba.web.errors import safe_endpoint
+
 router = APIRouter(tags=["settings"])
 
 
@@ -58,6 +60,7 @@ _start_time = datetime.now()
 # ── Endpoints ────────────────────────────────────────────────────────
 
 @router.get("/health", response_model=HealthResponse)
+@safe_endpoint
 def health_check():
     """Health check endpoint for monitoring."""
     uptime = datetime.now() - _start_time
@@ -80,6 +83,7 @@ def health_check():
 
 
 @router.get("/health/deep")
+@safe_endpoint
 def deep_health_check():
     """Deep health check with dependency status and database metrics."""
     import time as _time
@@ -88,14 +92,27 @@ def deep_health_check():
     settings = get_settings()
     checks = {}
 
-    # Database connectivity + response time
+    # Database connectivity + response time + metrics
     try:
         start = _time.monotonic()
         with get_connection() as conn:
             conn.execute("SELECT 1")
             row_count = conn.execute("SELECT COUNT(*) as c FROM bets").fetchone()["c"]
+            event_count = conn.execute("SELECT COUNT(*) as c FROM events").fetchone()["c"]
+            odds_count = conn.execute("SELECT COUNT(*) as c FROM odds_snapshots").fetchone()["c"]
+            # Database file size via PRAGMA
+            db_page = conn.execute("PRAGMA page_count").fetchone()
+            db_page_size = conn.execute("PRAGMA page_size").fetchone()
+            db_size_bytes = (db_page[0] if db_page else 0) * (db_page_size[0] if db_page_size else 4096)
         db_ms = round((_time.monotonic() - start) * 1000, 1)
-        checks["database"] = {"status": "healthy", "response_ms": db_ms, "bet_count": row_count}
+        checks["database"] = {
+            "status": "healthy",
+            "response_ms": db_ms,
+            "bet_count": row_count,
+            "event_count": event_count,
+            "odds_snapshot_count": odds_count,
+            "db_size_mb": round(db_size_bytes / (1024 * 1024), 2),
+        }
     except Exception as e:
         checks["database"] = {"status": "unhealthy", "error": str(e)}
 
@@ -132,6 +149,7 @@ def deep_health_check():
 
 
 @router.get("/status", response_model=StatusResponse)
+@safe_endpoint
 def get_status():
     """Get database and API status."""
     with get_connection() as conn:
@@ -152,6 +170,7 @@ def get_status():
 
 
 @router.get("/settings", response_model=SettingsResponse)
+@safe_endpoint
 def get_settings_endpoint():
     """Get current app settings."""
     settings = get_settings()
@@ -165,6 +184,7 @@ def get_settings_endpoint():
 
 
 @router.put("/settings")
+@safe_endpoint
 def update_settings_endpoint(req: UpdateSettingsRequest):
     """Update app settings (runtime only, not persisted to .env)."""
     import os

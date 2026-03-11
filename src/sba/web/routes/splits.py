@@ -14,12 +14,15 @@ from sba.data.db import get_connection
 from sba.web.api import repo
 
 logger = logging.getLogger(__name__)
+from sba.web.errors import safe_endpoint
+
 router = APIRouter(tags=["splits"])
 
 
 # ── Situation Splits ────────────────────────────────────────────────
 
 @router.get("/splits/{player_name}")
+@safe_endpoint
 def get_player_splits(
     player_name: str,
     stat: str = Query("points"),
@@ -52,6 +55,7 @@ class BetImportRequest(BaseModel):
 
 
 @router.post("/bets/import")
+@safe_endpoint
 def import_bets(req: BetImportRequest):
     """Import bets from JSON payload."""
     from sba.models.domain import TrackedBet
@@ -104,6 +108,7 @@ def import_bets(req: BetImportRequest):
 
 
 @router.post("/bets/import/csv")
+@safe_endpoint
 async def import_bets_csv(file: UploadFile = File(...)):
     """Import bets from a CSV file.
 
@@ -174,6 +179,7 @@ async def import_bets_csv(file: UploadFile = File(...)):
 # ── Confidence Calibration ──────────────────────────────────────────
 
 @router.get("/analytics/calibration")
+@safe_endpoint
 def get_calibration():
     """Get model prediction calibration data.
 

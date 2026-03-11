@@ -9,10 +9,13 @@ from fastapi import APIRouter, Query
 from sba.config import get_settings
 
 logger = logging.getLogger(__name__)
+from sba.web.errors import safe_endpoint
+
 router = APIRouter(tags=["portfolio"])
 
 
 @router.get("/portfolio")
+@safe_endpoint
 def get_daily_portfolio(
     sport: str = Query(None),
     max_bets: int = Query(20, ge=1, le=100),
@@ -40,6 +43,7 @@ def get_daily_portfolio(
 
 
 @router.get("/portfolio/preview")
+@safe_endpoint
 def preview_portfolio(
     sport: str = Query(None),
     max_bets: int = Query(20),

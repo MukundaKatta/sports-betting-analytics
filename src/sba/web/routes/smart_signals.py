@@ -14,10 +14,13 @@ from sba.services.smart_signals import (
     scan_signals,
 )
 
+from sba.web.errors import safe_endpoint
+
 router = APIRouter(tags=["smart-signals"])
 
 
 @router.get("/signals")
+@safe_endpoint
 def api_scan_signals():
     """Scan for active Smart Signals.
 
@@ -27,6 +30,7 @@ def api_scan_signals():
 
 
 @router.get("/signals/patterns")
+@safe_endpoint
 def api_discover_patterns(
     min_bets: int = Query(5, ge=3, le=50),
     min_roi: float = Query(5.0, ge=0, le=100),
@@ -36,6 +40,7 @@ def api_discover_patterns(
 
 
 @router.get("/signals/pattern/{pattern_key:path}")
+@safe_endpoint
 def api_pattern_detail(pattern_key: str):
     """Get detailed breakdown of a specific pattern."""
     return get_pattern_detail(pattern_key)

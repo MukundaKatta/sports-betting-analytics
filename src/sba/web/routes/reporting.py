@@ -17,6 +17,7 @@ from sba.services.reporting import (
     generate_monthly_report,
     generate_weekly_report,
 )
+from sba.web.errors import safe_endpoint
 
 router = APIRouter(tags=["reporting"])
 
@@ -29,6 +30,7 @@ _CSV_COLUMNS = [
 
 
 @router.get("/reports/daily")
+@safe_endpoint
 def api_daily_report(
     date: str = Query(None, description="Date in YYYY-MM-DD format (defaults to today)"),
 ):
@@ -37,6 +39,7 @@ def api_daily_report(
 
 
 @router.get("/reports/weekly")
+@safe_endpoint
 def api_weekly_report(
     weeks_ago: int = Query(0, ge=0, le=52, description="0 = current week"),
 ):
@@ -45,6 +48,7 @@ def api_weekly_report(
 
 
 @router.get("/reports/monthly")
+@safe_endpoint
 def api_monthly_report(
     year: int = Query(None, ge=2020, le=2030),
     month: int = Query(None, ge=1, le=12),
@@ -54,6 +58,7 @@ def api_monthly_report(
 
 
 @router.get("/reports/export")
+@safe_endpoint
 def api_export_bets(
     fmt: str = Query("json", description="Export format: json or csv"),
     status: str = Query(None, description="Filter by status: won, lost, push, pending"),

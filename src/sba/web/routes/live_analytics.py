@@ -14,16 +14,20 @@ from sba.services.live_analytics import (
     get_odds_velocity,
 )
 
+from sba.web.errors import safe_endpoint
+
 router = APIRouter(tags=["live-analytics"])
 
 
 @router.get("/live/games")
+@safe_endpoint
 def api_live_games():
     """Get summary of all currently active games."""
     return get_live_games_summary()
 
 
 @router.get("/live/game/{event_id}")
+@safe_endpoint
 def api_live_game_analysis(event_id: str):
     """Get real-time analysis for a specific live game.
 
@@ -33,6 +37,7 @@ def api_live_game_analysis(event_id: str):
 
 
 @router.get("/live/velocity/{event_id}")
+@safe_endpoint
 def api_odds_velocity(
     event_id: str,
     window: int = Query(15, ge=5, le=120, description="Window in minutes"),

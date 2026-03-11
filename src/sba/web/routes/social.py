@@ -8,6 +8,7 @@ from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
 from sba.data.db import get_connection
+from sba.web.errors import safe_endpoint
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["social"])
@@ -16,8 +17,14 @@ router = APIRouter(tags=["social"])
 # ── Pydantic models ─────────────────────────────────────────────────
 
 class RegisterUserRequest(BaseModel):
-    username: str
+    username: str  # max 50 chars enforced below
     display_name: str = ""
+
+    def model_post_init(self, __context) -> None:
+        if len(self.username) > 50 or len(self.username) < 1:
+            raise ValueError("username must be 1-50 characters")
+        if len(self.display_name) > 100:
+            raise ValueError("display_name must be 100 characters or fewer")
 
 
 class SubmitPickRequest(BaseModel):
@@ -44,6 +51,7 @@ class CreateAlertRuleRequest(BaseModel):
 # ── Alerts ───────────────────────────────────────────────────────────
 
 @router.get("/alerts")
+@safe_endpoint
 def get_alerts():
     """Get pending edge alerts from database."""
     with get_connection() as conn:
@@ -61,6 +69,7 @@ def get_alerts():
 
 
 @router.post("/alerts")
+@safe_endpoint
 def create_alert(alert_type: str = Query("info"), title: str = Query(...), message: str = Query("")):
     """Create a new alert."""
     with get_connection() as conn:
@@ -72,6 +81,7 @@ def create_alert(alert_type: str = Query("info"), title: str = Query(...), messa
 
 
 @router.delete("/alerts")
+@safe_endpoint
 def clear_alerts():
     """Mark all alerts as read."""
     with get_connection() as conn:
@@ -80,6 +90,7 @@ def clear_alerts():
 
 
 @router.delete("/alerts/{alert_id}")
+@safe_endpoint
 def dismiss_alert(alert_id: int):
     """Dismiss a single alert."""
     with get_connection() as conn:
@@ -90,6 +101,7 @@ def dismiss_alert(alert_id: int):
 # ── Alert Rules ──────────────────────────────────────────────────────
 
 @router.get("/alert-rules")
+@safe_endpoint
 def get_alert_rules():
     """Get all configured alert rules."""
     with get_connection() as conn:
@@ -109,6 +121,7 @@ def get_alert_rules():
 
 
 @router.post("/alert-rules")
+@safe_endpoint
 def create_alert_rule(req: CreateAlertRuleRequest):
     """Create a new alert rule."""
     valid_types = {"ev_threshold", "arb_detected", "line_movement", "price_change"}
@@ -124,6 +137,7 @@ def create_alert_rule(req: CreateAlertRuleRequest):
 
 
 @router.put("/alert-rules/{rule_id}/toggle")
+@safe_endpoint
 def toggle_alert_rule(rule_id: int):
     """Toggle an alert rule on/off."""
     with get_connection() as conn:
@@ -140,6 +154,7 @@ def toggle_alert_rule(rule_id: int):
 
 
 @router.delete("/alert-rules/{rule_id}")
+@safe_endpoint
 def delete_alert_rule(rule_id: int):
     """Delete an alert rule."""
     with get_connection() as conn:
@@ -150,6 +165,7 @@ def delete_alert_rule(rule_id: int):
 # ── Watchlist ────────────────────────────────────────────────────────
 
 @router.get("/watchlist")
+@safe_endpoint
 def get_watchlist():
     """Get user's watchlisted events from database."""
     with get_connection() as conn:
@@ -164,6 +180,7 @@ def get_watchlist():
 
 
 @router.post("/watchlist")
+@safe_endpoint
 def add_to_watchlist(event_id: str = Query(...), label: str = Query("")):
     """Add an event to watchlist (persisted to DB)."""
     with get_connection() as conn:
@@ -181,6 +198,7 @@ def add_to_watchlist(event_id: str = Query(...), label: str = Query("")):
 
 
 @router.delete("/watchlist/{event_id}")
+@safe_endpoint
 def remove_from_watchlist(event_id: str):
     """Remove event from watchlist."""
     with get_connection() as conn:
@@ -192,7 +210,8 @@ def remove_from_watchlist(event_id: str):
 # ── Leaderboard ──────────────────────────────────────────────────────
 
 @router.get("/leaderboard")
-def get_leaderboard(limit: int = Query(25)):
+@safe_endpoint
+def get_leaderboard(limit: int = Query(25, ge=1, le=100)):
     """Get the community leaderboard ranked by score."""
     with get_connection() as conn:
         rows = conn.execute(
@@ -218,6 +237,7 @@ def get_leaderboard(limit: int = Query(25)):
 
 
 @router.post("/leaderboard/register")
+@safe_endpoint
 def register_user(req: RegisterUserRequest):
     """Register a new user for the leaderboard."""
     with get_connection() as conn:
@@ -236,6 +256,7 @@ def register_user(req: RegisterUserRequest):
 # ── Picks ────────────────────────────────────────────────────────────
 
 @router.post("/picks")
+@safe_endpoint
 def submit_pick(req: SubmitPickRequest):
     """Submit a public pick."""
     with get_connection() as conn:
@@ -257,6 +278,7 @@ def submit_pick(req: SubmitPickRequest):
 
 
 @router.put("/picks/{pick_id}/settle")
+@safe_endpoint
 def settle_pick(pick_id: int, req: SettlePickRequest):
     """Settle a public pick and update the leaderboard."""
     if req.status not in ("won", "lost", "push"):
@@ -301,7 +323,8 @@ def settle_pick(pick_id: int, req: SettlePickRequest):
 
 
 @router.get("/picks")
-def get_picks(username: str = Query(None), limit: int = Query(50)):
+@safe_endpoint
+def get_picks(username: str = Query(None), limit: int = Query(50, ge=1, le=200)):
     """Get public picks, optionally filtered by username."""
     with get_connection() as conn:
         if username:

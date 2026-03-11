@@ -11,6 +11,7 @@ from sba.config import get_settings
 from sba.data.db import get_connection
 from sba.utils.cache import cached_response
 from sba.web.api import repo
+from sba.web.errors import safe_endpoint
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["odds"])
@@ -32,6 +33,7 @@ class EventResponse(BaseModel):
 # ── Endpoints ────────────────────────────────────────────────────────
 
 @router.get("/events", response_model=list[EventResponse])
+@safe_endpoint
 def get_events(sport: str = Query(None)):
     """Get upcoming events from the database."""
     settings = get_settings()
@@ -51,6 +53,7 @@ def get_events(sport: str = Query(None)):
 
 
 @router.get("/line-movement/{event_id}")
+@safe_endpoint
 def get_line_movement(event_id: str, market: str = Query("h2h")):
     """Get line movement history for an event."""
     with get_connection() as conn:
@@ -69,6 +72,7 @@ def get_line_movement(event_id: str, market: str = Query("h2h")):
 
 
 @router.get("/odds-comparison/{event_id}")
+@safe_endpoint
 def get_odds_comparison(event_id: str, market: str = Query("h2h")):
     """Get latest odds from all bookmakers for an event, grouped by outcome."""
     with get_connection() as conn:
@@ -106,6 +110,7 @@ def get_odds_comparison(event_id: str, market: str = Query("h2h")):
 
 
 @router.get("/live-odds")
+@safe_endpoint
 def get_live_odds(limit: int = Query(20, ge=1, le=500)):
     """Get most recent odds snapshots as a live feed."""
     with get_connection() as conn:
@@ -137,6 +142,7 @@ def get_live_odds(limit: int = Query(20, ge=1, le=500)):
 
 
 @router.get("/odds-screen")
+@safe_endpoint
 def odds_screen(
     sport: str = Query("basketball_nba"),
     market: str = Query("h2h"),
@@ -218,6 +224,7 @@ def odds_screen(
 
 
 @router.get("/consensus/{event_id}")
+@safe_endpoint
 def get_consensus(event_id: str):
     """Get consensus odds and implied probabilities across all books.
 
@@ -279,6 +286,7 @@ def get_consensus(event_id: str):
 
 @router.get("/sports")
 @cached_response(ttl=300, prefix="sports")
+@safe_endpoint
 def get_available_sports():
     """Get all available sports with event counts."""
     with get_connection() as conn:
@@ -322,6 +330,7 @@ def get_available_sports():
 
 
 @router.get("/line-movement/timeline/{event_id}")
+@safe_endpoint
 def line_movement_timeline(event_id: str, market: str = Query("h2h")):
     """Enhanced line movement timeline with bookmaker comparison.
 

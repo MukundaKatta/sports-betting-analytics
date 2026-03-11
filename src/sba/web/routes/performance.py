@@ -20,6 +20,7 @@ from sba.config import get_settings
 from sba.data.db import get_connection
 from sba.utils.cache import cached_response
 from sba.web.api import repo
+from sba.web.errors import safe_endpoint
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["performance"])
@@ -64,29 +65,13 @@ class StakingRequest(BaseModel):
 # ── Helpers ──────────────────────────────────────────────────────────
 
 def _get_settled_bets_dicts() -> list[dict]:
-    """Helper to get settled bets as dicts for analytics service."""
-    with get_connection() as conn:
-        rows = conn.execute("""
-            SELECT b.*, e.sport, e.home_team, e.away_team
-            FROM bets b
-            LEFT JOIN events e ON e.id = b.event_id
-            WHERE b.status IN ('won', 'lost', 'push')
-            ORDER BY b.placed_at
-        """).fetchall()
-    return [
-        {
-            "status": r["status"],
-            "profit_loss": r["profit_loss"] or 0,
-            "stake": r["recommended_stake"] or 0,
-            "odds_american": r["odds_american"] or 0,
-            "market": r["market"],
-            "bookmaker": r["bookmaker"],
-            "sport": r["sport"] if "sport" in r.keys() else "unknown",
-            "placed_at": r["placed_at"],
-            "selection": r["selection"],
-        }
-        for r in rows
-    ]
+    """Helper to get settled bets as dicts for analytics service.
+
+    Re-uses the cached version from analytics module to avoid duplicate
+    unbounded queries and keep a single source of truth for caching.
+    """
+    from sba.web.routes.analytics import _get_settled_bets_dicts as _cached
+    return _cached()
 
 
 def _get_user_stats() -> dict:
@@ -149,6 +134,7 @@ def _get_user_stats() -> dict:
 # ── Sharp Money / Line Movement Analysis ─────────────────────────────
 
 @router.get("/sharp-money/{event_id}")
+@safe_endpoint
 def get_sharp_signals(event_id: str, market: str = Query("h2h")):
     """Detect sharp money signals for an event from historical odds."""
     from sba.services.sharp_money import analyze_line_signals
@@ -178,6 +164,7 @@ def get_sharp_signals(event_id: str, market: str = Query("h2h")):
 
 
 @router.get("/sharp-money")
+@safe_endpoint
 def get_all_sharp_moves():
     """Get all recently detected sharp moves from the database."""
     with get_connection() as conn:
@@ -209,6 +196,7 @@ def get_all_sharp_moves():
 # ── Power Ratings ─────────────────────────────────────────────────────
 
 @router.get("/power-ratings")
+@safe_endpoint
 def get_power_ratings(sport: str = Query("basketball_nba")):
     """Get team power ratings derived from market odds."""
     from sba.services.power_ratings import calculate_ratings_from_odds
@@ -259,6 +247,7 @@ def get_power_ratings(sport: str = Query("basketball_nba")):
 
 
 @router.get("/matchup")
+@safe_endpoint
 def analyze_matchup_endpoint(
     home: str = Query(...),
     away: str = Query(...),
@@ -311,6 +300,7 @@ def analyze_matchup_endpoint(
 # ── Public Money ──────────────────────────────────────────────────────
 
 @router.get("/public-money/{event_id}")
+@safe_endpoint
 def get_public_money(event_id: str, market: str = Query("h2h")):
     """Get public bet % vs money % for an event like Action Network."""
     from sba.services.public_money import simulate_public_money
@@ -366,6 +356,7 @@ def get_public_money(event_id: str, market: str = Query("h2h")):
 
 
 @router.post("/public-money/analyze")
+@safe_endpoint
 def analyze_public_money_endpoint(
     event_id: str = Query(...),
     market: str = Query("h2h"),
@@ -397,6 +388,7 @@ def analyze_public_money_endpoint(
 # ── Correlations ─────────────────────────────────────────────────────
 
 @router.get("/correlations")
+@safe_endpoint
 def get_correlation_matrix(sport: str = ""):
     """Get the known correlation matrix for SGP pricing.
 
@@ -425,6 +417,7 @@ def get_correlation_matrix(sport: str = ""):
 # ── Bet Grading ──────────────────────────────────────────────────────
 
 @router.post("/bet-grade")
+@safe_endpoint
 def grade_bet_endpoint(req: GradeBetRequest):
     """Grade a bet opportunity with 1-5 star rating like BetQL."""
     from sba.services.bet_grader import grade_bet
@@ -467,6 +460,7 @@ def grade_bet_endpoint(req: GradeBetRequest):
 
 
 @router.get("/bet-grades")
+@safe_endpoint
 def get_graded_edges():
     """Get all current edges with star ratings applied."""
     from sba.services.bet_grader import grade_bet
@@ -519,6 +513,7 @@ def get_graded_edges():
 # ── Achievements ──────────────────────────────────────────────────────
 
 @router.get("/achievements")
+@safe_endpoint
 def get_achievements():
     """Get all achievements with unlock status and progress."""
     from sba.services.achievements import evaluate_achievements, get_achievement_summary
@@ -535,6 +530,7 @@ def get_achievements():
 
 
 @router.get("/achievements/summary")
+@safe_endpoint
 def get_achievements_summary():
     """Quick summary of achievement progress for dashboard widget."""
     from sba.services.achievements import evaluate_achievements, get_achievement_summary
@@ -557,6 +553,7 @@ def get_achievements_summary():
 # ── Insights ──────────────────────────────────────────────────────────
 
 @router.get("/insights")
+@safe_endpoint
 def get_insights():
     """Get personalized AI-powered insights and recommendations."""
     from sba.services.insights import generate_insights
@@ -594,6 +591,7 @@ def get_insights():
 # ── Bet Rating ────────────────────────────────────────────────────────
 
 @router.post("/bet-rating")
+@safe_endpoint
 def rate_bet_endpoint(req: BetRatingRequest):
     """Rate a bet on a 1-5 star scale (BetQL-style confidence scoring)."""
     from sba.services.insights import rate_bet
@@ -611,6 +609,7 @@ def rate_bet_endpoint(req: BetRatingRequest):
 # ── Staking ───────────────────────────────────────────────────────────
 
 @router.post("/staking/compare")
+@safe_endpoint
 def compare_staking(req: StakingRequest):
     """Compare all staking strategies side by side."""
     from sba.services.staking import compare_strategies
@@ -627,6 +626,7 @@ def compare_staking(req: StakingRequest):
 
 
 @router.post("/staking/kelly")
+@safe_endpoint
 def kelly_stake(
     bankroll: float = Query(...),
     odds_decimal: float = Query(...),
@@ -648,6 +648,7 @@ def kelly_stake(
 # ── Today's Performance ──────────────────────────────────────────────
 
 @router.get("/performance/today")
+@safe_endpoint
 def today_performance():
     """Get today's betting performance for the live dashboard widget."""
     from datetime import date
@@ -690,6 +691,7 @@ def today_performance():
 # ── Equity Curve ─────────────────────────────────────────────────────
 
 @router.get("/performance/equity-curve")
+@safe_endpoint
 def equity_curve():
     """Get cumulative P/L equity curve for bankroll growth visualization."""
     with get_connection() as conn:
@@ -738,6 +740,7 @@ def equity_curve():
 # ── Momentum & Streaks ──────────────────────────────────────────────
 
 @router.get("/momentum")
+@safe_endpoint
 def get_momentum():
     """Get streak analysis and momentum score for betting performance."""
     from sba.services.momentum import get_streak_analysis
@@ -745,6 +748,7 @@ def get_momentum():
 
 
 @router.get("/daily-summary")
+@safe_endpoint
 def get_daily_summary():
     """Get smart daily summary with today's performance, trends, and insights."""
     from sba.services.momentum import get_daily_summary
@@ -754,6 +758,7 @@ def get_daily_summary():
 # ── Cache Stats ──────────────────────────────────────────────────────
 
 @router.get("/cache/stats")
+@safe_endpoint
 def get_cache_stats():
     """Get API response cache statistics."""
     from sba.utils.cache import cache
@@ -764,6 +769,7 @@ def get_cache_stats():
 
 @router.get("/health-score")
 @cached_response(ttl=120, prefix="health_score")
+@safe_endpoint
 def get_health_score():
     """Get composite Betting Health Score (0-100) with component breakdown.
 
@@ -777,6 +783,7 @@ def get_health_score():
 # ── Correlation Warnings ──────────────────────────────────────────
 
 @router.get("/correlation-warnings")
+@safe_endpoint
 def get_correlation_warnings():
     """Analyze pending bets for correlated exposure and risk concentration.
 

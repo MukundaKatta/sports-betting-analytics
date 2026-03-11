@@ -12,6 +12,7 @@ from pydantic import BaseModel
 
 from sba.data.db import get_connection
 from sba.web.api import repo
+from sba.web.errors import safe_endpoint
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["bets"])
@@ -76,12 +77,16 @@ class AddNoteRequest(BaseModel):
 # ── Endpoints ────────────────────────────────────────────────────────
 
 @router.get("/bets", response_model=BetSummaryResponse)
+@safe_endpoint
 def get_bets(
     page: int = Query(1, ge=1, description="Page number"),
     per_page: int = Query(50, ge=1, le=500, description="Results per page"),
     status_filter: str = Query(None, alias="status", description="Filter: pending, won, lost, push"),
 ):
     """Get bet history and summary stats with pagination."""
+    if status_filter and status_filter not in ("pending", "won", "lost", "push"):
+        raise HTTPException(400, "status must be one of: pending, won, lost, push")
+
     offset = (page - 1) * per_page
 
     with get_connection() as conn:
@@ -148,6 +153,7 @@ def get_bets(
 
 
 @router.post("/bets/track")
+@safe_endpoint
 def track_bet(req: TrackBetRequest):
     """Track a new bet."""
     from sba.models.domain import TrackedBet
@@ -167,6 +173,7 @@ def track_bet(req: TrackBetRequest):
 
 
 @router.put("/bets/{bet_id}/settle")
+@safe_endpoint
 def settle_bet(bet_id: int, req: SettleBetRequest):
     """Settle a bet with result."""
     if req.status not in ("won", "lost", "push"):
@@ -178,6 +185,7 @@ def settle_bet(bet_id: int, req: SettleBetRequest):
 
 
 @router.delete("/bets/{bet_id}")
+@safe_endpoint
 def delete_bet(bet_id: int):
     """Delete a tracked bet."""
     with get_connection() as conn:
@@ -186,6 +194,7 @@ def delete_bet(bet_id: int):
 
 
 @router.get("/bets/export")
+@safe_endpoint
 def export_bets_csv():
     """Export bet history as CSV file."""
     with get_connection() as conn:
@@ -220,6 +229,7 @@ def export_bets_csv():
 
 
 @router.get("/bets/export/json")
+@safe_endpoint
 def export_bets_json():
     """Export bet history as JSON."""
     with get_connection() as conn:
@@ -250,6 +260,7 @@ def export_bets_json():
 # ── Tags ─────────────────────────────────────────────────────────────
 
 @router.post("/bets/{bet_id}/tags")
+@safe_endpoint
 def add_bet_tag(bet_id: int, req: AddTagRequest):
     """Add a tag to a bet."""
     import sqlite3
@@ -266,6 +277,7 @@ def add_bet_tag(bet_id: int, req: AddTagRequest):
 
 
 @router.get("/bets/{bet_id}/tags")
+@safe_endpoint
 def get_bet_tags(bet_id: int):
     """Get all tags for a bet."""
     with get_connection() as conn:
@@ -276,6 +288,7 @@ def get_bet_tags(bet_id: int):
 
 
 @router.delete("/bets/{bet_id}/tags/{tag}")
+@safe_endpoint
 def remove_bet_tag(bet_id: int, tag: str):
     """Remove a tag from a bet."""
     with get_connection() as conn:
@@ -288,6 +301,7 @@ def remove_bet_tag(bet_id: int, tag: str):
 # ── Notes ────────────────────────────────────────────────────────────
 
 @router.post("/bets/{bet_id}/notes")
+@safe_endpoint
 def add_bet_note(bet_id: int, req: AddNoteRequest):
     """Add a note to a bet."""
     with get_connection() as conn:
@@ -299,6 +313,7 @@ def add_bet_note(bet_id: int, req: AddNoteRequest):
 
 
 @router.get("/bets/{bet_id}/notes")
+@safe_endpoint
 def get_bet_notes(bet_id: int):
     """Get all notes for a bet."""
     with get_connection() as conn:

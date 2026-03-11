@@ -11,10 +11,13 @@ from sba.data.db.audit import get_audit_log
 from sba.utils.sanitize import sanitize_pagination
 
 logger = logging.getLogger(__name__)
+from sba.web.errors import safe_endpoint
+
 router = APIRouter(tags=["audit"])
 
 
 @router.get("/audit-log")
+@safe_endpoint
 def list_audit_log(
     entity_type: str | None = None,
     entity_id: str | None = None,

@@ -10,6 +10,7 @@ from pydantic import BaseModel
 
 from sba.config import get_settings
 from sba.data.db import get_connection
+from sba.web.errors import safe_endpoint
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["props"])
@@ -47,6 +48,7 @@ class PlayerProfileResponse(BaseModel):
 # ── Endpoints ────────────────────────────────────────────────────────
 
 @router.get("/props", response_model=list[PropResponse])
+@safe_endpoint
 def get_props(
     sport: str = Query(None),
     event_id: str = Query(None),
@@ -84,7 +86,8 @@ def get_props(
 
 
 @router.get("/search/players")
-def search_players(q: str = Query(..., min_length=2)):
+@safe_endpoint
+def search_players(q: str = Query(..., min_length=2, max_length=100)):
     """Search for players by name prefix."""
     with get_connection() as conn:
         rows = conn.execute(
@@ -95,6 +98,7 @@ def search_players(q: str = Query(..., min_length=2)):
 
 
 @router.get("/players/{name}", response_model=Optional[PlayerProfileResponse])
+@safe_endpoint
 def get_player(name: str):
     """Get player profile and recent stats."""
     from sba.services.prop_analyzer import PropAnalyzer

@@ -7,6 +7,8 @@ import logging
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
+from sba.web.errors import safe_endpoint
+
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["calculators"])
 
@@ -89,6 +91,7 @@ class PromoRequest(BaseModel):
 # ── Endpoints ────────────────────────────────────────────────────────
 
 @router.post("/calculator")
+@safe_endpoint
 def bet_calculator(req: CalcRequest):
     """Convert odds formats, calculate payouts, EV, and Kelly."""
     from sba.utils.odds_math import american_to_decimal
@@ -149,6 +152,7 @@ def bet_calculator(req: CalcRequest):
 
 
 @router.post("/calculator/hedge")
+@safe_endpoint
 def hedge_calculator(req: HedgeRequest):
     """Calculate optimal hedge stake for guaranteed profit."""
     from sba.utils.odds_math import american_to_decimal
@@ -175,6 +179,7 @@ def hedge_calculator(req: HedgeRequest):
 
 
 @router.post("/calculator/parlay")
+@safe_endpoint
 def parlay_calculator(req: ParlayRequest):
     """Calculate parlay odds and payout from multiple legs."""
     from sba.utils.odds_math import american_to_decimal, decimal_to_american
@@ -213,6 +218,7 @@ def parlay_calculator(req: ParlayRequest):
 
 
 @router.post("/calculator/freebet")
+@safe_endpoint
 def free_bet_converter(req: FreeBetRequest):
     """Calculate optimal hedge to convert a free bet into guaranteed cash.
 
@@ -252,6 +258,7 @@ def free_bet_converter(req: FreeBetRequest):
 
 
 @router.post("/calculator/novig")
+@safe_endpoint
 def novig_calculator(req: NoVigRequest):
     """Remove vig to calculate fair/true probabilities and no-vig odds."""
     from sba.utils.odds_math import (
@@ -294,6 +301,7 @@ def novig_calculator(req: NoVigRequest):
 
 
 @router.post("/calculator/devig")
+@safe_endpoint
 def devig_calculator(req: DevigRequest):
     """Devig odds using a single method."""
     from sba.services.devig import devig_single
@@ -324,6 +332,7 @@ def devig_calculator(req: DevigRequest):
 
 
 @router.post("/calculator/devig/multi")
+@safe_endpoint
 def multi_devig_calculator(req: MultiDevigRequest):
     """Multi-book, multi-method devigging like Outlier Pro."""
     from sba.services.devig import devig_multi
@@ -374,6 +383,7 @@ def multi_devig_calculator(req: MultiDevigRequest):
 
 
 @router.post("/calculator/sgp")
+@safe_endpoint
 def sgp_builder(req: SGPRequest):
     """Build a same-game parlay with correlation adjustments.
 
@@ -432,6 +442,7 @@ def sgp_builder(req: SGPRequest):
 
 
 @router.post("/calculator/promo")
+@safe_endpoint
 def promo_optimizer(req: PromoRequest):
     """Calculate optimal strategy for sportsbook promotions.
 

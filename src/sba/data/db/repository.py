@@ -108,12 +108,13 @@ class Repository:
         ).fetchone()
         return self._row_to_snapshot(row) if row else None
 
-    def get_odds_history(self, conn, event_id: str, market: str) -> list[OddsSnapshot]:
+    def get_odds_history(self, conn, event_id: str, market: str, limit: int = 5000) -> list[OddsSnapshot]:
         rows = conn.execute(
             """SELECT * FROM odds_snapshots
                WHERE event_id = ? AND market = ?
-               ORDER BY snapshot_time""",
-            (event_id, market),
+               ORDER BY snapshot_time
+               LIMIT ?""",
+            (event_id, market, limit),
         ).fetchall()
         return [self._row_to_snapshot(r) for r in rows]
 

@@ -69,16 +69,16 @@ def safe_endpoint(func):
         except HTTPException:
             raise
         except sqlite3.IntegrityError as exc:
-            logger.warning(f"Integrity error in {func.__name__}: {exc}")
+            logger.warning("Integrity error in %s: %s", func.__name__, exc)
             raise HTTPException(409, f"Conflict: {exc}") from exc
         except sqlite3.OperationalError as exc:
-            logger.error(f"Database error in {func.__name__}: {exc}", exc_info=True)
+            logger.error("Database error in %s: %s", func.__name__, exc, exc_info=True)
             raise HTTPException(503, "Database temporarily unavailable") from exc
         except ValueError as exc:
-            logger.warning(f"Validation error in {func.__name__}: {exc}")
+            logger.warning("Validation error in %s: %s", func.__name__, exc)
             raise HTTPException(422, str(exc)) from exc
         except Exception as exc:
-            logger.error(f"Unexpected error in {func.__name__}: {exc}", exc_info=True)
+            logger.error("Unexpected error in %s: %s", func.__name__, exc, exc_info=True)
             raise HTTPException(500, "Internal server error") from exc
 
     return wrapper
@@ -96,16 +96,16 @@ def safe_async_endpoint(func):
         except HTTPException:
             raise
         except sqlite3.IntegrityError as exc:
-            logger.warning(f"Integrity error in {func.__name__}: {exc}")
+            logger.warning("Integrity error in %s: %s", func.__name__, exc)
             raise HTTPException(409, f"Conflict: {exc}") from exc
         except sqlite3.OperationalError as exc:
-            logger.error(f"Database error in {func.__name__}: {exc}", exc_info=True)
+            logger.error("Database error in %s: %s", func.__name__, exc, exc_info=True)
             raise HTTPException(503, "Database temporarily unavailable") from exc
         except ValueError as exc:
-            logger.warning(f"Validation error in {func.__name__}: {exc}")
+            logger.warning("Validation error in %s: %s", func.__name__, exc)
             raise HTTPException(422, str(exc)) from exc
         except Exception as exc:
-            logger.error(f"Unexpected error in {func.__name__}: {exc}", exc_info=True)
+            logger.error("Unexpected error in %s: %s", func.__name__, exc, exc_info=True)
             raise HTTPException(500, "Internal server error") from exc
 
     return wrapper

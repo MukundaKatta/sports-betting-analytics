@@ -10,6 +10,7 @@ from pydantic import BaseModel
 
 from sba.config import get_settings
 from sba.web.api import repo
+from sba.web.errors import safe_endpoint, validate_sport
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["edges"])
@@ -130,12 +131,14 @@ def _fetch_odds_for_scan(sport: str, markets: str = "h2h") -> list:
 
 
 @router.get("/arbitrage")
+@safe_endpoint
 def scan_arbitrage_endpoint(
     sport: str = Query("basketball_nba"),
 ):
     """Scan live odds for arbitrage opportunities."""
     from sba.services.arbitrage import find_arbitrage
 
+    validate_sport(sport)
     try:
         events_odds = _fetch_odds_for_scan(sport)
     except (httpx.HTTPError, ConnectionError, TimeoutError) as exc:
@@ -167,12 +170,14 @@ def scan_arbitrage_endpoint(
 
 
 @router.get("/middles")
+@safe_endpoint
 def scan_middles_endpoint(
     sport: str = Query("basketball_nba"),
 ):
     """Scan for middle betting opportunities."""
     from sba.services.arbitrage import find_middles
 
+    validate_sport(sport)
     try:
         events_odds = _fetch_odds_for_scan(sport, markets="spreads,totals")
     except (httpx.HTTPError, ConnectionError, TimeoutError) as exc:
@@ -204,13 +209,15 @@ def scan_middles_endpoint(
 
 
 @router.get("/low-holds")
+@safe_endpoint
 def scan_low_holds_endpoint(
     sport: str = Query("basketball_nba"),
-    max_hold: float = Query(3.0, description="Max hold % to include"),
+    max_hold: float = Query(3.0, ge=0.1, le=20.0, description="Max hold % to include"),
 ):
     """Scan for low-hold/low-vig markets."""
     from sba.services.arbitrage import find_low_holds
 
+    validate_sport(sport)
     try:
         events_odds = _fetch_odds_for_scan(sport)
     except (httpx.HTTPError, ConnectionError, TimeoutError) as exc:

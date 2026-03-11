@@ -64,29 +64,13 @@ class StakingRequest(BaseModel):
 # ── Helpers ──────────────────────────────────────────────────────────
 
 def _get_settled_bets_dicts() -> list[dict]:
-    """Helper to get settled bets as dicts for analytics service."""
-    with get_connection() as conn:
-        rows = conn.execute("""
-            SELECT b.*, e.sport, e.home_team, e.away_team
-            FROM bets b
-            LEFT JOIN events e ON e.id = b.event_id
-            WHERE b.status IN ('won', 'lost', 'push')
-            ORDER BY b.placed_at
-        """).fetchall()
-    return [
-        {
-            "status": r["status"],
-            "profit_loss": r["profit_loss"] or 0,
-            "stake": r["recommended_stake"] or 0,
-            "odds_american": r["odds_american"] or 0,
-            "market": r["market"],
-            "bookmaker": r["bookmaker"],
-            "sport": r["sport"] if "sport" in r.keys() else "unknown",
-            "placed_at": r["placed_at"],
-            "selection": r["selection"],
-        }
-        for r in rows
-    ]
+    """Helper to get settled bets as dicts for analytics service.
+
+    Re-uses the cached version from analytics module to avoid duplicate
+    unbounded queries and keep a single source of truth for caching.
+    """
+    from sba.web.routes.analytics import _get_settled_bets_dicts as _cached
+    return _cached()
 
 
 def _get_user_stats() -> dict:

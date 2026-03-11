@@ -47,6 +47,7 @@ def _get_settled_bets_dicts() -> list[dict]:
             LEFT JOIN events e ON e.id = b.event_id
             WHERE b.status IN ('won', 'lost', 'push')
             ORDER BY b.placed_at
+            LIMIT 10000
         """).fetchall()
     result = [
         {

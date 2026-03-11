@@ -21,6 +21,12 @@ class BankrollActionRequest(BaseModel):
     amount: float
     reason: str = ""
 
+    def validate_positive_amount(self) -> None:
+        """Raise HTTPException if amount is not positive."""
+        from fastapi import HTTPException
+        if self.amount <= 0:
+            raise HTTPException(422, "Amount must be greater than zero")
+
 
 class BankrollHistoryEntry(BaseModel):
     id: int
@@ -110,6 +116,7 @@ def get_bankroll():
 @safe_endpoint
 def bankroll_deposit(req: BankrollActionRequest):
     """Record a bankroll deposit."""
+    req.validate_positive_amount()
     with get_connection() as conn:
         last = conn.execute(
             "SELECT amount FROM bankroll_log ORDER BY created_at DESC LIMIT 1"
@@ -127,6 +134,7 @@ def bankroll_deposit(req: BankrollActionRequest):
 @safe_endpoint
 def bankroll_withdraw(req: BankrollActionRequest):
     """Record a bankroll withdrawal."""
+    req.validate_positive_amount()
     with get_connection() as conn:
         last = conn.execute(
             "SELECT amount FROM bankroll_log ORDER BY created_at DESC LIMIT 1"

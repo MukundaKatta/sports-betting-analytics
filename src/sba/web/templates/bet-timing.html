@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% block title %}Bet Timing{% endblock %}
+
+{% block content %}
+<div class="frosted-panel reveal-up" style="padding:32px;margin-bottom:28px;position:relative;overflow:hidden">
+    <div style="position:absolute;top:0;right:0;width:300px;height:100%;opacity:0.07;background:linear-gradient(135deg,var(--accent-yellow),var(--accent-green));border-radius:50%;filter:blur(60px);transform:translate(30%,-30%)"></div>
+    <h1 class="page-title" style="margin:0 0 8px">
+        <span class="gradient-text animated-gradient-text">Bet Timing</span>
+        <span class="tag-new" style="margin-left:12px">NEW</span>
+    </h1>
+    <p class="text-dim" style="margin:0;font-size:13px;max-width:560px">
+        Discover when you place your most profitable bets. Optimize your schedule
+        to bet during your peak performance windows.
+    </p>
+</div>
+
+<div class="stat-grid-4 reveal-up" style="margin-bottom:24px">
+    <div class="frosted-panel" style="padding:20px;text-align:center">
+        <div class="stat-label">Best Window</div>
+        <div class="stat-value" id="best-window" style="font-size:16px">—</div>
+    </div>
+    <div class="frosted-panel" style="padding:20px;text-align:center">
+        <div class="stat-label">Timing Score</div>
+        <div class="stat-value" id="timing-score" style="font-size:28px">—</div>
+    </div>
+    <div class="frosted-panel" style="padding:20px;text-align:center">
+        <div class="stat-label">Best Day</div>
+        <div class="stat-value" id="best-day" style="font-size:20px">—</div>
+    </div>
+    <div class="frosted-panel" style="padding:20px;text-align:center">
+        <div class="stat-label">Best Hour</div>
+        <div class="stat-value" id="best-hour" style="font-size:20px">—</div>
+    </div>
+</div>
+
+<!-- Hourly Heatmap -->
+<div class="card frosted-panel reveal-up" style="margin-bottom:24px">
+    <div class="card-header"><h3>Performance by Hour</h3></div>
+    <div class="card-body padded" id="hourly-chart" style="min-height:180px">
+        <div class="loading-spinner"><div class="spinner"></div> Loading...</div>
+    </div>
+</div>
+
+<!-- Daily breakdown -->
+<div class="card frosted-panel reveal-up" style="margin-bottom:24px">
+    <div class="card-header"><h3>Performance by Day of Week</h3></div>
+    <div class="card-body" id="daily-table">
+        <div class="loading-spinner"><div class="spinner"></div> Loading...</div>
+    </div>
+</div>
+
+<!-- Recommendations -->
+<div class="card frosted-panel reveal-up">
+    <div class="card-header"><h3>Timing Recommendations</h3></div>
+    <div class="card-body padded" id="timing-recs">
+        <div class="text-dim">Loading...</div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', loadTiming);
+async function loadTiming() {
+    try {
+        const res = await fetch('/api/bet-timing');
+        const d = await res.json();
+        document.getElementById('best-window').textContent = d.optimal_window || '—';
+        document.getElementById('timing-score').textContent = d.timing_score + '/100';
+        if (d.best_days && d.best_days.length) document.getElementById('best-day').textContent = d.best_days[0].label;
+        if (d.best_hours && d.best_hours.length) document.getElementById('best-hour').textContent = d.best_hours[0].label;
+
+        // Hourly bars
+        const hours = d.by_hour || [];
+        const maxBets = Math.max(...hours.map(h => h.bets), 1);
+        const el = document.getElementById('hourly-chart');
+        const barW = Math.floor((el.clientWidth - 40) / 24);
+        let svg = `<svg width="100%" height="180" viewBox="0 0 ${barW*24+40} 180">`;
+        hours.forEach((h, i) => {
+            const barH = (h.bets / maxBets) * 140;
+            const color = h.roi_pct > 0 ? 'var(--accent-green)' : h.roi_pct < 0 ? 'var(--accent-red)' : 'var(--border)';
+            svg += `<rect x="${20+i*barW}" y="${160-barH}" width="${barW-2}" height="${barH}" fill="${color}" rx="2" opacity="0.7">
+                <title>${h.label}: ${h.bets} bets, ${h.roi_pct}% ROI</title></rect>`;
+            if (i % 3 === 0) svg += `<text x="${20+i*barW+barW/2}" y="175" fill="var(--text-dim)" font-size="9" text-anchor="middle">${i}h</text>`;
+        });
+        svg += '</svg>';
+        el.innerHTML = svg;
+
+        // Daily table
+        const days = d.by_day || [];
+        let html = '<table class="data-table" style="width:100%"><thead><tr><th>Day</th><th>Bets</th><th>Wins</th><th>Losses</th><th>Profit</th><th>ROI</th><th>Win Rate</th><th>Score</th></tr></thead><tbody>';
+        days.forEach(day => {
+            const pc = day.roi_pct > 0 ? 'var(--accent-green)' : day.roi_pct < 0 ? 'var(--accent-red)' : '';
+            html += `<tr><td><strong>${day.label}</strong></td><td>${day.bets}</td><td>${day.wins}</td><td>${day.losses}</td>
+                <td style="color:${pc}">$${day.profit.toFixed(2)}</td><td style="color:${pc}">${day.roi_pct}%</td>
+                <td>${day.win_rate}%</td><td>${day.score}</td></tr>`;
+        });
+        html += '</tbody></table>';
+        document.getElementById('daily-table').innerHTML = html;
+
+        // Recs
+        const recs = d.recommendations || [];
+        document.getElementById('timing-recs').innerHTML = recs.length
+            ? recs.map(r => `<div style="padding:8px 0;border-bottom:1px solid var(--border)">${r}</div>`).join('')
+            : '<div class="text-dim">Place more bets to unlock timing insights.</div>';
+    } catch(e) {
+        document.getElementById('hourly-chart').innerHTML = '<div class="text-dim" style="text-align:center;padding:20px">No data yet.</div>';
+    }
+}
+</script>
+{% endblock %}

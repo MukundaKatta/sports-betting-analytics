@@ -189,3 +189,18 @@ def bet_import_page(request: Request):
 @router.get("/notifications")
 def notifications_page(request: Request):
     return templates.TemplateResponse(request, "notifications.html")
+
+
+@router.get("/roi-forecast")
+def roi_forecast_page(request: Request):
+    return templates.TemplateResponse(request, "roi-forecast.html")
+
+
+@router.get("/bet-timing")
+def bet_timing_page(request: Request):
+    return templates.TemplateResponse(request, "bet-timing.html")
+
+
+@router.get("/risk-metrics")
+def risk_metrics_page(request: Request):
+    return templates.TemplateResponse(request, "risk-metrics.html")

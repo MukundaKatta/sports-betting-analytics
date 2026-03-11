@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% block title %}Risk Metrics{% endblock %}
+
+{% block content %}
+<div class="frosted-panel reveal-up" style="padding:32px;margin-bottom:28px;position:relative;overflow:hidden">
+    <div style="position:absolute;top:0;right:0;width:300px;height:100%;opacity:0.07;background:linear-gradient(135deg,var(--accent-red),var(--accent-purple));border-radius:50%;filter:blur(60px);transform:translate(30%,-30%)"></div>
+    <h1 class="page-title" style="margin:0 0 8px">
+        <span class="gradient-text animated-gradient-text">Risk Metrics</span>
+        <span class="tag-elite" style="margin-left:12px">Pro</span>
+    </h1>
+    <p class="text-dim" style="margin:0;font-size:13px;max-width:560px">
+        Institutional-grade risk analysis. Sharpe ratio, Sortino ratio, drawdown analysis,
+        and win/loss distribution — the same metrics hedge funds use.
+    </p>
+</div>
+
+<!-- Grade + Key Ratios -->
+<div class="stat-grid-4 reveal-up" style="margin-bottom:24px">
+    <div class="frosted-panel" style="padding:24px;text-align:center">
+        <div class="stat-label">Risk Grade</div>
+        <div class="stat-value" id="risk-grade" style="font-size:36px;font-weight:800">—</div>
+    </div>
+    <div class="frosted-panel" style="padding:20px;text-align:center">
+        <div class="stat-label">Sharpe Ratio</div>
+        <div class="stat-value" id="sharpe" style="font-size:28px">—</div>
+        <div class="text-dim" style="font-size:11px">Risk-adjusted return</div>
+    </div>
+    <div class="frosted-panel" style="padding:20px;text-align:center">
+        <div class="stat-label">Sortino Ratio</div>
+        <div class="stat-value" id="sortino" style="font-size:28px">—</div>
+        <div class="text-dim" style="font-size:11px">Downside-adjusted</div>
+    </div>
+    <div class="frosted-panel" style="padding:20px;text-align:center">
+        <div class="stat-label">Profit Factor</div>
+        <div class="stat-value" id="profit-factor" style="font-size:28px">—</div>
+        <div class="text-dim" style="font-size:11px">Gross win / gross loss</div>
+    </div>
+</div>
+
+<!-- Drawdown + Distribution -->
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:24px" class="reveal-up">
+    <div class="card frosted-panel">
+        <div class="card-header"><h3>Drawdown Analysis</h3></div>
+        <div class="card-body padded" id="drawdown-info">
+            <div class="loading-spinner"><div class="spinner"></div></div>
+        </div>
+    </div>
+    <div class="card frosted-panel">
+        <div class="card-header"><h3>Win/Loss Distribution</h3></div>
+        <div class="card-body padded" id="distribution-info">
+            <div class="loading-spinner"><div class="spinner"></div></div>
+        </div>
+    </div>
+</div>
+
+<!-- Summary -->
+<div class="card frosted-panel reveal-up">
+    <div class="card-header"><h3>Risk Summary</h3></div>
+    <div class="card-body padded">
+        <p id="risk-summary" style="font-size:14px;line-height:1.6">Loading...</p>
+        <div style="margin-top:16px;display:grid;grid-template-columns:repeat(4,1fr);gap:12px;text-align:center">
+            <div><div class="stat-label">ROI</div><div class="stat-value" id="total-roi">—</div></div>
+            <div><div class="stat-label">Total Profit</div><div class="stat-value" id="total-profit">—</div></div>
+            <div><div class="stat-label">Kelly Edge</div><div class="stat-value" id="kelly-edge">—</div></div>
+            <div><div class="stat-label">Total Bets</div><div class="stat-value" id="total-bets">—</div></div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', loadRisk);
+async function loadRisk() {
+    try {
+        const res = await fetch('/api/risk-metrics');
+        const d = await res.json();
+
+        const gc = {'A+':'var(--accent-green)','A':'var(--accent-green)','B+':'var(--accent-blue)','B':'var(--accent-blue)',
+            'C+':'var(--accent-yellow)','C':'var(--accent-yellow)','D':'var(--accent-red)','F':'var(--accent-red)'};
+        const gradeEl = document.getElementById('risk-grade');
+        gradeEl.textContent = d.risk_grade;
+        gradeEl.style.color = gc[d.risk_grade] || '';
+
+        document.getElementById('sharpe').textContent = d.sharpe_ratio.toFixed(3);
+        document.getElementById('sortino').textContent = d.sortino_ratio.toFixed(3);
+        document.getElementById('profit-factor').textContent = d.profit_factor.toFixed(2);
+
+        const roiEl = document.getElementById('total-roi');
+        roiEl.textContent = d.roi_pct.toFixed(1) + '%';
+        roiEl.style.color = d.roi_pct > 0 ? 'var(--accent-green)' : 'var(--accent-red)';
+        document.getElementById('total-profit').textContent = '$' + d.total_profit.toFixed(2);
+        document.getElementById('kelly-edge').textContent = (d.kelly_edge * 100).toFixed(2) + '%';
+        document.getElementById('total-bets').textContent = d.total_bets;
+        document.getElementById('risk-summary').textContent = d.risk_summary;
+
+        // Drawdown
+        const dd = d.max_drawdown;
+        document.getElementById('drawdown-info').innerHTML = `
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                <div><div class="stat-label">Max Drawdown</div><div class="stat-value" style="color:var(--accent-red)">$${dd.amount.toFixed(2)} (${dd.pct.toFixed(1)}%)</div></div>
+                <div><div class="stat-label">Current Drawdown</div><div class="stat-value">${dd.current_pct.toFixed(1)}%</div></div>
+                <div><div class="stat-label">Avg Drawdown</div><div class="stat-value">${dd.avg_pct.toFixed(1)}%</div></div>
+                <div><div class="stat-label">Duration</div><div class="stat-value">${dd.duration_bets} bets</div></div>
+            </div>`;
+
+        // Distribution
+        const dist = d.distribution;
+        document.getElementById('distribution-info').innerHTML = `
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                <div><div class="stat-label">Avg Win</div><div class="stat-value" style="color:var(--accent-green)">$${dist.avg_win.toFixed(2)}</div></div>
+                <div><div class="stat-label">Avg Loss</div><div class="stat-value" style="color:var(--accent-red)">$${dist.avg_loss.toFixed(2)}</div></div>
+                <div><div class="stat-label">Largest Win</div><div class="stat-value">$${dist.largest_win.toFixed(2)}</div></div>
+                <div><div class="stat-label">Largest Loss</div><div class="stat-value">$${dist.largest_loss.toFixed(2)}</div></div>
+                <div><div class="stat-label">Win/Loss Ratio</div><div class="stat-value">${dist.win_loss_ratio.toFixed(2)}</div></div>
+                <div><div class="stat-label">Expectancy</div><div class="stat-value">$${dist.expectancy.toFixed(2)}/bet</div></div>
+            </div>`;
+    } catch(e) {
+        document.getElementById('risk-summary').textContent = 'No data yet. Place bets to see risk analysis.';
+    }
+}
+</script>
+{% endblock %}

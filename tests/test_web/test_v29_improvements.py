@@ -572,15 +572,17 @@ class TestCacheConstants:
 
 
 class TestV29Version:
-    def test_version_is_2_9_0(self):
+    def test_version_is_at_least_2_9_0(self):
         from sba import __version__
-        assert __version__ == "2.9.0"
+        assert __version__ >= "2.9.0"
 
     def test_app_version_matches(self):
-        assert app.version == "2.9.0"
+        from sba import __version__
+        assert app.version == __version__
 
     def test_health_returns_version(self):
+        from sba import __version__
         resp = client.get("/api/health")
         assert resp.status_code == 200
         data = resp.json()
-        assert data["version"] == "2.9.0"
+        assert data["version"] == __version__

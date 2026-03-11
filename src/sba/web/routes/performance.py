@@ -104,8 +104,8 @@ def _get_user_stats() -> dict:
     for b in bets:
         if b["bookmaker"]:
             books.add(b["bookmaker"])
-    with get_connection() as conn:
-        sport_rows = conn.execute("""
+    with get_connection() as conn2:
+        sport_rows = conn2.execute("""
             SELECT DISTINCT e.sport FROM bets b
             JOIN events e ON e.id = b.event_id
             WHERE b.status IN ('won','lost','push') AND e.sport IS NOT NULL
@@ -220,10 +220,10 @@ def get_power_ratings(sport: str = Query("basketball_nba")):
             JOIN odds_snapshots os_a ON os_a.event_id = e.id
                 AND os_a.market = 'h2h' AND os_a.outcome_name = e.away_team
                 AND os_a.bookmaker = os_h.bookmaker
-            WHERE e.sport LIKE ?
+            WHERE e.sport = ?
             ORDER BY os_h.snapshot_time DESC
             LIMIT 200
-        """, (f"%{sport.split('_')[-1]}%",)).fetchall()
+        """, (sport,)).fetchall()
 
     events = [
         {
@@ -365,12 +365,12 @@ def get_public_money(event_id: str, market: str = Query("h2h")):
 def analyze_public_money_endpoint(
     event_id: str = Query(...),
     market: str = Query("h2h"),
-    outcomes: list[dict] = [],
+    outcomes: list[dict] | None = None,
 ):
     """Analyze custom public money data."""
     from sba.services.public_money import analyze_public_money
 
-    analysis = analyze_public_money(event_id, market, outcomes)
+    analysis = analyze_public_money(event_id, market, outcomes or [])
     return {
         "event_id": analysis.event_id,
         "market": analysis.market,
@@ -780,3 +780,143 @@ def get_correlation_warnings():
     """
     from sba.services.correlation_warnings import analyze_bet_correlations
     return analyze_bet_correlations()
+
+
+# ── ROI Forecast ──────────────────────────────────────────────────
+
+@router.get("/roi-forecast")
+def get_roi_forecast():
+    """Project future ROI using bootstrap resampling of historical results.
+
+    Returns confidence intervals, break-even probability, and actionable
+    recommendations based on bet history.
+    """
+    from sba.services.roi_forecast import forecast_roi
+
+    bets = _get_settled_bets_dicts()
+    bankroll = 0
+    with get_connection() as conn:
+        row = conn.execute(
+            "SELECT amount FROM bankroll_log ORDER BY created_at DESC LIMIT 1"
+        ).fetchone()
+        if row:
+            bankroll = row["amount"]
+
+    forecast = forecast_roi(bets, bankroll=bankroll or 1000)
+
+    return {
+        "current_roi": forecast.current_roi,
+        "projected_roi_30": forecast.projected_roi_30,
+        "projected_roi_100": forecast.projected_roi_100,
+        "confidence_level": forecast.confidence_level,
+        "sample_size": forecast.sample_size,
+        "edge_per_bet": forecast.edge_per_bet,
+        "variance": forecast.variance,
+        "break_even_probability": forecast.break_even_probability,
+        "risk_assessment": forecast.risk_assessment,
+        "recommendations": forecast.recommendations,
+        "forecast_curve": [
+            {
+                "bet_number": pt.bet_number,
+                "projected_profit": pt.projected_profit,
+                "lower_bound": pt.lower_bound,
+                "upper_bound": pt.upper_bound,
+                "projected_roi": pt.projected_roi,
+            }
+            for pt in forecast.forecast_curve
+        ],
+    }
+
+
+# ── Bet Timing Analysis ──────────────────────────────────────────
+
+@router.get("/bet-timing")
+def get_bet_timing():
+    """Analyze when you place your most profitable bets.
+
+    Breaks down performance by hour of day and day of week to find
+    optimal betting windows.
+    """
+    from sba.services.bet_timing import analyze_bet_timing
+
+    bets = _get_settled_bets_dicts()
+    analysis = analyze_bet_timing(bets)
+
+    def _window_dict(w):
+        return {
+            "label": w.label,
+            "bets": w.bets,
+            "wins": w.wins,
+            "losses": w.losses,
+            "profit": w.profit,
+            "roi_pct": w.roi_pct,
+            "win_rate": w.win_rate,
+            "score": w.score,
+        }
+
+    return {
+        "optimal_window": analysis.optimal_window,
+        "timing_score": analysis.timing_score,
+        "best_hours": [_window_dict(w) for w in analysis.best_hours],
+        "worst_hours": [_window_dict(w) for w in analysis.worst_hours],
+        "best_days": [_window_dict(w) for w in analysis.best_days],
+        "by_hour": [_window_dict(w) for w in analysis.by_hour],
+        "by_day": [_window_dict(w) for w in analysis.by_day],
+        "recommendations": analysis.recommendations,
+    }
+
+
+# ── Risk-Adjusted Metrics ────────────────────────────────────────
+
+@router.get("/risk-metrics")
+def get_risk_metrics():
+    """Get institutional-grade risk-adjusted performance metrics.
+
+    Includes Sharpe ratio, Sortino ratio, Calmar ratio, profit factor,
+    drawdown analysis, and win/loss distribution statistics.
+    """
+    from sba.services.risk_metrics import calculate_risk_metrics
+
+    bets = _get_settled_bets_dicts()
+    bankroll = 0
+    with get_connection() as conn:
+        row = conn.execute(
+            "SELECT amount FROM bankroll_log ORDER BY created_at DESC LIMIT 1"
+        ).fetchone()
+        if row:
+            bankroll = row["amount"]
+
+    metrics = calculate_risk_metrics(bets, bankroll=bankroll or 1000)
+
+    return {
+        "sharpe_ratio": metrics.sharpe_ratio,
+        "sortino_ratio": metrics.sortino_ratio,
+        "calmar_ratio": metrics.calmar_ratio,
+        "profit_factor": metrics.profit_factor,
+        "kelly_edge": metrics.kelly_edge,
+        "roi_pct": metrics.roi_pct,
+        "total_profit": metrics.total_profit,
+        "total_bets": metrics.total_bets,
+        "risk_grade": metrics.risk_grade,
+        "risk_summary": metrics.risk_summary,
+        "max_drawdown": {
+            "amount": metrics.max_drawdown.max_drawdown,
+            "pct": metrics.max_drawdown.max_drawdown_pct,
+            "current_amount": metrics.max_drawdown.current_drawdown,
+            "current_pct": metrics.max_drawdown.current_drawdown_pct,
+            "avg_pct": metrics.max_drawdown.avg_drawdown,
+            "duration_bets": metrics.max_drawdown.drawdown_duration,
+            "recovery_bets": metrics.max_drawdown.recovery_time,
+        },
+        "distribution": {
+            "avg_win": metrics.distribution.avg_win,
+            "avg_loss": metrics.distribution.avg_loss,
+            "median_win": metrics.distribution.median_win,
+            "median_loss": metrics.distribution.median_loss,
+            "largest_win": metrics.distribution.largest_win,
+            "largest_loss": metrics.distribution.largest_loss,
+            "win_loss_ratio": metrics.distribution.win_loss_ratio,
+            "skewness": metrics.distribution.skewness,
+            "expectancy": metrics.distribution.expectancy,
+        },
+    }

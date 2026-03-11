@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+{% block title %}ROI Forecast{% endblock %}
+
+{% block content %}
+<!-- Hero -->
+<div class="frosted-panel reveal-up" style="padding:32px;margin-bottom:28px;position:relative;overflow:hidden">
+    <div style="position:absolute;top:0;right:0;width:300px;height:100%;opacity:0.07;background:linear-gradient(135deg,var(--accent-purple),var(--accent-blue));border-radius:50%;filter:blur(60px);transform:translate(30%,-30%)"></div>
+    <h1 class="page-title" style="margin:0 0 8px">
+        <span class="gradient-text animated-gradient-text">ROI Forecast</span>
+        <span class="tag-elite" style="margin-left:12px">AI</span>
+    </h1>
+    <p class="text-dim" style="margin:0;font-size:13px;max-width:560px">
+        Bootstrap-powered ROI projections with confidence intervals. See where your bankroll is heading
+        based on your actual betting performance.
+    </p>
+</div>
+
+<!-- Key Metrics -->
+<div class="stat-grid-4 reveal-up" id="forecast-summary" style="margin-bottom:24px">
+    <div class="frosted-panel" style="padding:20px;text-align:center">
+        <div class="stat-label">Current ROI</div>
+        <div class="stat-value" id="current-roi" style="font-size:28px">—</div>
+    </div>
+    <div class="frosted-panel" style="padding:20px;text-align:center">
+        <div class="stat-label">30-Bet Projection</div>
+        <div class="stat-value" id="proj-30" style="font-size:28px">—</div>
+    </div>
+    <div class="frosted-panel" style="padding:20px;text-align:center">
+        <div class="stat-label">Break-Even Prob</div>
+        <div class="stat-value" id="break-even" style="font-size:28px">—</div>
+    </div>
+    <div class="frosted-panel" style="padding:20px;text-align:center">
+        <div class="stat-label">Confidence</div>
+        <div class="stat-value" id="confidence" style="font-size:28px">—</div>
+    </div>
+</div>
+
+<!-- Forecast Chart -->
+<div class="card frosted-panel reveal-up" style="margin-bottom:24px">
+    <div class="card-header">
+        <h3>
+            <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            Projected Profit Curve (with 80% Confidence Band)
+        </h3>
+    </div>
+    <div class="card-body padded" id="forecast-chart" style="min-height:220px">
+        <div class="loading-spinner"><div class="spinner"></div> Generating forecast...</div>
+    </div>
+</div>
+
+<!-- Risk Assessment & Recommendations -->
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:24px" class="reveal-up">
+    <div class="card frosted-panel">
+        <div class="card-header"><h3>Risk Assessment</h3></div>
+        <div class="card-body padded">
+            <p id="risk-assessment" class="text-dim">Loading...</p>
+            <div style="margin-top:16px;display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                <div><div class="stat-label">Edge Per Bet</div><div class="stat-value" id="edge-per-bet">—</div></div>
+                <div><div class="stat-label">Sample Size</div><div class="stat-value" id="sample-size">—</div></div>
+            </div>
+        </div>
+    </div>
+    <div class="card frosted-panel">
+        <div class="card-header"><h3>Recommendations</h3></div>
+        <div class="card-body padded" id="recommendations">
+            <div class="text-dim">Loading...</div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', loadForecast);
+
+async function loadForecast() {
+    try {
+        const res = await fetch('/api/roi-forecast');
+        const d = await res.json();
+        renderForecast(d);
+    } catch(e) {
+        document.getElementById('forecast-chart').innerHTML =
+            '<div class="text-dim" style="text-align:center;padding:20px">Place bets to unlock ROI forecasting.</div>';
+    }
+}
+
+function renderForecast(d) {
+    const roiEl = document.getElementById('current-roi');
+    roiEl.textContent = d.current_roi.toFixed(1) + '%';
+    roiEl.style.color = d.current_roi > 0 ? 'var(--accent-green)' : 'var(--accent-red)';
+
+    const p30 = document.getElementById('proj-30');
+    p30.textContent = d.projected_roi_30.toFixed(1) + '%';
+    p30.style.color = d.projected_roi_30 > 0 ? 'var(--accent-green)' : 'var(--accent-red)';
+
+    document.getElementById('break-even').textContent = d.break_even_probability.toFixed(0) + '%';
+    document.getElementById('confidence').textContent = d.confidence_level.toUpperCase();
+    document.getElementById('edge-per-bet').textContent = d.edge_per_bet.toFixed(2) + '%';
+    document.getElementById('sample-size').textContent = d.sample_size;
+    document.getElementById('risk-assessment').textContent = d.risk_assessment;
+
+    const recsEl = document.getElementById('recommendations');
+    if (d.recommendations && d.recommendations.length) {
+        recsEl.innerHTML = d.recommendations.map(r =>
+            `<div style="padding:8px 0;border-bottom:1px solid var(--border)">${r}</div>`
+        ).join('');
+    } else {
+        recsEl.innerHTML = '<div class="text-dim">No recommendations at this time.</div>';
+    }
+
+    renderChart(d.forecast_curve || []);
+}
+
+function renderChart(curve) {
+    const el = document.getElementById('forecast-chart');
+    if (!curve.length || curve.length < 2) {
+        el.innerHTML = '<div class="text-dim" style="text-align:center;padding:20px">Insufficient data for chart.</div>';
+        return;
+    }
+    const w = el.clientWidth - 40, h = 220;
+    const maxBet = Math.max(...curve.map(c => c.bet_number));
+    const allVals = curve.flatMap(c => [c.lower_bound, c.upper_bound, c.projected_profit]);
+    const maxV = Math.max(...allVals.map(Math.abs), 10);
+
+    const sx = i => 30 + (curve[i].bet_number / maxBet) * (w - 40);
+    const sy = v => h/2 - (v / maxV) * (h/2 - 20);
+
+    let band = 'M' + curve.map((c,i) => `${sx(i).toFixed(1)},${sy(c.upper_bound).toFixed(1)}`).join(' L');
+    band += ' L' + [...curve].reverse().map((c,i) => `${sx(curve.length-1-i).toFixed(1)},${sy(c.lower_bound).toFixed(1)}`).join(' L') + ' Z';
+    let line = curve.map((c,i) => `${i===0?'M':'L'}${sx(i).toFixed(1)},${sy(c.projected_profit).toFixed(1)}`).join(' ');
+
+    el.innerHTML = `<svg width="100%" height="${h}" viewBox="0 0 ${w+40} ${h}">
+        <line x1="30" y1="${sy(0)}" x2="${w+20}" y2="${sy(0)}" stroke="var(--border)" stroke-dasharray="4"/>
+        <text x="2" y="${sy(0)+4}" fill="var(--text-dim)" font-size="10">$0</text>
+        <path d="${band}" fill="var(--accent-blue)" opacity="0.12"/>
+        <path d="${line}" fill="none" stroke="var(--accent-green)" stroke-width="2.5"/>
+        <text x="${w+10}" y="${h-4}" fill="var(--text-dim)" font-size="10">${maxBet} bets</text>
+    </svg>`;
+}
+</script>
+{% endblock %}

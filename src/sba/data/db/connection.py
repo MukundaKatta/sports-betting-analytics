@@ -1,12 +1,16 @@
-"""SQLite connection management with transaction support and migrations."""
+"""SQLite connection management with thread-local pooling and migrations."""
 
 import sqlite3
+import threading
 from contextlib import contextmanager
 from pathlib import Path
 
 from sba.config import get_settings
 from sba.config.constants import DB_BUSY_TIMEOUT_MS, DB_CACHE_SIZE_KB, DB_CONNECTION_TIMEOUT
 from sba.data.db.schema import SCHEMA_SQL
+
+# Thread-local connection pool — reuses connections within the same thread
+_thread_local = threading.local()
 
 
 def _get_db_path() -> Path:
@@ -18,25 +22,49 @@ def _get_db_path() -> Path:
     return path
 
 
-@contextmanager
-def get_connection():
+def _create_connection() -> sqlite3.Connection:
+    """Create a new SQLite connection with optimized pragmas."""
     path = _get_db_path()
     conn = sqlite3.connect(str(path), timeout=DB_CONNECTION_TIMEOUT)
     conn.row_factory = sqlite3.Row
-    # Performance pragmas
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA foreign_keys=ON")
     conn.execute("PRAGMA synchronous=NORMAL")
     conn.execute(f"PRAGMA cache_size=-{DB_CACHE_SIZE_KB}")
     conn.execute(f"PRAGMA busy_timeout={DB_BUSY_TIMEOUT_MS}")
+    return conn
+
+
+@contextmanager
+def get_connection():
+    """Get a database connection with automatic commit/rollback.
+
+    Uses thread-local connection pooling — connections are reused within
+    the same thread to avoid repeated PRAGMA execution overhead.
+    Falls back to creating a new connection if the pooled one is stale.
+    """
+    conn = getattr(_thread_local, "conn", None)
+    reused = False
+
+    if conn is not None:
+        try:
+            conn.execute("SELECT 1")
+            reused = True
+        except (sqlite3.ProgrammingError, sqlite3.OperationalError):
+            conn = None
+
+    if conn is None:
+        conn = _create_connection()
+        _thread_local.conn = conn
+
     try:
         yield conn
         conn.commit()
     except Exception:
         conn.rollback()
         raise
-    finally:
-        conn.close()
+    # Note: connection is NOT closed — it stays in thread-local for reuse.
+    # It will be garbage collected when the thread dies.
 
 
 @contextmanager

@@ -7,7 +7,8 @@ from datetime import date, datetime
 import pytest
 
 # Disable rate limiting during tests
-os.environ["SBA_RATE_LIMIT"] = "0"
+os.environ["SBA_RATE_LIMIT_MAX_REQUESTS"] = "999999"
+os.environ["SBA_RATE_LIMIT_WINDOW_SECONDS"] = "1"
 
 from sba.data.db.repository import Repository
 from sba.data.db.schema import SCHEMA_SQL
@@ -17,8 +18,15 @@ def _find_rate_limiter():
     """Walk the ASGI middleware stack to find the RateLimitMiddleware instance."""
     from sba.web.app import app
     from sba.web.middleware import RateLimitMiddleware
+
+    # Walk from middleware_stack
     obj = app.middleware_stack
+    visited = set()
     while obj is not None:
+        obj_id = id(obj)
+        if obj_id in visited:
+            break
+        visited.add(obj_id)
         if isinstance(obj, RateLimitMiddleware):
             return obj
         obj = getattr(obj, 'app', None)
@@ -27,14 +35,37 @@ def _find_rate_limiter():
 
 @pytest.fixture(autouse=True)
 def _reset_rate_limiter():
-    """Reset rate limiter state between tests to prevent cross-test 429s."""
+    """Reset rate limiter state between tests to prevent cross-test 429s.
+
+    Clears _hits dict both before and after each test. This is critical
+    because the test suite has 900+ tests sharing a single FastAPI app instance.
+    """
     rl = _find_rate_limiter()
     if rl:
         rl._hits.clear()
+        # Also bump max_requests for tests to avoid 429s entirely
+        rl.max_requests = 999999
     yield
     rl = _find_rate_limiter()
     if rl:
         rl._hits.clear()
+
+
+@pytest.fixture(autouse=True)
+def _reset_env_settings():
+    """Reset SBA_ env vars after tests that modify settings via the API."""
+    from sba.config import get_settings
+    snapshot = {k: v for k, v in os.environ.items() if k.startswith("SBA_")}
+    yield
+    # Restore original SBA_ env vars
+    current = {k for k in os.environ if k.startswith("SBA_")}
+    for k in current - set(snapshot):
+        del os.environ[k]
+    for k, v in snapshot.items():
+        os.environ[k] = v
+    get_settings.cache_clear()
+
+
 from sba.models.domain import (
     BookmakerOdds,
     Event,

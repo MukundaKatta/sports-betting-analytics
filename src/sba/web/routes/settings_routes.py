@@ -171,19 +171,19 @@ def update_settings_endpoint(req: UpdateSettingsRequest):
 
     updates = {}
     if req.bankroll is not None:
-        os.environ["BANKROLL"] = str(req.bankroll)
+        os.environ["SBA_BANKROLL"] = str(req.bankroll)
         updates["bankroll"] = req.bankroll
     if req.kelly_fraction is not None:
-        os.environ["KELLY_FRACTION"] = str(req.kelly_fraction)
+        os.environ["SBA_KELLY_FRACTION"] = str(req.kelly_fraction)
         updates["kelly_fraction"] = req.kelly_fraction
     if req.ev_threshold is not None:
-        os.environ["EV_THRESHOLD"] = str(req.ev_threshold)
+        os.environ["SBA_EV_THRESHOLD"] = str(req.ev_threshold)
         updates["ev_threshold"] = req.ev_threshold
     if req.default_sport is not None:
-        os.environ["DEFAULT_SPORT"] = req.default_sport
+        os.environ["SBA_DEFAULT_SPORT"] = req.default_sport
         updates["default_sport"] = req.default_sport
     if req.refresh_interval is not None:
-        os.environ["REFRESH_INTERVAL_SECONDS"] = str(req.refresh_interval)
+        os.environ["SBA_REFRESH_INTERVAL_SECONDS"] = str(req.refresh_interval)
         updates["refresh_interval"] = req.refresh_interval
 
     # Clear settings cache so next get_settings() picks up changes

@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
+
+from sba.web.errors import safe_endpoint
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["multibook"])
@@ -29,10 +31,18 @@ class AccountLimitRequest(BaseModel):
     max_stake: float | None = None
     notes: str = ""
 
+    def model_post_init(self, __context) -> None:
+        from sba.web.errors import VALID_LIMIT_TYPES, VALID_SEVERITIES
+        if self.limit_type not in VALID_LIMIT_TYPES:
+            raise ValueError(f"limit_type must be one of: {sorted(VALID_LIMIT_TYPES)}")
+        if self.severity not in VALID_SEVERITIES:
+            raise ValueError(f"severity must be one of: {sorted(VALID_SEVERITIES)}")
+
 
 # ── Multi-Book Bankroll Endpoints ───────────────────────────────────
 
 @router.get("/multibook/balances")
+@safe_endpoint
 def get_all_balances():
     """Get balances across all tracked sportsbooks."""
     from sba.services.multibook import get_all_balances
@@ -40,6 +50,7 @@ def get_all_balances():
 
 
 @router.post("/multibook/balances")
+@safe_endpoint
 def upsert_balance(req: BookBalanceRequest):
     """Add or update a sportsbook balance."""
     from sba.services.multibook import upsert_balance
@@ -54,6 +65,7 @@ def upsert_balance(req: BookBalanceRequest):
 
 
 @router.delete("/multibook/balances/{sportsbook}")
+@safe_endpoint
 def delete_book(sportsbook: str):
     """Remove a sportsbook from tracking."""
     from sba.services.multibook import delete_book
@@ -61,7 +73,8 @@ def delete_book(sportsbook: str):
 
 
 @router.get("/multibook/history")
-def get_balance_history(sportsbook: str | None = None, days: int = 90):
+@safe_endpoint
+def get_balance_history(sportsbook: str | None = None, days: int = Query(90, ge=1, le=365)):
     """Get balance history for one or all books."""
     from sba.services.multibook import get_balance_history
     return get_balance_history(sportsbook, days)
@@ -70,6 +83,7 @@ def get_balance_history(sportsbook: str | None = None, days: int = 90):
 # ── Account Limiting Endpoints ──────────────────────────────────────
 
 @router.get("/account-limits")
+@safe_endpoint
 def get_account_limits():
     """Get account limiting status for all sportsbooks."""
     from sba.services.account_limits import get_all_limits
@@ -77,6 +91,7 @@ def get_account_limits():
 
 
 @router.post("/account-limits")
+@safe_endpoint
 def upsert_account_limit(req: AccountLimitRequest):
     """Add or update account limiting status."""
     from sba.services.account_limits import upsert_limit
@@ -90,6 +105,7 @@ def upsert_account_limit(req: AccountLimitRequest):
 
 
 @router.delete("/account-limits/{sportsbook}")
+@safe_endpoint
 def delete_account_limit(sportsbook: str):
     """Remove a limiting record."""
     from sba.services.account_limits import delete_limit
@@ -97,6 +113,7 @@ def delete_account_limit(sportsbook: str):
 
 
 @router.get("/account-limits/risk")
+@safe_endpoint
 def get_limiting_risk():
     """Estimate limiting risk based on betting patterns."""
     from sba.services.account_limits import get_limiting_risk

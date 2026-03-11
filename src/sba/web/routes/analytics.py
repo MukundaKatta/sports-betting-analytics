@@ -12,6 +12,7 @@ from pydantic import BaseModel
 from sba.data.db import get_connection
 from sba.utils.cache import cache
 from sba.web.api import repo
+from sba.web.errors import safe_endpoint
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["analytics"])
@@ -78,6 +79,7 @@ def _row_to_dict(r) -> dict:
 # ── Endpoints ────────────────────────────────────────────────────────
 
 @router.get("/analytics", response_model=AnalyticsResponse)
+@safe_endpoint
 def get_analytics():
     """Get detailed betting analytics breakdown using SQL aggregations."""
     with get_connection() as conn:
@@ -184,6 +186,7 @@ def get_analytics():
 
 
 @router.get("/analytics/advanced")
+@safe_endpoint
 def get_advanced_analytics():
     """Get advanced performance metrics: Sharpe, max drawdown, CLV, streaks."""
     with get_connection() as conn:
@@ -307,6 +310,7 @@ def get_advanced_analytics():
 # ── Analytics Breakdowns ─────────────────────────────────────────────
 
 @router.get("/analytics/by-sport")
+@safe_endpoint
 def analytics_by_sport():
     """Performance breakdown by sport (NBA, NFL, MLB, etc.)."""
     from sba.services.analytics import breakdown_by_sport
@@ -316,6 +320,7 @@ def analytics_by_sport():
 
 
 @router.get("/analytics/by-day")
+@safe_endpoint
 def analytics_by_day_of_week():
     """Performance breakdown by day of week."""
     from sba.services.analytics import breakdown_by_day_of_week
@@ -325,6 +330,7 @@ def analytics_by_day_of_week():
 
 
 @router.get("/analytics/by-odds-range")
+@safe_endpoint
 def analytics_by_odds_range():
     """Performance breakdown by odds range bucket."""
     from sba.services.analytics import breakdown_by_odds_range
@@ -334,6 +340,7 @@ def analytics_by_odds_range():
 
 
 @router.get("/analytics/by-market")
+@safe_endpoint
 def analytics_by_market_type():
     """Performance breakdown by market type."""
     from sba.services.analytics import breakdown_by_market
@@ -343,6 +350,7 @@ def analytics_by_market_type():
 
 
 @router.get("/analytics/by-book")
+@safe_endpoint
 def analytics_by_bookmaker():
     """Performance breakdown by bookmaker."""
     from sba.services.analytics import breakdown_by_bookmaker
@@ -352,6 +360,7 @@ def analytics_by_bookmaker():
 
 
 @router.get("/analytics/trends")
+@safe_endpoint
 def analytics_trends(window: int = Query(7, ge=1, le=365)):
     """Rolling performance trends over time."""
     from sba.services.analytics import rolling_trends
@@ -368,6 +377,7 @@ def analytics_trends(window: int = Query(7, ge=1, le=365)):
 
 
 @router.get("/analytics/streaks")
+@safe_endpoint
 def analytics_streaks():
     """Detailed streak analysis with recovery metrics."""
     from sba.services.analytics import analyze_streaks
@@ -387,6 +397,7 @@ def analytics_streaks():
 
 
 @router.get("/analytics/heatmap")
+@safe_endpoint
 def analytics_heatmap():
     """Day-of-week x hour performance heatmap."""
     from sba.services.analytics import performance_heatmap

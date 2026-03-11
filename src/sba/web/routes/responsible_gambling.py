@@ -23,12 +23,15 @@ from sba.services.responsible_gambling import (
     start_session,
 )
 
+from sba.web.errors import safe_endpoint
+
 router = APIRouter(tags=["responsible-gambling"])
 
 
 # ── Limits ──────────────────────────────────────────────────────────
 
 @router.get("/rg/limits")
+@safe_endpoint
 def api_get_limits():
     """Get all configured responsible gambling limits."""
     return get_limits()
@@ -41,6 +44,7 @@ class SetLimitRequest(BaseModel):
 
 
 @router.post("/rg/limits")
+@safe_endpoint
 def api_set_limit(req: SetLimitRequest):
     """Set or update a responsible gambling limit."""
     result = set_limit(req.limit_type, req.amount, req.period)
@@ -50,6 +54,7 @@ def api_set_limit(req: SetLimitRequest):
 
 
 @router.delete("/rg/limits")
+@safe_endpoint
 def api_remove_limit(
     limit_type: str = Query(..., description="deposit, loss, wager, or session_minutes"),
     period: str = Query("daily"),
@@ -59,6 +64,7 @@ def api_remove_limit(
 
 
 @router.get("/rg/limits/check")
+@safe_endpoint
 def api_check_limits():
     """Check current usage against all configured limits."""
     return check_limits()
@@ -67,12 +73,14 @@ def api_check_limits():
 # ── Sessions ────────────────────────────────────────────────────────
 
 @router.post("/rg/sessions/start")
+@safe_endpoint
 def api_start_session():
     """Start a new betting session for time tracking."""
     return start_session()
 
 
 @router.post("/rg/sessions/end")
+@safe_endpoint
 def api_end_session():
     """End the current betting session."""
     result = end_session()
@@ -82,6 +90,7 @@ def api_end_session():
 
 
 @router.get("/rg/sessions")
+@safe_endpoint
 def api_session_stats():
     """Get session history and statistics."""
     return get_session_stats()
@@ -90,6 +99,7 @@ def api_session_stats():
 # ── Behavioral Analysis ────────────────────────────────────────────
 
 @router.get("/rg/behavior")
+@safe_endpoint
 def api_behavioral_report():
     """Analyze betting behavior for problem gambling indicators."""
     return get_behavioral_report()
@@ -102,6 +112,7 @@ class CooldownRequest(BaseModel):
 
 
 @router.post("/rg/cooldown")
+@safe_endpoint
 def api_set_cooldown(req: CooldownRequest):
     """Set a mandatory cooldown period."""
     result = set_cooldown(req.hours)
@@ -111,12 +122,14 @@ def api_set_cooldown(req: CooldownRequest):
 
 
 @router.get("/rg/cooldown")
+@safe_endpoint
 def api_check_cooldown():
     """Check if a cooldown is currently active."""
     return check_cooldown()
 
 
 @router.get("/responsible-gambling/status")
+@safe_endpoint
 def responsible_gambling_status():
     """Get current responsible gambling limits and status."""
     from sba.data.db import get_connection, init_db

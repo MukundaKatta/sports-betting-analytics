@@ -13,6 +13,8 @@ from sba.config import get_settings
 from sba.data.db import get_connection
 
 logger = logging.getLogger(__name__)
+from sba.web.errors import safe_endpoint
+
 router = APIRouter(tags=["settings"])
 
 
@@ -58,6 +60,7 @@ _start_time = datetime.now()
 # ── Endpoints ────────────────────────────────────────────────────────
 
 @router.get("/health", response_model=HealthResponse)
+@safe_endpoint
 def health_check():
     """Health check endpoint for monitoring."""
     uptime = datetime.now() - _start_time
@@ -80,6 +83,7 @@ def health_check():
 
 
 @router.get("/health/deep")
+@safe_endpoint
 def deep_health_check():
     """Deep health check with dependency status and database metrics."""
     import time as _time
@@ -145,6 +149,7 @@ def deep_health_check():
 
 
 @router.get("/status", response_model=StatusResponse)
+@safe_endpoint
 def get_status():
     """Get database and API status."""
     with get_connection() as conn:
@@ -165,6 +170,7 @@ def get_status():
 
 
 @router.get("/settings", response_model=SettingsResponse)
+@safe_endpoint
 def get_settings_endpoint():
     """Get current app settings."""
     settings = get_settings()
@@ -178,6 +184,7 @@ def get_settings_endpoint():
 
 
 @router.put("/settings")
+@safe_endpoint
 def update_settings_endpoint(req: UpdateSettingsRequest):
     """Update app settings (runtime only, not persisted to .env)."""
     import os

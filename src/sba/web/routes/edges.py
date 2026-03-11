@@ -50,6 +50,7 @@ class EdgeResponse(BaseModel):
 # ── Endpoints ────────────────────────────────────────────────────────
 
 @router.get("/edges", response_model=list[EdgeResponse])
+@safe_endpoint
 def get_edges(
     sport: str = Query(None),
     market: str = Query("h2h,spreads,totals"),

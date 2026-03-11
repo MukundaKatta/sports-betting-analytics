@@ -1891,7 +1891,7 @@ const SBA = {
                 monthlyEl.innerHTML = '<div class="empty-state" style="padding:30px"><p>No monthly data</p></div>';
             }
         } catch (err) {
-            container.innerHTML = `<div class="stat-card red"><div class="stat-value text-red">Error: ${err.message}</div></div>`;
+            container.innerHTML = `<div class="stat-card red"><div class="stat-value text-red">Error: ${escapeHtml(err.message)}</div></div>`;
         }
     },
 
@@ -1966,7 +1966,7 @@ const SBA = {
                 </div>`;
             }).join('');
         } catch (err) {
-            grid.innerHTML = `<div class="empty-state text-red"><p>Error loading watchlist: ${err.message}</p></div>`;
+            grid.innerHTML = `<div class="empty-state text-red"><p>Error loading watchlist: ${escapeHtml(err.message)}</p></div>`;
         }
     },
 

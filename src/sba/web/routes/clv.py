@@ -12,6 +12,7 @@ from pydantic import BaseModel, field_validator
 
 from sba.data.db import get_connection, init_db
 from sba.web.api import repo
+from sba.web.errors import safe_endpoint
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["clv"])
@@ -51,6 +52,7 @@ class CLVSummaryResponse(BaseModel):
 
 
 @router.post("/clv/record")
+@safe_endpoint
 def record_closing_line(req: CLVRequest):
     """Record the closing line for a bet to calculate CLV."""
     from sba.services.sharp_money import calculate_clv
@@ -81,6 +83,7 @@ def record_closing_line(req: CLVRequest):
 
 
 @router.get("/clv/summary", response_model=CLVSummaryResponse)
+@safe_endpoint
 def clv_summary():
     """Get aggregate CLV stats across all tracked bets."""
     with get_connection() as conn:
@@ -152,6 +155,7 @@ class CLVCalculateRequest(BaseModel):
 
 
 @router.post("/clv/calculate")
+@safe_endpoint
 def clv_calculate(req: CLVCalculateRequest):
     """Calculate CLV between opening and closing odds."""
     from sba.services.clv_tracker import calculate_clv
@@ -159,6 +163,7 @@ def clv_calculate(req: CLVCalculateRequest):
 
 
 @router.get("/clv/dashboard")
+@safe_endpoint
 def clv_dashboard():
     """CLV tracking dashboard with comprehensive metrics."""
     from sba.services.clv_tracker import analyze_clv_history, calculate_clv
@@ -214,6 +219,7 @@ class BonusBetRequest(BaseModel):
 
 
 @router.post("/bonus/convert")
+@safe_endpoint
 def bonus_convert(req: BonusBetRequest):
     """Calculate optimal bonus bet conversion strategy."""
     bonus = req.bonus_amount

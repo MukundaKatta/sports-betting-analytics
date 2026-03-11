@@ -11,6 +11,8 @@ from pydantic import BaseModel
 
 from sba.services.nlq import query
 
+from sba.web.errors import safe_endpoint
+
 router = APIRouter(tags=["nlq"])
 
 
@@ -19,6 +21,7 @@ class NLQRequest(BaseModel):
 
 
 @router.post("/ask")
+@safe_endpoint
 def api_ask(req: NLQRequest):
     """Ask a natural language question about your betting data.
 

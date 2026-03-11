@@ -9,6 +9,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from sba.data.db import get_connection
+from sba.web.errors import safe_endpoint
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["notifications"])
@@ -27,6 +28,7 @@ class NotificationRuleRequest(BaseModel):
 
 
 @router.get("/notification-rules")
+@safe_endpoint
 def get_notification_rules():
     """Get all notification rules."""
     with get_connection() as conn:
@@ -53,6 +55,7 @@ def get_notification_rules():
 
 
 @router.post("/notification-rules")
+@safe_endpoint
 def create_notification_rule(req: NotificationRuleRequest):
     """Create a new notification rule."""
     with get_connection() as conn:
@@ -68,6 +71,7 @@ def create_notification_rule(req: NotificationRuleRequest):
 
 
 @router.put("/notification-rules/{rule_id}")
+@safe_endpoint
 def update_notification_rule(rule_id: int, req: NotificationRuleRequest):
     """Update a notification rule."""
     with get_connection() as conn:
@@ -84,6 +88,7 @@ def update_notification_rule(rule_id: int, req: NotificationRuleRequest):
 
 
 @router.delete("/notification-rules/{rule_id}")
+@safe_endpoint
 def delete_notification_rule(rule_id: int):
     """Delete a notification rule."""
     with get_connection() as conn:
@@ -92,6 +97,7 @@ def delete_notification_rule(rule_id: int):
 
 
 @router.post("/notification-rules/{rule_id}/toggle")
+@safe_endpoint
 def toggle_notification_rule(rule_id: int):
     """Toggle a notification rule on/off."""
     with get_connection() as conn:
@@ -108,6 +114,7 @@ def toggle_notification_rule(rule_id: int):
 
 
 @router.post("/notifications/test-webhook")
+@safe_endpoint
 def test_webhook(webhook_url: str = ""):
     """Test a webhook URL by sending a sample notification with retry logic."""
     if not webhook_url:
@@ -134,6 +141,7 @@ def test_webhook(webhook_url: str = ""):
 
 
 @router.get("/notifications/webhook-history")
+@safe_endpoint
 def get_webhook_history(rule_id: int | None = None, limit: int = 50):
     """Get webhook delivery history with retry details."""
     from sba.services.webhook import get_delivery_history

@@ -209,3 +209,8 @@ def risk_metrics_page(request: Request):
 @router.get("/performance-digest")
 def performance_digest_page(request: Request):
     return templates.TemplateResponse(request, "performance-digest.html")
+
+
+@router.get("/smart-signals")
+def smart_signals_page(request: Request):
+    return templates.TemplateResponse(request, "smart-signals.html")

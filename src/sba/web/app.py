@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-import os
 import time
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -29,6 +28,8 @@ STATIC_DIR = Path(__file__).parent / "static"
 
 def _restore_persisted_settings():
     """Load settings saved to DB and apply to environment."""
+    import os
+
     try:
         from sba.data.db import get_connection
         with get_connection() as conn:
@@ -72,11 +73,12 @@ cors_origins = [o.strip() for o in settings.CORS_ORIGINS.split(",") if o.strip()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization", "X-API-Key", "X-Request-ID"],
+    allow_credentials=True,
 )
 
-# Rate limiting — configurable from env
+# Rate limiting — single configurable middleware (removed duplicate inline limiter)
 app.add_middleware(
     RateLimitMiddleware,
     max_requests=settings.RATE_LIMIT_MAX_REQUESTS,
@@ -91,31 +93,9 @@ if settings.API_KEY:
     app.add_middleware(APIKeyMiddleware, api_key=settings.API_KEY)
 
 
-# Simple in-memory rate limiter — per-IP, configurable via SBA_RATE_LIMIT
-# Set SBA_RATE_LIMIT=0 to disable (e.g. in tests)
-_rate_limit = int(os.getenv("SBA_RATE_LIMIT", "120"))  # requests per minute
-_rate_window = 60  # seconds
-_rate_store: dict[str, list[float]] = {}
-
-
+# Request timing middleware
 @app.middleware("http")
-async def rate_limit_middleware(request: Request, call_next):
-    """Rate limit API endpoints per client IP."""
-    if _rate_limit > 0 and request.url.path.startswith("/api/"):
-        client_ip = request.client.host if request.client else "unknown"
-        now = time.time()
-        # Clean old entries
-        hits = _rate_store.get(client_ip, [])
-        hits = [t for t in hits if now - t < _rate_window]
-        if len(hits) >= _rate_limit:
-            return JSONResponse(
-                status_code=429,
-                content={"error": "Rate limit exceeded", "retry_after": _rate_window},
-                headers={"Retry-After": str(_rate_window)},
-            )
-        hits.append(now)
-        _rate_store[client_ip] = hits
-
+async def add_timing_header(request: Request, call_next):
     start = time.perf_counter()
     response = await call_next(request)
     elapsed = time.perf_counter() - start

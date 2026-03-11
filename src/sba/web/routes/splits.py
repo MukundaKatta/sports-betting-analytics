@@ -228,10 +228,18 @@ def get_calibration():
     else:
         calibration_score = 0
 
+    # Brier Score: mean of (forecast - outcome)^2 — gold standard calibration metric
+    brier_sum = sum(
+        (r["model_probability"] - (1.0 if r["status"] == "won" else 0.0)) ** 2
+        for r in rows
+    )
+    brier_score = round(brier_sum / len(rows), 4) if rows else None
+
     return {
         "calibration": calibration_list,
         "total_bets": len(rows),
         "calibration_score": max(0, calibration_score),
+        "brier_score": brier_score,
         "interpretation": (
             "Excellent" if calibration_score >= 90 else
             "Good" if calibration_score >= 75 else

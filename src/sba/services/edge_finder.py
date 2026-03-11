@@ -36,44 +36,14 @@ class EdgeFinder:
         sport = sport or self.settings.DEFAULT_SPORT
         threshold = min_ev if min_ev is not None else self.settings.EV_THRESHOLD
 
-        # Fetch live odds
         events_odds = self.odds_client.get_odds(
             sport=sport,
             regions=self.settings.DEFAULT_REGION,
             markets=markets,
         )
 
-        # Store snapshots
         self._store_snapshots(events_odds)
-
-        all_opportunities = []
-
-        for event_odds in events_odds:
-            # Group bookmaker odds by market
-            markets_data = self._group_by_market(event_odds)
-
-            for market, bm_odds_list in markets_data.items():
-                # Get model probabilities (consensus from sharp books)
-                model_probs = sharp_probability(bm_odds_list, self.settings.SHARP_BOOKS)
-
-                if not model_probs:
-                    # Fallback to full consensus
-                    model_probs = consensus_probability(bm_odds_list)
-
-                if not model_probs:
-                    continue
-
-                # For totals, also run Poisson model as additional signal
-                if market == "totals":
-                    model_probs = self._enhance_with_poisson(model_probs, event_odds)
-
-                # Find edges
-                opps = find_ev_opportunities(event_odds, model_probs, market, threshold)
-                all_opportunities.extend(opps)
-
-        all_opportunities.sort(key=lambda x: x.ev, reverse=True)
-        logger.info(f"Found {len(all_opportunities)} +EV opportunities")
-        return all_opportunities
+        return self._find_opportunities(events_odds, threshold)
 
     def scan_market(self, sport: str, market: str,
                     min_ev: float | None = None) -> list[EdgeOpportunity]:
@@ -156,8 +126,67 @@ class EdgeFinder:
             markets.setdefault(bm.market, []).append(bm)
         return markets
 
+    async def async_scan(self, sport: str | None = None,
+                         markets: str = "h2h,spreads,totals",
+                         min_ev: float | None = None) -> list[EdgeOpportunity]:
+        """Async version of scan() for use in FastAPI endpoints.
+
+        Uses async API client to avoid blocking the event loop.
+        """
+        sport = sport or self.settings.DEFAULT_SPORT
+        threshold = min_ev if min_ev is not None else self.settings.EV_THRESHOLD
+
+        events_odds = await self.odds_client.aget_odds(
+            sport=sport,
+            regions=self.settings.DEFAULT_REGION,
+            markets=markets,
+        )
+
+        self._store_snapshots(events_odds)
+        return self._find_opportunities(events_odds, threshold)
+
+    async def async_scan_arbs(self, sport: str | None = None,
+                               markets: str = "h2h") -> list[ArbOpportunity]:
+        """Async version of scan_arbs() for use in FastAPI endpoints."""
+        sport = sport or self.settings.DEFAULT_SPORT
+        market_list = [m.strip() for m in markets.split(",")]
+
+        events_odds = await self.odds_client.aget_odds(
+            sport=sport,
+            regions=self.settings.DEFAULT_REGION,
+            markets=markets,
+        )
+
+        self._store_snapshots(events_odds)
+        arbs = scan_arbitrage(events_odds, market_list)
+        logger.info("Found %d arbitrage opportunities", len(arbs))
+        return arbs
+
+    def _find_opportunities(self, events_odds: list[EventOdds],
+                            threshold: float) -> list[EdgeOpportunity]:
+        """Shared logic for finding +EV opportunities from fetched odds."""
+        all_opportunities = []
+
+        for event_odds in events_odds:
+            markets_data = self._group_by_market(event_odds)
+
+            for market, bm_odds_list in markets_data.items():
+                model_probs = sharp_probability(bm_odds_list, self.settings.SHARP_BOOKS)
+                if not model_probs:
+                    model_probs = consensus_probability(bm_odds_list)
+                if not model_probs:
+                    continue
+
+                if market == "totals":
+                    model_probs = self._enhance_with_poisson(model_probs, event_odds)
+
+                opps = find_ev_opportunities(event_odds, model_probs, market, threshold)
+                all_opportunities.extend(opps)
+
+        all_opportunities.sort(key=lambda x: x.ev, reverse=True)
+        logger.info("Found %d +EV opportunities", len(all_opportunities))
+        return all_opportunities
+
     def _enhance_with_poisson(self, model_probs: dict, event_odds: EventOdds) -> dict:
         """For totals: blend consensus probs with Poisson model if we have enough info."""
-        # This is a simplified version - in production you'd use team offensive/defensive ratings
-        # For now, just use the consensus probabilities as-is
         return model_probs

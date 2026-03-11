@@ -40,6 +40,7 @@ from sba.web.routes.nlq import router as nlq_router                  # noqa: E40
 from sba.web.routes.reporting import router as reporting_router       # noqa: E402
 from sba.web.routes.clv import router as clv_router                  # noqa: E402
 from sba.web.routes.simulation import router as sim_router           # noqa: E402
+from sba.web.routes.audit import router as audit_router              # noqa: E402
 
 router.include_router(edges_router)
 router.include_router(props_router)
@@ -62,3 +63,4 @@ router.include_router(nlq_router)
 router.include_router(reporting_router)
 router.include_router(clv_router)
 router.include_router(sim_router)
+router.include_router(audit_router)

@@ -12,13 +12,13 @@ import time
 from functools import wraps
 from typing import Any
 
-_MAX_ENTRIES = 1000
+from sba.config.constants import CACHE_DEFAULT_TTL, CACHE_MAX_ENTRIES
 
 
 class TTLCache:
     """Thread-safe TTL cache with bounded size for API response data."""
 
-    def __init__(self, max_entries: int = _MAX_ENTRIES):
+    def __init__(self, max_entries: int = CACHE_MAX_ENTRIES):
         self._store: dict[str, tuple[Any, float]] = {}
         self._lock = threading.Lock()
         self._hits = 0
@@ -82,7 +82,7 @@ class TTLCache:
 cache = TTLCache()
 
 
-def cached_response(ttl: float = 30.0, prefix: str = ""):
+def cached_response(ttl: float = CACHE_DEFAULT_TTL, prefix: str = ""):
     """Decorator to cache endpoint responses for a given TTL.
 
     Usage:

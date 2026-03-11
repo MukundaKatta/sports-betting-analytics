@@ -1,10 +1,12 @@
-"""Database CRUD operations."""
+"""Database CRUD operations with audit logging and pagination."""
 
 from __future__ import annotations
 
 import json
+import logging
 from datetime import date, datetime
 
+from sba.config.constants import DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE
 from sba.models.domain import (
     Event,
     EventOdds,
@@ -13,6 +15,8 @@ from sba.models.domain import (
     PlayerGameLog,
     TrackedBet,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class Repository:
@@ -170,7 +174,12 @@ class Repository:
              bet.expected_value, bet.kelly_fraction, bet.recommended_stake,
              bet.bookmaker),
         )
-        return cursor.lastrowid
+        bet_id = cursor.lastrowid
+        self._audit(conn, "create", "bet", bet_id, {
+            "event_id": bet.event_id, "market": bet.market,
+            "selection": bet.selection, "odds_american": bet.odds_american,
+        })
+        return bet_id
 
     def update_bet_result(self, conn, bet_id: int, status: str, profit_loss: float):
         conn.execute(
@@ -205,6 +214,9 @@ class Repository:
             profit_loss = 0.0
 
         self.update_bet_result(conn, bet_id, result, profit_loss)
+        self._audit(conn, "settle", "bet", bet_id, {
+            "result": result, "profit_loss": round(profit_loss, 2),
+        })
         conn.commit()
 
         # Return the updated bet
@@ -287,6 +299,46 @@ class Repository:
             fta=row["fta"] or 0, ftm=row["ftm"] or 0,
             plus_minus=row["plus_minus"] or 0,
         )
+
+    # --- Counts ---
+
+    def count_bets(self, conn, status: str | None = None) -> int:
+        """Count bets, optionally filtered by status."""
+        if status:
+            row = conn.execute(
+                "SELECT COUNT(*) as cnt FROM bets WHERE status = ?", (status,)
+            ).fetchone()
+        else:
+            row = conn.execute("SELECT COUNT(*) as cnt FROM bets").fetchone()
+        return row["cnt"] if row else 0
+
+    def count_events(self, conn, sport: str | None = None,
+                     completed: bool | None = None) -> int:
+        """Count events with optional filters."""
+        query = "SELECT COUNT(*) as cnt FROM events WHERE 1=1"
+        params: list = []
+        if sport:
+            query += " AND sport = ?"
+            params.append(sport)
+        if completed is not None:
+            query += " AND completed = ?"
+            params.append(int(completed))
+        row = conn.execute(query, params).fetchone()
+        return row["cnt"] if row else 0
+
+    # --- Audit helper ---
+
+    def _audit(self, conn, action: str, entity_type: str,
+               entity_id: int | str, details: dict | None = None) -> None:
+        """Record an audit log entry if the audit_log table exists."""
+        try:
+            from sba.data.db.audit import log_audit
+            log_audit(conn, action, entity_type, entity_id, details)
+        except Exception:
+            # Audit logging is non-critical; don't break operations
+            pass
+
+    # --- Row converters ---
 
     def _row_to_bet(self, row) -> TrackedBet:
         return TrackedBet(

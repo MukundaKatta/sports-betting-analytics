@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from sba.config import get_settings
+from sba.config.constants import EV_CONFIDENCE_HIGH, EV_CONFIDENCE_MEDIUM
 from sba.models.domain import EdgeOpportunity, EventOdds, Outcome
 from sba.models.statistical.kelly import fractional_kelly, kelly_stake
 from sba.utils.odds_math import decimal_to_implied_prob
@@ -64,9 +65,9 @@ def find_ev_opportunities(event_odds: EventOdds,
                                 settings.BANKROLL, settings.KELLY_FRACTION)
 
             confidence = "low"
-            if ev >= 0.08:
+            if ev >= EV_CONFIDENCE_HIGH:
                 confidence = "high"
-            elif ev >= 0.04:
+            elif ev >= EV_CONFIDENCE_MEDIUM:
                 confidence = "medium"
 
             implied = decimal_to_implied_prob(odds.price_decimal)

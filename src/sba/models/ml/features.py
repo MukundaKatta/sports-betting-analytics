@@ -6,6 +6,7 @@ from datetime import timedelta
 
 import pandas as pd
 
+from sba.config.constants import ML_MIN_FEATURE_GAMES, ML_WARMUP_GAMES, ROLLING_WINDOWS
 from sba.models.domain import PlayerGameLog
 
 # Map prop market names to stat column names
@@ -38,7 +39,7 @@ def build_prop_features(logs: list[PlayerGameLog], opponent: str = "",
 
     Uses only historical data (no leakage). Returns a single-row DataFrame.
     """
-    if len(logs) < 5:
+    if len(logs) < ML_MIN_FEATURE_GAMES:
         return pd.DataFrame()
 
     df = _logs_to_df(logs)
@@ -53,7 +54,7 @@ def build_prop_features(logs: list[PlayerGameLog], opponent: str = "",
     features: dict[str, float] = {}
 
     # ---- Rolling averages ----
-    for window in [3, 5, 10, 20]:
+    for window in ROLLING_WINDOWS:
         if len(df) >= window:
             features[f"avg_{window}"] = df["target_stat"].head(window).mean()
             features[f"std_{window}"] = df["target_stat"].head(window).std()
@@ -216,7 +217,7 @@ def build_prop_training_data(logs: list[PlayerGameLog],
     X_rows = []
     y_vals = []
 
-    for i in range(20, len(sorted_logs)):
+    for i in range(ML_WARMUP_GAMES, len(sorted_logs)):
         # Use only games before this one
         history = sorted_logs[:i][::-1]  # Reverse chronological
         game = sorted_logs[i]

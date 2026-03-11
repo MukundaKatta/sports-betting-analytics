@@ -8,9 +8,21 @@ import time
 
 import httpx
 
+from sba.config.constants import (
+    HTTP_TIMEOUT_SECONDS,
+    MAX_RETRY_ATTEMPTS,
+    RETRY_BACKOFF_MULTIPLIER,
+    RETRY_BASE_DELAY,
+    RETRYABLE_STATUS_CODES,
+)
 from sba.utils.rate_limiter import RateLimiter
 
 logger = logging.getLogger(__name__)
+
+
+def _is_retryable(status_code: int) -> bool:
+    """Check if an HTTP status code should be retried."""
+    return status_code in RETRYABLE_STATUS_CODES
 
 
 class BaseAPIClient:
@@ -30,37 +42,44 @@ class BaseAPIClient:
         headers = self._get_headers()
 
         last_exc: Exception | None = None
-        for attempt in range(3):
+        for attempt in range(MAX_RETRY_ATTEMPTS):
             try:
-                with httpx.Client(timeout=30.0) as client:
+                with httpx.Client(timeout=HTTP_TIMEOUT_SECONDS) as client:
                     resp = client.get(url, params=params, headers=headers)
                     self._track_credits(resp.headers)
                     resp.raise_for_status()
                     return resp.json()
             except httpx.HTTPStatusError as e:
                 status = e.response.status_code
-                if status == 429 or 500 <= status < 600:
-                    wait = 2 ** attempt * 5
-                    logger.warning(f"HTTP {status} on {url}, waiting {wait}s (attempt {attempt + 1}/3)")
+                if _is_retryable(status):
+                    wait = RETRY_BACKOFF_MULTIPLIER ** attempt * RETRY_BASE_DELAY
+                    logger.warning(
+                        "HTTP %d on %s, waiting %ds (attempt %d/%d)",
+                        status, url, wait, attempt + 1, MAX_RETRY_ATTEMPTS,
+                    )
                     time.sleep(wait)
                     last_exc = e
                     continue
-                logger.error(f"HTTP {status} on {url}: {e.response.text[:500]}")
+                logger.error("HTTP %d on %s: %s", status, url, e.response.text[:500])
                 raise
             except httpx.RequestError as e:
-                logger.error(f"Request error on {url}: {e}")
+                logger.error("Request error on %s: %s", url, e)
                 last_exc = e
-                if attempt == 2:
+                if attempt == MAX_RETRY_ATTEMPTS - 1:
                     raise
-                logger.warning(f"Request error (attempt {attempt + 1}/3): {e}")
-                time.sleep(2 ** attempt)
+                wait = RETRY_BACKOFF_MULTIPLIER ** attempt
+                logger.warning(
+                    "Request error (attempt %d/%d), retrying in %ds: %s",
+                    attempt + 1, MAX_RETRY_ATTEMPTS, wait, e,
+                )
+                time.sleep(wait)
         raise RuntimeError(f"All retry attempts failed for {endpoint}") from last_exc
 
     # ── Async fetch (web endpoint usage) ──────────────────────────────
 
     async def _get_async_client(self) -> httpx.AsyncClient:
         if self._async_client is None or self._async_client.is_closed:
-            self._async_client = httpx.AsyncClient(timeout=30.0)
+            self._async_client = httpx.AsyncClient(timeout=HTTP_TIMEOUT_SECONDS)
         return self._async_client
 
     async def async_fetch(self, endpoint: str, params: dict | None = None) -> dict | list:
@@ -71,7 +90,7 @@ class BaseAPIClient:
         client = await self._get_async_client()
 
         last_exc: Exception | None = None
-        for attempt in range(3):
+        for attempt in range(MAX_RETRY_ATTEMPTS):
             try:
                 resp = await client.get(url, params=params, headers=headers)
                 self._track_credits(dict(resp.headers))
@@ -79,21 +98,28 @@ class BaseAPIClient:
                 return resp.json()
             except httpx.HTTPStatusError as e:
                 status = e.response.status_code
-                if status == 429 or 500 <= status < 600:
-                    wait = 2 ** attempt * 5
-                    logger.warning(f"HTTP {status} on {url}, waiting {wait}s (attempt {attempt + 1}/3)")
+                if _is_retryable(status):
+                    wait = RETRY_BACKOFF_MULTIPLIER ** attempt * RETRY_BASE_DELAY
+                    logger.warning(
+                        "HTTP %d on %s, waiting %ds (attempt %d/%d)",
+                        status, url, wait, attempt + 1, MAX_RETRY_ATTEMPTS,
+                    )
                     await asyncio.sleep(wait)
                     last_exc = e
                     continue
-                logger.error(f"HTTP {status} on {url}: {e.response.text[:500]}")
+                logger.error("HTTP %d on %s: %s", status, url, e.response.text[:500])
                 raise
             except httpx.RequestError as e:
-                logger.error(f"Request error on {url}: {e}")
+                logger.error("Request error on %s: %s", url, e)
                 last_exc = e
-                if attempt == 2:
+                if attempt == MAX_RETRY_ATTEMPTS - 1:
                     raise
-                logger.warning(f"Request error (attempt {attempt + 1}/3): {e}")
-                await asyncio.sleep(2 ** attempt)
+                wait = RETRY_BACKOFF_MULTIPLIER ** attempt
+                logger.warning(
+                    "Request error (attempt %d/%d), retrying in %ds: %s",
+                    attempt + 1, MAX_RETRY_ATTEMPTS, wait, e,
+                )
+                await asyncio.sleep(wait)
         raise RuntimeError(f"All retry attempts failed for {endpoint}") from last_exc
 
     async def aclose(self) -> None:

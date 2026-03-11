@@ -109,11 +109,11 @@ def toggle_notification_rule(rule_id: int):
 
 @router.post("/notifications/test-webhook")
 def test_webhook(webhook_url: str = ""):
-    """Test a webhook URL by sending a sample notification."""
+    """Test a webhook URL by sending a sample notification with retry logic."""
     if not webhook_url:
         return {"error": "webhook_url is required"}
 
-    import httpx
+    from sba.services.webhook import deliver_webhook
 
     payload = {
         "text": "[SBA Test] Sports Betting Analytics webhook test successful!",
@@ -124,13 +124,17 @@ def test_webhook(webhook_url: str = ""):
         },
     }
 
-    try:
-        resp = httpx.post(webhook_url, json=payload, timeout=10)
-        return {
-            "status": "sent",
-            "response_code": resp.status_code,
-            "webhook_url": webhook_url,
-        }
-    except (httpx.HTTPError, ConnectionError, TimeoutError) as exc:
-        logger.warning(f"Webhook test failed for {webhook_url}: {exc}")
-        return {"status": "failed", "error": str(exc)}
+    result = deliver_webhook(webhook_url, payload)
+    return {
+        "status": result["status"],
+        "webhook_url": webhook_url,
+        "attempts": result.get("attempts", 0),
+        **({} if result["status"] == "delivered" else {"error": result.get("error", "")}),
+    }
+
+
+@router.get("/notifications/webhook-history")
+def get_webhook_history(rule_id: int | None = None, limit: int = 50):
+    """Get webhook delivery history with retry details."""
+    from sba.services.webhook import get_delivery_history
+    return get_delivery_history(rule_id, limit)

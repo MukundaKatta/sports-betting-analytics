@@ -2,6 +2,20 @@
    SBA — Sports Betting Analytics — Premium Frontend Application
    ═══════════════════════════════════════════════════════════════════════ */
 
+/**
+ * Escape HTML special characters to prevent XSS in innerHTML assignments.
+ * Use for any user-supplied or API-returned text rendered in templates.
+ */
+function escapeHtml(str) {
+    if (str == null) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
 const SBA = {
     betSlip: [],
     refreshTimer: null,

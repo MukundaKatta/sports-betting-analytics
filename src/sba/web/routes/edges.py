@@ -109,21 +109,37 @@ def get_edges(
 
 # ── Arbitrage / Middles / Low-Hold Scanning ──────────────────────────
 
+def _fetch_odds_for_scan(sport: str, markets: str = "h2h") -> list:
+    """Fetch live odds using the EdgeFinder's OddsAPIClient.
+
+    Returns the list of EventOdds, or an empty list on network error.
+    Raises HTTPException if API key is not configured.
+    """
+    settings = get_settings()
+    if not settings.ODDS_API_KEY:
+        raise HTTPException(400, "ODDS_API_KEY not configured")
+
+    from sba.data.clients.odds_api import OddsAPIClient
+
+    client = OddsAPIClient(settings.ODDS_API_KEY)
+    return client.get_odds(
+        sport=sport,
+        regions=settings.DEFAULT_REGION,
+        markets=markets,
+    )
+
+
 @router.get("/arbitrage")
-def scan_arbitrage(
+def scan_arbitrage_endpoint(
     sport: str = Query("basketball_nba"),
 ):
     """Scan live odds for arbitrage opportunities."""
     from sba.services.arbitrage import find_arbitrage
-    from sba.services.edge_finder import EdgeFinder
-
-    settings = get_settings()
-    finder = EdgeFinder(api_key=settings.odds_api_key)
 
     try:
-        events_odds = finder.fetch_odds(sport)
+        events_odds = _fetch_odds_for_scan(sport)
     except (httpx.HTTPError, ConnectionError, TimeoutError) as exc:
-        logger.warning(f"Arb scan failed (network): {exc}")
+        logger.warning("Arb scan failed (network): %s", exc)
         return {"opportunities": [], "error": str(exc)}
 
     arbs = find_arbitrage(events_odds)
@@ -151,20 +167,16 @@ def scan_arbitrage(
 
 
 @router.get("/middles")
-def scan_middles(
+def scan_middles_endpoint(
     sport: str = Query("basketball_nba"),
 ):
     """Scan for middle betting opportunities."""
     from sba.services.arbitrage import find_middles
-    from sba.services.edge_finder import EdgeFinder
-
-    settings = get_settings()
-    finder = EdgeFinder(api_key=settings.odds_api_key)
 
     try:
-        events_odds = finder.fetch_odds(sport)
+        events_odds = _fetch_odds_for_scan(sport, markets="spreads,totals")
     except (httpx.HTTPError, ConnectionError, TimeoutError) as exc:
-        logger.warning(f"Middle scan failed (network): {exc}")
+        logger.warning("Middle scan failed (network): %s", exc)
         return {"opportunities": [], "error": str(exc)}
 
     middles = find_middles(events_odds)
@@ -192,21 +204,17 @@ def scan_middles(
 
 
 @router.get("/low-holds")
-def scan_low_holds(
+def scan_low_holds_endpoint(
     sport: str = Query("basketball_nba"),
     max_hold: float = Query(3.0, description="Max hold % to include"),
 ):
     """Scan for low-hold/low-vig markets."""
     from sba.services.arbitrage import find_low_holds
-    from sba.services.edge_finder import EdgeFinder
-
-    settings = get_settings()
-    finder = EdgeFinder(api_key=settings.odds_api_key)
 
     try:
-        events_odds = finder.fetch_odds(sport)
+        events_odds = _fetch_odds_for_scan(sport)
     except (httpx.HTTPError, ConnectionError, TimeoutError) as exc:
-        logger.warning(f"Low-hold scan failed (network): {exc}")
+        logger.warning("Low-hold scan failed (network): %s", exc)
         return {"markets": [], "error": str(exc)}
 
     low_holds = find_low_holds(events_odds, max_hold=max_hold / 100.0)

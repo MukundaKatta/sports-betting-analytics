@@ -16,8 +16,14 @@ router = APIRouter(tags=["social"])
 # ── Pydantic models ─────────────────────────────────────────────────
 
 class RegisterUserRequest(BaseModel):
-    username: str
+    username: str  # max 50 chars enforced below
     display_name: str = ""
+
+    def model_post_init(self, __context) -> None:
+        if len(self.username) > 50 or len(self.username) < 1:
+            raise ValueError("username must be 1-50 characters")
+        if len(self.display_name) > 100:
+            raise ValueError("display_name must be 100 characters or fewer")
 
 
 class SubmitPickRequest(BaseModel):
@@ -192,7 +198,7 @@ def remove_from_watchlist(event_id: str):
 # ── Leaderboard ──────────────────────────────────────────────────────
 
 @router.get("/leaderboard")
-def get_leaderboard(limit: int = Query(25)):
+def get_leaderboard(limit: int = Query(25, ge=1, le=100)):
     """Get the community leaderboard ranked by score."""
     with get_connection() as conn:
         rows = conn.execute(

@@ -168,8 +168,8 @@ const SBA = {
                 if (players.length > 0) {
                     results.innerHTML = players.map(p => `
                         <a class="search-result-item" href="/player/${encodeURIComponent(p.name)}">
-                            <span>${p.name}</span>
-                            <span class="text-dim">${p.team} · ${p.position}</span>
+                            <span>${escapeHtml(p.name)}</span>
+                            <span class="text-dim">${escapeHtml(p.team)} · ${escapeHtml(p.position)}</span>
                         </a>`).join('');
                     results.classList.add('active');
                 } else {
@@ -610,7 +610,9 @@ const SBA = {
                     if (target > 0) this.animateCountUp(el, target);
                 });
             }
-        } catch {}
+        } catch (err) {
+            console.warn('Dashboard status load failed:', err);
+        }
 
         // Load recent bets summary with sparkline
         try {
@@ -659,7 +661,9 @@ const SBA = {
                     `;
                 }
             }
-        } catch {}
+        } catch (err) {
+            console.warn('Dashboard bets load failed:', err);
+        }
     },
 
     // ── Bet Slip — Premium ────────────────────────────────────────────
@@ -736,8 +740,8 @@ const SBA = {
             <div class="slip-item">
                 <div class="slip-item-header">
                     <div>
-                        <div class="slip-selection">${b.selection}</div>
-                        <div class="slip-event">${b.eventName} · ${b.market}</div>
+                        <div class="slip-selection">${escapeHtml(b.selection)}</div>
+                        <div class="slip-event">${escapeHtml(b.eventName)} · ${escapeHtml(b.market)}</div>
                     </div>
                     <button class="slip-remove" onclick="SBA.removeFromSlip(${i})">&times;</button>
                 </div>
@@ -1030,15 +1034,15 @@ const SBA = {
                             ${analytics.best_bet ? `
                             <div class="step-card" style="border-left:3px solid var(--accent-green)">
                                 <div class="stat-label">Best Bet</div>
-                                <div class="font-bold" style="margin:8px 0">${analytics.best_bet.selection}</div>
-                                <div class="text-dim" style="font-size:12px">${analytics.best_bet.market} · ${analytics.best_bet.bookmaker}</div>
+                                <div class="font-bold" style="margin:8px 0">${escapeHtml(analytics.best_bet.selection)}</div>
+                                <div class="text-dim" style="font-size:12px">${escapeHtml(analytics.best_bet.market)} · ${escapeHtml(analytics.best_bet.bookmaker)}</div>
                                 <div class="stat-value text-green" style="font-size:20px;margin-top:8px">$+${analytics.best_bet.profit_loss.toFixed(2)}</div>
                             </div>` : ''}
                             ${analytics.worst_bet ? `
                             <div class="step-card" style="border-left:3px solid var(--accent-red)">
                                 <div class="stat-label">Worst Bet</div>
-                                <div class="font-bold" style="margin:8px 0">${analytics.worst_bet.selection}</div>
-                                <div class="text-dim" style="font-size:12px">${analytics.worst_bet.market} · ${analytics.worst_bet.bookmaker}</div>
+                                <div class="font-bold" style="margin:8px 0">${escapeHtml(analytics.worst_bet.selection)}</div>
+                                <div class="text-dim" style="font-size:12px">${escapeHtml(analytics.worst_bet.market)} · ${escapeHtml(analytics.worst_bet.bookmaker)}</div>
                                 <div class="stat-value text-red" style="font-size:20px;margin-top:8px">$${analytics.worst_bet.profit_loss.toFixed(2)}</div>
                             </div>` : ''}
                         </div>
@@ -1198,7 +1202,9 @@ const SBA = {
                 opt.textContent = `${e.away_team} @ ${e.home_team}`;
                 select.appendChild(opt);
             });
-        } catch {}
+        } catch (err) {
+            console.warn('Line movement events load failed:', err);
+        }
     },
 
     async loadLineMovement(eventId) {
@@ -1212,6 +1218,7 @@ const SBA = {
 
         try {
             const resp = await fetch(`/api/line-movement/${eventId}?market=${market}`);
+            if (!resp.ok) throw new Error(`Server error (${resp.status})`);
             const data = await resp.json();
 
             if (data.length === 0) {
@@ -1248,7 +1255,7 @@ const SBA = {
                         <div style="display:flex;align-items:center;gap:16px;padding:12px;background:rgba(255,255,255,0.02);border-radius:var(--radius-sm);border:1px solid var(--border-light)">
                             <div style="width:8px;height:8px;border-radius:50%;background:${color};flex-shrink:0"></div>
                             <div style="flex:1;min-width:0">
-                                <div class="font-bold" style="font-size:13px">${key}</div>
+                                <div class="font-bold" style="font-size:13px">${escapeHtml(key)}</div>
                                 <div class="text-dim" style="font-size:11px">${snaps.length} snapshot${snaps.length > 1 ? 's' : ''}</div>
                             </div>
                             <div class="font-mono" style="font-size:15px;font-weight:700">
@@ -1263,9 +1270,9 @@ const SBA = {
             // Table
             tableBody.innerHTML = data.map((s, i) => `
                 <tr class="new-row" style="animation-delay:${i * 0.02}s">
-                    <td class="text-dim" style="font-size:11px">${s.time}</td>
-                    <td>${s.bookmaker}</td>
-                    <td class="font-bold">${s.outcome}</td>
+                    <td class="text-dim" style="font-size:11px">${escapeHtml(s.time)}</td>
+                    <td>${escapeHtml(s.bookmaker)}</td>
+                    <td class="font-bold">${escapeHtml(s.outcome)}</td>
                     <td class="right font-mono">${s.line !== null ? s.line : '-'}</td>
                     <td class="right">
                         <span class="odds-badge ${s.odds_american > 0 ? 'positive' : 'negative'}">
@@ -1276,7 +1283,7 @@ const SBA = {
                 </tr>
             `).join('');
         } catch (err) {
-            chartEl.innerHTML = `<div class="empty-state text-red">Error: ${err.message}</div>`;
+            chartEl.innerHTML = `<div class="empty-state text-red">Error: ${escapeHtml(err.message)}</div>`;
         }
     },
 
@@ -1308,7 +1315,9 @@ const SBA = {
                 opt.textContent = `${e.away_team} @ ${e.home_team}`;
                 select.appendChild(opt);
             });
-        } catch {}
+        } catch (err) {
+            console.warn('Odds comparison events load failed:', err);
+        }
     },
 
     async loadOddsComparison(eventId) {
@@ -1322,6 +1331,7 @@ const SBA = {
 
         try {
             const resp = await fetch(`/api/odds-comparison/${eventId}?market=${market}`);
+            if (!resp.ok) throw new Error(`Server error (${resp.status})`);
             const data = await resp.json();
 
             if (data.bookmakers.length === 0) {
@@ -1342,9 +1352,9 @@ const SBA = {
             if (bestEl) {
                 bestEl.innerHTML = Object.entries(bestOdds).map(([outcome, best]) => `
                     <div class="stat-card green">
-                        <div class="stat-label">${outcome}</div>
+                        <div class="stat-label">${escapeHtml(outcome)}</div>
                         <div class="stat-value">${best.odds_american > 0 ? '+' : ''}${best.odds_american}</div>
-                        <div class="stat-sub">Best at <span class="font-bold">${best.bookmaker}</span></div>
+                        <div class="stat-sub">Best at <span class="font-bold">${escapeHtml(best.bookmaker)}</span></div>
                     </div>
                 `).join('');
             }
@@ -1356,20 +1366,20 @@ const SBA = {
                     <thead>
                         <tr>
                             <th>Bookmaker</th>
-                            ${outcomes.map(o => `<th class="right">${o}</th>`).join('')}
+                            ${outcomes.map(o => `<th class="right">${escapeHtml(o)}</th>`).join('')}
                         </tr>
                     </thead>
                     <tbody>
                         ${data.bookmakers.map((bk, i) => {
                             return `<tr class="new-row" style="animation-delay:${i * 0.03}s">
-                                <td class="font-bold">${bk}</td>
+                                <td class="font-bold">${escapeHtml(bk)}</td>
                                 ${outcomes.map(o => {
                                     const entry = data.outcomes[o]?.find(e => e.bookmaker === bk);
                                     if (!entry) return '<td class="right text-dim">—</td>';
                                     const isBest = bestOdds[o]?.bookmaker === bk;
                                     return `<td class="right">
                                         <span class="odds-badge ${entry.odds_american > 0 ? 'positive' : 'negative'} ${isBest ? 'selected' : ''}"
-                                              onclick="SBA.addToSlip('${eventId}', '${o}', ${entry.odds_american}, '${market}', '${bk}', '${o}', 0)"
+                                              onclick="SBA.addToSlip('${escapeHtml(eventId)}', '${escapeHtml(o)}', ${entry.odds_american}, '${escapeHtml(market)}', '${escapeHtml(bk)}', '${escapeHtml(o)}', 0)"
                                               data-tooltip="Click to add to slip">
                                             ${entry.odds_american > 0 ? '+' : ''}${entry.odds_american}
                                         </span>
@@ -1381,7 +1391,7 @@ const SBA = {
                 </table>
             `;
         } catch (err) {
-            matrixEl.innerHTML = `<div class="empty-state text-red">Error: ${err.message}</div>`;
+            matrixEl.innerHTML = `<div class="empty-state text-red">Error: ${escapeHtml(err.message)}</div>`;
         }
     },
 
@@ -1400,7 +1410,9 @@ const SBA = {
                 countEl.style.display = 'none';
                 bellEl?.classList.remove('has-alerts');
             }
-        } catch {}
+        } catch (err) {
+            // Alerts check runs on interval; don't spam console
+        }
     },
 
     toggleNotifications() {
@@ -2060,10 +2072,10 @@ const SBA = {
             const data = await resp.json();
             if (data.alerts && data.alerts.length > 0) {
                 body.innerHTML = data.alerts.map((a, i) => `
-                    <div class="notification-item ${a.type || 'edge'}" style="animation-delay:${i * 0.05}s">
-                        <div class="notif-title">${a.title || 'Edge Alert'}</div>
-                        <div class="notif-body">${a.message || a.description || 'New opportunity detected'}</div>
-                        <div class="notif-time">${a.time || 'Just now'}</div>
+                    <div class="notification-item ${escapeHtml(a.type || 'edge')}" style="animation-delay:${i * 0.05}s">
+                        <div class="notif-title">${escapeHtml(a.title || 'Edge Alert')}</div>
+                        <div class="notif-body">${escapeHtml(a.message || a.description || 'New opportunity detected')}</div>
+                        <div class="notif-time">${escapeHtml(a.time || 'Just now')}</div>
                     </div>
                 `).join('');
             } else {
@@ -2413,7 +2425,7 @@ const SBA = {
                             <tbody>
                                 ${months.map(([name, d]) => `
                                 <tr class="new-row">
-                                    <td class="font-bold">${name}</td>
+                                    <td class="font-bold">${escapeHtml(name)}</td>
                                     <td class="right font-mono">${d.bets}</td>
                                     <td class="right font-mono">${d.win_rate}%</td>
                                     <td class="right font-mono font-bold ${d.profit >= 0 ? 'text-green' : 'text-red'}">$${d.profit >= 0 ? '+' : ''}${d.profit.toFixed(2)}</td>
@@ -2424,7 +2436,9 @@ const SBA = {
                     `;
                 }
             }
-        } catch {}
+        } catch (err) {
+            console.warn('Dashboard breakdown load failed:', err);
+        }
     },
 
     // ── Dashboard Risk Summary ──────────────────────────────────────
@@ -2490,7 +2504,9 @@ const SBA = {
                     </div>
                 </div>
             `;
-        } catch {}
+        } catch (err) {
+            console.warn('Dashboard risk load failed:', err);
+        }
     },
 
     // ── Progress Ring Generator ──────────────────────────────────────

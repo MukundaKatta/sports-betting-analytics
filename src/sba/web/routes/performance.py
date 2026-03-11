@@ -754,3 +754,29 @@ def get_cache_stats():
     """Get API response cache statistics."""
     from sba.utils.cache import cache
     return cache.stats
+
+
+# ── Betting Health Score ──────────────────────────────────────────
+
+@router.get("/health-score")
+def get_health_score():
+    """Get composite Betting Health Score (0-100) with component breakdown.
+
+    Combines CLV performance, ROI sustainability, bankroll discipline,
+    edge accuracy, and diversification into a single actionable score.
+    """
+    from sba.services.health_score import calculate_health_score
+    return calculate_health_score()
+
+
+# ── Correlation Warnings ──────────────────────────────────────────
+
+@router.get("/correlation-warnings")
+def get_correlation_warnings():
+    """Analyze pending bets for correlated exposure and risk concentration.
+
+    Detects same-event overlap, book concentration, temporal clustering,
+    and sport concentration to help manage portfolio-level risk.
+    """
+    from sba.services.correlation_warnings import analyze_bet_correlations
+    return analyze_bet_correlations()

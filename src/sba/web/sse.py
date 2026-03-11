@@ -17,8 +17,9 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-# Track active WebSocket connections
+# Track active WebSocket connections (bounded to prevent resource exhaustion)
 _ws_connections: list[WebSocket] = []
+_MAX_WS_CONNECTIONS = 100
 
 
 def _fetch_latest_odds() -> list[dict]:
@@ -102,6 +103,10 @@ async def websocket_odds(websocket: WebSocket):
     - {"subscribe": "basketball_nba"} - filter by sport
     - {"interval": 15} - set update interval (5-120s)
     """
+    if len(_ws_connections) >= _MAX_WS_CONNECTIONS:
+        await websocket.close(code=1013, reason="Too many connections")
+        return
+
     await websocket.accept()
     _ws_connections.append(websocket)
     logger.info(f"WebSocket client connected ({len(_ws_connections)} active)")

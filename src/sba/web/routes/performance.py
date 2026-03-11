@@ -8,13 +8,17 @@ Simulation/backtest → simulation.py
 
 from __future__ import annotations
 
+import csv
+import io
 import logging
 
 from fastapi import APIRouter, HTTPException, Query
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from sba.config import get_settings
 from sba.data.db import get_connection
+from sba.utils.cache import cached_response
 from sba.web.api import repo
 
 logger = logging.getLogger(__name__)
@@ -759,6 +763,7 @@ def get_cache_stats():
 # ── Betting Health Score ──────────────────────────────────────────
 
 @router.get("/health-score")
+@cached_response(ttl=120, prefix="health_score")
 def get_health_score():
     """Get composite Betting Health Score (0-100) with component breakdown.
 
@@ -785,6 +790,7 @@ def get_correlation_warnings():
 # ── ROI Forecast ──────────────────────────────────────────────────
 
 @router.get("/roi-forecast")
+@cached_response(ttl=180, prefix="roi_forecast")
 def get_roi_forecast():
     """Project future ROI using bootstrap resampling of historical results.
 
@@ -831,6 +837,7 @@ def get_roi_forecast():
 # ── Bet Timing Analysis ──────────────────────────────────────────
 
 @router.get("/bet-timing")
+@cached_response(ttl=120, prefix="bet_timing")
 def get_bet_timing():
     """Analyze when you place your most profitable bets.
 
@@ -869,6 +876,7 @@ def get_bet_timing():
 # ── Risk-Adjusted Metrics ────────────────────────────────────────
 
 @router.get("/risk-metrics")
+@cached_response(ttl=120, prefix="risk_metrics")
 def get_risk_metrics():
     """Get institutional-grade risk-adjusted performance metrics.
 
@@ -1092,3 +1100,71 @@ def get_performance_digest(period: str = "weekly"):
         "highlights": digest.highlights,
         "warnings": digest.warnings,
     }
+
+
+# ── Analytics Export ─────────────────────────────────────────────────
+
+
+@router.get("/analytics/export")
+def api_analytics_export(
+    format: str = Query("csv", pattern="^(csv|json)$"),
+    status: str = Query("settled", pattern="^(settled|all|pending)$"),
+):
+    """Export bet history as CSV or JSON.
+
+    Supports filtering by status:
+    - settled: won/lost/push only (default)
+    - pending: pending bets only
+    - all: everything
+    """
+    with get_connection() as conn:
+        if status == "settled":
+            rows = conn.execute(
+                "SELECT * FROM bets WHERE status IN ('won','lost','push') ORDER BY placed_at DESC"
+            ).fetchall()
+        elif status == "pending":
+            rows = conn.execute(
+                "SELECT * FROM bets WHERE status = 'pending' ORDER BY placed_at DESC"
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT * FROM bets ORDER BY placed_at DESC"
+            ).fetchall()
+
+    if not rows:
+        if format == "json":
+            return {"bets": [], "count": 0}
+        # Empty CSV with headers
+        buf = io.StringIO()
+        writer = csv.writer(buf)
+        writer.writerow(["id", "event_id", "selection", "market", "bookmaker",
+                         "odds_american", "odds_decimal", "recommended_stake",
+                         "status", "profit_loss", "placed_at"])
+        buf.seek(0)
+        return StreamingResponse(
+            iter([buf.getvalue()]),
+            media_type="text/csv",
+            headers={"Content-Disposition": "attachment; filename=bets_export.csv"},
+        )
+
+    columns = rows[0].keys()
+
+    if format == "json":
+        return {
+            "bets": [dict(zip(columns, row)) for row in rows],
+            "count": len(rows),
+        }
+
+    # CSV export
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerow(columns)
+    for row in rows:
+        writer.writerow([row[col] for col in columns])
+    buf.seek(0)
+
+    return StreamingResponse(
+        iter([buf.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=bets_export.csv"},
+    )

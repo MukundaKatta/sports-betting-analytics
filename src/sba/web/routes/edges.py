@@ -17,6 +17,13 @@ router = APIRouter(tags=["edges"])
 
 # ── Pydantic models ─────────────────────────────────────────────────
 
+class SignalInfo(BaseModel):
+    signal: str  # green, yellow, red
+    confidence: int  # 0-100
+    stars: int  # 1-5
+    label: str  # "Strong Play", "Lean", "Avoid"
+
+
 class EdgeResponse(BaseModel):
     event_home: str
     event_away: str
@@ -36,6 +43,7 @@ class EdgeResponse(BaseModel):
     confidence: str
     deep_link: str | None = None
     scanned_at: str | None = None
+    signal: SignalInfo | None = None
 
 
 # ── Endpoints ────────────────────────────────────────────────────────
@@ -56,13 +64,20 @@ def get_edges(
         raise HTTPException(400, "ODDS_API_KEY not configured")
 
     from sba.services.edge_finder import EdgeFinder
+    from sba.services.signal_rating import rate_opportunity
 
     finder = EdgeFinder()
     opportunities = finder.scan(sport, market, min_ev)
     scanned_at = datetime.now().isoformat()
 
-    return [
-        EdgeResponse(
+    results = []
+    for o in opportunities:
+        # Rate each opportunity with traffic light system
+        rating = rate_opportunity(
+            edge_pct=o.ev * 100,
+            odds_american=o.best_odds.price_american,
+        )
+        results.append(EdgeResponse(
             event_home=o.event.home_team,
             event_away=o.event.away_team,
             event_id=o.event.id,
@@ -81,9 +96,15 @@ def get_edges(
             confidence=o.confidence,
             deep_link=get_deep_link(o.bookmaker, o.event.home_team, o.event.away_team),
             scanned_at=scanned_at,
-        )
-        for o in opportunities
-    ]
+            signal=SignalInfo(
+                signal=rating.signal,
+                confidence=rating.confidence,
+                stars=rating.stars,
+                label=rating.label,
+            ),
+        ))
+
+    return results
 
 
 # ── Arbitrage / Middles / Low-Hold Scanning ──────────────────────────

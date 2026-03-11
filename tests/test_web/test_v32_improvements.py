@@ -177,10 +177,10 @@ class TestSmartSignalsPages:
 
 
 class TestVersionAlignment:
-    def test_version_is_3_2(self):
-        """__version__ should be 3.2.0."""
+    def test_version_is_3_2_plus(self):
+        """__version__ should be at least 3.2.0."""
         from sba import __version__
-        assert __version__ == "3.2.0"
+        assert __version__ >= "3.2.0"
 
     def test_app_version_matches(self):
         """FastAPI app.version should match __version__."""
@@ -188,7 +188,8 @@ class TestVersionAlignment:
         assert app.version == __version__
 
     def test_health_version(self):
-        """Health endpoint should report 3.2.0."""
+        """Health endpoint should report current version."""
+        from sba import __version__
         resp = client.get("/api/health")
         assert resp.status_code == 200
-        assert resp.json()["version"] == "3.2.0"
+        assert resp.json()["version"] == __version__

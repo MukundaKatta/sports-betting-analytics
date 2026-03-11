@@ -280,7 +280,7 @@ const SBA = {
         const countEl = document.getElementById('edges-count');
         if (!container) return;
 
-        container.innerHTML = '<tr><td colspan="11" class="loading-spinner"><div class="spinner"></div> Scanning odds across all books...</td></tr>';
+        container.innerHTML = '<tr><td colspan="13" class="loading-spinner"><div class="spinner"></div> Scanning odds across all books...</td></tr>';
 
         try {
             let url = '/api/edges?';
@@ -302,7 +302,7 @@ const SBA = {
             }
 
             if (edges.length === 0) {
-                container.innerHTML = `<tr><td colspan="11" class="empty-state">
+                container.innerHTML = `<tr><td colspan="13" class="empty-state">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
                     <p>No +EV opportunities found right now. Try adjusting filters or check back later.</p>
                 </td></tr>`;
@@ -333,12 +333,13 @@ const SBA = {
                     <td class="right"><span class="ev-badge ${e.ev >= 0.08 ? 'high' : e.ev >= 0.04 ? 'medium' : 'low'} ${e.ev >= 0.08 ? 'glow-green' : ''}">${e.ev_pct}</span></td>
                     <td class="right font-mono">${(e.kelly_pct * 100).toFixed(1)}%</td>
                     <td class="right font-bold text-green">$${e.recommended_stake.toFixed(0)}</td>
+                    <td class="center">${this.renderSignalBadge(e.signal)}</td>
                     <td class="center">${this.createConfidenceMeter(e.confidence)}<div style="font-size:10px;color:var(--text-tertiary);margin-top:2px">${e.confidence}</div></td>
                     <td class="center">${e.deep_link ? `<a href="${e.deep_link}" target="_blank" rel="noopener" class="deep-link-btn" title="Open on ${e.bookmaker}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg> Bet</a>` : ''}</td>
                 </tr>
             `).join('');
         } catch (err) {
-            container.innerHTML = `<tr><td colspan="11" class="empty-state"><p class="text-red">Error loading edges: ${err.message}</p></td></tr>`;
+            container.innerHTML = `<tr><td colspan="13" class="empty-state"><p class="text-red">Error loading edges: ${err.message}</p></td></tr>`;
         }
     },
 
@@ -1454,6 +1455,18 @@ const SBA = {
             </svg>
             <div class="gauge-value">${label || Math.round(value) + '%'}</div>
         </div>`;
+    },
+
+    // ── Signal Badge (traffic light) ─────────────────────────────────
+    renderSignalBadge(signal) {
+        if (!signal) return '<span class="text-dim">—</span>';
+        const color = signal.signal || 'red';
+        const label = signal.label || '';
+        const stars = signal.stars || 0;
+        const starStr = '★'.repeat(stars) + '☆'.repeat(5 - stars);
+        return `<span class="signal-badge ${color}" title="${(signal.reasons || []).join(', ')}">` +
+            `<span class="signal-dot signal-${color}"></span>${label}` +
+            `<span class="signal-stars">${starStr}</span></span>`;
     },
 
     // ── Confidence Meter (5 bars) ────────────────────────────────────

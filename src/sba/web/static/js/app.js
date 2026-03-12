@@ -333,8 +333,13 @@ const SBA = {
                 return;
             }
 
-            container.innerHTML = edges.map((e, i) => `
-                <tr class="new-row ${this.getEvHeatClass(e.ev)}" style="animation-delay:${i * 0.03}s">
+            container.innerHTML = edges.map((e, i) => {
+                const edgeGap = ((e.model_prob - e.implied_prob) * 100).toFixed(1);
+                const kellyStr = (e.kelly_pct * 100).toFixed(1);
+                const whyText = `Model sees ${(e.model_prob * 100).toFixed(1)}% chance vs ${(e.implied_prob * 100).toFixed(1)}% implied (${edgeGap}pt edge). Kelly suggests ${kellyStr}% of bankroll ($${e.recommended_stake.toFixed(0)}). Best price at ${escapeHtml(e.bookmaker)}.`;
+                const borderColor = e.ev >= 0.08 ? 'var(--accent-green)' : e.ev >= 0.04 ? 'var(--accent-yellow)' : 'var(--accent-blue)';
+                return `
+                <tr class="new-row ${this.getEvHeatClass(e.ev)} edge-row-toggle" style="animation-delay:${i * 0.03}s;cursor:pointer" onclick="this.nextElementSibling.classList.toggle('edge-why-hidden')" title="Click for details">
                     <td>
                         <div class="matchup-teams">
                             <span class="team-name away">${escapeHtml(e.event_away)}</span>
@@ -345,7 +350,7 @@ const SBA = {
                     <td class="font-bold">${escapeHtml(e.selection)}${e.line ? ` (${e.line > 0 ? '+' : ''}${e.line})` : ''}</td>
                     <td class="right">
                         <span class="odds-badge ${e.best_odds_american > 0 ? 'positive' : 'negative'}"
-                              onclick="SBA.addToSlip('${escapeHtml(e.event_id)}', '${escapeHtml(e.selection)}', ${e.best_odds_american}, '${escapeHtml(e.market)}', '${escapeHtml(e.bookmaker)}', '${escapeHtml(e.event_away)} @ ${escapeHtml(e.event_home)}', ${e.recommended_stake})"
+                              onclick="event.stopPropagation();SBA.addToSlip('${escapeHtml(e.event_id)}', '${escapeHtml(e.selection)}', ${e.best_odds_american}, '${escapeHtml(e.market)}', '${escapeHtml(e.bookmaker)}', '${escapeHtml(e.event_away)} @ ${escapeHtml(e.event_home)}', ${e.recommended_stake})"
                               data-tooltip="Click to add to bet slip">
                             ${e.best_odds_american > 0 ? '+' : ''}${e.best_odds_american}
                         </span>
@@ -358,9 +363,18 @@ const SBA = {
                     <td class="right font-bold text-green">$${e.recommended_stake.toFixed(0)}</td>
                     <td class="center">${this.renderSignalBadge(e.signal)}</td>
                     <td class="center">${this.createConfidenceMeter(e.confidence)}<div style="font-size:10px;color:var(--text-tertiary);margin-top:2px">${escapeHtml(e.confidence)}</div></td>
-                    <td class="center">${e.deep_link ? `<a href="${escapeHtml(e.deep_link)}" target="_blank" rel="noopener" class="deep-link-btn" title="Open on ${escapeHtml(e.bookmaker)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg> Bet</a>` : ''}</td>
+                    <td class="center">${e.deep_link ? `<a href="${escapeHtml(e.deep_link)}" target="_blank" rel="noopener" class="deep-link-btn" title="Open on ${escapeHtml(e.bookmaker)}" onclick="event.stopPropagation()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg> Bet</a>` : ''}</td>
                 </tr>
-            `).join('');
+                <tr class="edge-why-row edge-why-hidden">
+                    <td colspan="13" style="padding:10px 16px;background:var(--bg-tertiary);border-left:3px solid ${borderColor};font-size:12px">
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+                            <span class="font-bold" style="color:var(--text-primary)">Why this edge?</span>
+                        </div>
+                        <div class="text-dim">${whyText}</div>
+                    </td>
+                </tr>`;
+            }).join('');
         } catch (err) {
             container.innerHTML = `<tr><td colspan="13" class="empty-state"><p class="text-red">Error loading edges: ${escapeHtml(err.message)}</p></td></tr>`;
         }
@@ -583,48 +597,88 @@ const SBA = {
         // Load onboarding progress
         this.loadOnboarding();
 
-        // Load status with count-up animations
+        // Load actionable P&L stats above the fold, system stats as fallback
         try {
-            const resp = await fetch('/api/status');
-            const status = await resp.json();
+            const [statusResp, betsResp2, todayResp] = await Promise.all([
+                fetch('/api/status'),
+                fetch('/api/bets'),
+                fetch('/api/performance/today'),
+            ]);
+            const status = await statusResp.json();
+            const betsData = await betsResp2.json();
+            let today = {};
+            try { today = await todayResp.json(); } catch { today = { profit: 0, total_bets: 0 }; }
+
             const statsEl = document.getElementById('dashboard-stats');
             if (statsEl) {
-                const mkMiniSpark = (vals, color) => {
-                    if (!vals || vals.length < 2) return '';
-                    const max = Math.max(...vals), min = Math.min(...vals);
-                    const range = max - min || 1;
-                    const w = 60, h = 20;
-                    const pts = vals.map((v, i) => `${(i / (vals.length - 1)) * w},${h - ((v - min) / range) * h}`).join(' ');
-                    return `<svg viewBox="0 0 ${w} ${h}" style="width:60px;height:20px;margin-top:6px;opacity:0.7"><polyline points="${pts}" fill="none" stroke="${color}" stroke-width="1.5" stroke-linecap="round"/></svg>`;
-                };
-                // Fake trend data based on current counts (ascending from ~70% to 100% in 7 steps)
-                const trend = (val) => [0.7, 0.75, 0.8, 0.85, 0.88, 0.94, 1.0].map(f => Math.round(val * f));
-                statsEl.innerHTML = `
-                    <div class="stat-card green card-3d-tilt">
-                        <div class="stat-label">Events Tracked</div>
-                        <div class="stat-value count-up" data-target="${status.events}">${status.events}</div>
-                        <div class="stat-sub">across all sports</div>
-                        ${mkMiniSpark(trend(status.events), '#00e68a')}
-                    </div>
-                    <div class="stat-card blue card-3d-tilt">
-                        <div class="stat-label">Odds Snapshots</div>
-                        <div class="stat-value count-up" data-target="${status.odds_snapshots}">${status.odds_snapshots.toLocaleString()}</div>
-                        <div class="stat-sub">historical data points</div>
-                        ${mkMiniSpark(trend(status.odds_snapshots), '#5b9aff')}
-                    </div>
-                    <div class="stat-card yellow card-3d-tilt">
-                        <div class="stat-label">Players</div>
-                        <div class="stat-value count-up" data-target="${status.players}">${status.players}</div>
-                        <div class="stat-sub">with game logs</div>
-                        ${mkMiniSpark(trend(status.players), '#ffc234')}
-                    </div>
-                    <div class="stat-card purple card-3d-tilt">
-                        <div class="stat-label">Game Logs</div>
-                        <div class="stat-value count-up" data-target="${status.game_logs}">${status.game_logs.toLocaleString()}</div>
-                        <div class="stat-sub">for ML training</div>
-                        ${mkMiniSpark(trend(status.game_logs), '#a855f7')}
-                    </div>
-                `;
+                const hasBets = betsData.total_bets > 0 || betsData.pending > 0;
+
+                if (hasBets) {
+                    const todayPnl = today.profit || 0;
+                    const todayColor = todayPnl >= 0 ? '#00e68a' : '#ff4d6a';
+                    const totalPnl = betsData.total_profit || 0;
+                    const totalColor = totalPnl >= 0 ? '#00e68a' : '#ff4d6a';
+                    const roi = betsData.roi || 0;
+                    const roiColor = roi >= 0 ? '#00e68a' : '#ff4d6a';
+                    statsEl.innerHTML = `
+                        <div class="stat-card green card-3d-tilt">
+                            <div class="stat-label">Today's P/L</div>
+                            <div class="stat-value" style="color:${todayColor}">${todayPnl >= 0 ? '+' : ''}$${todayPnl.toFixed(2)}</div>
+                            <div class="stat-sub">${today.total_bets || 0} bets today</div>
+                        </div>
+                        <div class="stat-card blue card-3d-tilt">
+                            <div class="stat-label">Total P/L</div>
+                            <div class="stat-value" style="color:${totalColor}">${totalPnl >= 0 ? '+' : ''}$${totalPnl.toFixed(2)}</div>
+                            <div class="stat-sub">${betsData.total_bets} settled bets</div>
+                        </div>
+                        <div class="stat-card yellow card-3d-tilt">
+                            <div class="stat-label">ROI</div>
+                            <div class="stat-value" style="color:${roiColor}">${roi >= 0 ? '+' : ''}${roi.toFixed(1)}%</div>
+                            <div class="stat-sub">$${(betsData.total_staked || 0).toFixed(0)} staked</div>
+                        </div>
+                        <div class="stat-card purple card-3d-tilt">
+                            <div class="stat-label">Win Rate</div>
+                            <div class="stat-value">${((betsData.win_rate || 0) * 100).toFixed(0)}%</div>
+                            <div class="stat-sub">${betsData.wins || 0}W - ${betsData.losses || 0}L</div>
+                        </div>
+                    `;
+                } else {
+                    const mkMiniSpark = (vals, color) => {
+                        if (!vals || vals.length < 2) return '';
+                        const max = Math.max(...vals), min = Math.min(...vals);
+                        const range = max - min || 1;
+                        const w = 60, h = 20;
+                        const pts = vals.map((v, i) => `${(i / (vals.length - 1)) * w},${h - ((v - min) / range) * h}`).join(' ');
+                        return `<svg viewBox="0 0 ${w} ${h}" style="width:60px;height:20px;margin-top:6px;opacity:0.7"><polyline points="${pts}" fill="none" stroke="${color}" stroke-width="1.5" stroke-linecap="round"/></svg>`;
+                    };
+                    const trend = (val) => [0.7, 0.75, 0.8, 0.85, 0.88, 0.94, 1.0].map(f => Math.round(val * f));
+                    statsEl.innerHTML = `
+                        <div class="stat-card green card-3d-tilt">
+                            <div class="stat-label">Events Tracked</div>
+                            <div class="stat-value count-up" data-target="${status.events}">${status.events}</div>
+                            <div class="stat-sub">across all sports</div>
+                            ${mkMiniSpark(trend(status.events), '#00e68a')}
+                        </div>
+                        <div class="stat-card blue card-3d-tilt">
+                            <div class="stat-label">Odds Snapshots</div>
+                            <div class="stat-value count-up" data-target="${status.odds_snapshots}">${status.odds_snapshots.toLocaleString()}</div>
+                            <div class="stat-sub">historical data points</div>
+                            ${mkMiniSpark(trend(status.odds_snapshots), '#5b9aff')}
+                        </div>
+                        <div class="stat-card yellow card-3d-tilt">
+                            <div class="stat-label">Players</div>
+                            <div class="stat-value count-up" data-target="${status.players}">${status.players}</div>
+                            <div class="stat-sub">with game logs</div>
+                            ${mkMiniSpark(trend(status.players), '#ffc234')}
+                        </div>
+                        <div class="stat-card purple card-3d-tilt">
+                            <div class="stat-label">Game Logs</div>
+                            <div class="stat-value count-up" data-target="${status.game_logs}">${status.game_logs.toLocaleString()}</div>
+                            <div class="stat-sub">for ML training</div>
+                            ${mkMiniSpark(trend(status.game_logs), '#a855f7')}
+                        </div>
+                    `;
+                }
 
                 // Animate count-ups
                 statsEl.querySelectorAll('.count-up').forEach(el => {

@@ -116,6 +116,18 @@
         </div>
     </div>
 
+    <!-- Pinned Watchlist -->
+    <div class="card reveal-left" id="dash-watchlist-card" style="animation-delay:0.32s;display:none">
+        <div class="card-header">
+            <h3>
+                <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                My Watchlist
+            </h3>
+            <a href="/watchlist" class="btn btn-outline btn-sm">Manage</a>
+        </div>
+        <div class="card-body padded" id="dash-watchlist"></div>
+    </div>
+
     <!-- Quick Actions -->
     <div class="card full-width reveal-up" style="animation-delay:0.35s">
         <div class="card-header">
@@ -554,6 +566,31 @@ async function triggerDataSync(btn) {
     }
 }
 
+async function loadDashWatchlist() {
+    try {
+        const resp = await fetch('/api/watchlist');
+        const items = await resp.json();
+        const card = document.getElementById('dash-watchlist-card');
+        const el = document.getElementById('dash-watchlist');
+        if (!items || items.length === 0) {
+            if (card) card.style.display = 'none';
+            return;
+        }
+        if (card) card.style.display = '';
+        el.innerHTML = items.slice(0, 5).map(w => `
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04)">
+                <div>
+                    <div style="font-weight:600;font-size:13px">${w.label || w.event_id}</div>
+                    <div class="text-dim" style="font-size:11px">Added ${w.added_at ? new Date(w.added_at).toLocaleDateString() : ''}</div>
+                </div>
+                <a href="/line-movement?event=${encodeURIComponent(w.event_id)}" class="btn btn-outline btn-sm" style="font-size:10px;padding:4px 8px">Lines</a>
+            </div>
+        `).join('') + (items.length > 5 ? `<div class="text-dim" style="text-align:center;font-size:11px;margin-top:8px"><a href="/watchlist" style="color:var(--accent-yellow)">+${items.length - 5} more</a></div>` : '');
+    } catch (err) {
+        console.warn('Watchlist load failed:', err);
+    }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     SBA.loadDashboard();
     SBA.loadDashboardRisk();
@@ -563,6 +600,7 @@ document.addEventListener('DOMContentLoaded', () => {
     loadDashInsights();
     loadHealthScore();
     loadDashDigest();
+    loadDashWatchlist();
 });
 </script>
 {% endblock %}

@@ -17,6 +17,7 @@ from sba.services.reporting import (
     generate_monthly_report,
     generate_weekly_report,
 )
+from sba.utils.cache import cached_response
 from sba.web.errors import safe_endpoint
 
 router = APIRouter(tags=["reporting"])
@@ -30,6 +31,7 @@ _CSV_COLUMNS = [
 
 
 @router.get("/reports/daily")
+@cached_response(ttl=300, prefix="report_daily")
 @safe_endpoint
 def api_daily_report(
     date: str = Query(None, description="Date in YYYY-MM-DD format (defaults to today)"),
@@ -39,6 +41,7 @@ def api_daily_report(
 
 
 @router.get("/reports/weekly")
+@cached_response(ttl=600, prefix="report_weekly")
 @safe_endpoint
 def api_weekly_report(
     weeks_ago: int = Query(0, ge=0, le=52, description="0 = current week"),
@@ -48,6 +51,7 @@ def api_weekly_report(
 
 
 @router.get("/reports/monthly")
+@cached_response(ttl=900, prefix="report_monthly")
 @safe_endpoint
 def api_monthly_report(
     year: int = Query(None, ge=2020, le=2030),

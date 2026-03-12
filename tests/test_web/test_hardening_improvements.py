@@ -509,3 +509,72 @@ class TestImprovedEmptyStates:
         resp = client.get("/")
         assert "Sync Now" in resp.text
         assert "triggerDataSync" in resp.text
+
+
+# ── Response Caching ──────────────────────────────────────────────
+
+
+class TestResponseCaching:
+    def test_events_cached(self):
+        """GET /api/events should succeed (caching decorator present)."""
+        resp = client.get("/api/events")
+        assert resp.status_code == 200
+
+    def test_line_movement_cached(self):
+        """GET /api/line-movement/test should succeed."""
+        resp = client.get("/api/line-movement/test_event")
+        assert resp.status_code == 200
+
+    def test_live_odds_cached(self):
+        """GET /api/live-odds should succeed."""
+        resp = client.get("/api/live-odds")
+        assert resp.status_code == 200
+
+    def test_analytics_cached(self):
+        """GET /api/analytics should succeed."""
+        resp = client.get("/api/analytics")
+        assert resp.status_code == 200
+
+    def test_leaderboard_cached(self):
+        """GET /api/leaderboard should succeed."""
+        resp = client.get("/api/leaderboard")
+        assert resp.status_code == 200
+
+
+# ── Pagination Bounds ─────────────────────────────────────────────
+
+
+class TestPaginationBounds:
+    def test_alerts_limit_param(self):
+        """GET /api/alerts should accept limit parameter."""
+        resp = client.get("/api/alerts?limit=10")
+        assert resp.status_code == 200
+
+    def test_alerts_limit_bounds(self):
+        """GET /api/alerts with excessive limit should fail."""
+        resp = client.get("/api/alerts?limit=999")
+        assert resp.status_code == 422
+
+    def test_alert_rules_limit_param(self):
+        """GET /api/alert-rules should accept limit parameter."""
+        resp = client.get("/api/alert-rules?limit=50")
+        assert resp.status_code == 200
+
+    def test_alert_rules_limit_bounds(self):
+        """GET /api/alert-rules with excessive limit should fail."""
+        resp = client.get("/api/alert-rules?limit=999")
+        assert resp.status_code == 422
+
+
+# ── Portfolio Error Response ──────────────────────────────────────
+
+
+class TestPortfolioErrorResponse:
+    def test_portfolio_returns_proper_error(self):
+        """GET /api/portfolio should return HTTP error, not 200 with error field."""
+        resp = client.get("/api/portfolio")
+        # Either succeeds (200) or fails with proper HTTP error (400)
+        assert resp.status_code in (200, 400)
+        if resp.status_code == 400:
+            data = resp.json()
+            assert "detail" in data

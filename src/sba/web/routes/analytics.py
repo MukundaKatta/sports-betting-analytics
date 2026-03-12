@@ -10,7 +10,7 @@ from fastapi import APIRouter, Query
 from pydantic import BaseModel
 
 from sba.data.db import get_connection
-from sba.utils.cache import cache
+from sba.utils.cache import cache, cached_response
 from sba.web.api import repo
 from sba.web.errors import safe_endpoint
 
@@ -79,6 +79,7 @@ def _row_to_dict(r) -> dict:
 # ── Endpoints ────────────────────────────────────────────────────────
 
 @router.get("/analytics", response_model=AnalyticsResponse)
+@cached_response(ttl=120, prefix="analytics")
 @safe_endpoint
 def get_analytics():
     """Get detailed betting analytics breakdown using SQL aggregations."""
@@ -186,6 +187,7 @@ def get_analytics():
 
 
 @router.get("/analytics/advanced")
+@cached_response(ttl=120, prefix="analytics_advanced")
 @safe_endpoint
 def get_advanced_analytics():
     """Get advanced performance metrics: Sharpe, max drawdown, CLV, streaks."""
@@ -310,6 +312,7 @@ def get_advanced_analytics():
 # ── Analytics Breakdowns ─────────────────────────────────────────────
 
 @router.get("/analytics/by-sport")
+@cached_response(ttl=180, prefix="analytics_by_sport")
 @safe_endpoint
 def analytics_by_sport():
     """Performance breakdown by sport (NBA, NFL, MLB, etc.)."""
@@ -397,6 +400,7 @@ def analytics_streaks():
 
 
 @router.get("/analytics/heatmap")
+@cached_response(ttl=180, prefix="analytics_heatmap")
 @safe_endpoint
 def analytics_heatmap():
     """Day-of-week x hour performance heatmap."""

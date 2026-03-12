@@ -33,6 +33,7 @@ class EventResponse(BaseModel):
 # ── Endpoints ────────────────────────────────────────────────────────
 
 @router.get("/events", response_model=list[EventResponse])
+@cached_response(ttl=300, prefix="events")
 @safe_endpoint
 def get_events(sport: str = Query(None)):
     """Get upcoming events from the database."""
@@ -53,6 +54,7 @@ def get_events(sport: str = Query(None)):
 
 
 @router.get("/line-movement/{event_id}")
+@cached_response(ttl=600, prefix="line_movement")
 @safe_endpoint
 def get_line_movement(event_id: str, market: str = Query("h2h")):
     """Get line movement history for an event."""
@@ -72,6 +74,7 @@ def get_line_movement(event_id: str, market: str = Query("h2h")):
 
 
 @router.get("/odds-comparison/{event_id}")
+@cached_response(ttl=300, prefix="odds_comparison")
 @safe_endpoint
 def get_odds_comparison(event_id: str, market: str = Query("h2h")):
     """Get latest odds from all bookmakers for an event, grouped by outcome."""
@@ -110,6 +113,7 @@ def get_odds_comparison(event_id: str, market: str = Query("h2h")):
 
 
 @router.get("/live-odds")
+@cached_response(ttl=30, prefix="live_odds")
 @safe_endpoint
 def get_live_odds(limit: int = Query(20, ge=1, le=500)):
     """Get most recent odds snapshots as a live feed."""
@@ -224,6 +228,7 @@ def odds_screen(
 
 
 @router.get("/consensus/{event_id}")
+@cached_response(ttl=300, prefix="consensus")
 @safe_endpoint
 def get_consensus(event_id: str):
     """Get consensus odds and implied probabilities across all books.

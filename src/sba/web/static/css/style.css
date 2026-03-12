@@ -1814,27 +1814,6 @@ input:focus-visible, select:focus-visible, button:focus-visible {
     line-height: 1.4;
 }
 
-/* ── Skeleton Loading ─────────────────────────────────────────────── */
-
-.skeleton {
-    background: linear-gradient(90deg,
-        rgba(255, 255, 255, 0.04) 25%,
-        rgba(255, 255, 255, 0.08) 50%,
-        rgba(255, 255, 255, 0.04) 75%);
-    background-size: 200% 100%;
-    animation: skeleton-shimmer 1.5s ease-in-out infinite;
-    border-radius: var(--radius-sm);
-}
-
-.skeleton-text { height: 14px; width: 60%; margin-bottom: 8px; }
-.skeleton-title { height: 28px; width: 40%; margin-bottom: 12px; }
-.skeleton-card { height: 120px; width: 100%; }
-
-@keyframes skeleton-shimmer {
-    0% { background-position: -200% 0; }
-    100% { background-position: 200% 0; }
-}
-
 /* ── Mobile Overlay ───────────────────────────────────────────────── */
 
 .sidebar-overlay {
@@ -1904,15 +1883,6 @@ input:focus-visible, select:focus-visible, button:focus-visible {
         radial-gradient(ellipse 50% 50% at 50% 80%, rgba(139, 63, 212, 0.03), transparent);
 }
 
-[data-theme="light"] .skeleton {
-    background: linear-gradient(90deg,
-        rgba(0, 0, 0, 0.04) 25%,
-        rgba(0, 0, 0, 0.08) 50%,
-        rgba(0, 0, 0, 0.04) 75%);
-    background-size: 200% 100%;
-    animation: skeleton-shimmer 1.5s ease-in-out infinite;
-}
-
 [data-theme="light"] ::-webkit-scrollbar-thumb {
     background: rgba(0, 0, 0, 0.12);
 }
@@ -1962,20 +1932,6 @@ input:focus-visible, select:focus-visible, button:focus-visible {
 [data-tooltip]:hover::before {
     opacity: 1;
     transform: translateX(-50%) scale(1);
-}
-
-/* ── Skeleton Loader ──────────────────────────────────────────────── */
-
-.skeleton {
-    background: linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.04) 75%);
-    background-size: 200% 100%;
-    animation: skeleton-loading 1.5s ease-in-out infinite;
-    border-radius: var(--radius-sm);
-}
-
-@keyframes skeleton-loading {
-    0% { background-position: 200% 0; }
-    100% { background-position: -200% 0; }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
@@ -4968,41 +4924,6 @@ html {
     color: var(--accent-green);
 }
 
-/* ── 11. Skeleton Loading Placeholders ──────────────────────────── */
-
-.skeleton {
-    background: linear-gradient(90deg,
-        var(--bg-tertiary) 25%,
-        rgba(255, 255, 255, 0.05) 50%,
-        var(--bg-tertiary) 75%
-    );
-    background-size: 200% 100%;
-    animation: skeleton-shimmer 1.5s infinite;
-    border-radius: var(--radius-sm);
-}
-
-.skeleton-text {
-    height: 14px;
-    width: 80%;
-    margin: 8px 0;
-}
-
-.skeleton-heading {
-    height: 24px;
-    width: 60%;
-    margin: 12px 0;
-}
-
-.skeleton-card {
-    height: 120px;
-    width: 100%;
-}
-
-@keyframes skeleton-shimmer {
-    0% { background-position: 200% 0; }
-    100% { background-position: -200% 0; }
-}
-
 /* ── 12. Page Transition Animations ─────────────────────────────── */
 
 .content-area {
@@ -5215,15 +5136,6 @@ html {
 
 [data-theme="light"] .onboarding-card {
     background: #fff;
-}
-
-[data-theme="light"] .skeleton {
-    background: linear-gradient(90deg,
-        #e5e7eb 25%,
-        #f3f4f6 50%,
-        #e5e7eb 75%
-    );
-    background-size: 200% 100%;
 }
 
 [data-theme="light"] #nprogress-bar {
@@ -5728,6 +5640,38 @@ html {
         font-size: 12px;
         padding: 7px 10px;
     }
+
+    /* Responsive table: horizontal scroll with scroll hint */
+    .data-table-wrapper,
+    .card-body:has(.data-table) {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .data-table {
+        min-width: 600px;
+    }
+
+    .data-table th,
+    .data-table td {
+        padding: 8px 10px;
+        font-size: 12px;
+        white-space: nowrap;
+    }
+
+    /* Dashboard grid stacking */
+    .dashboard-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .dashboard-grid .full-width {
+        grid-column: 1;
+    }
+
+    /* Steps grid stacking */
+    .steps-grid {
+        grid-template-columns: 1fr 1fr;
+    }
 }
 
 @media (max-width: 480px) {
@@ -5741,6 +5685,15 @@ html {
 
     .quick-actions-grid {
         grid-template-columns: repeat(2, 1fr);
+    }
+
+    .steps-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .data-table {
+        min-width: 500px;
+        font-size: 11px;
     }
 }
 

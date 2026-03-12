@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, HTTPException, Query
 
 from sba.config import get_settings
 
@@ -25,7 +25,7 @@ def get_daily_portfolio(
     """Build a diversified daily betting portfolio from available edges."""
     settings = get_settings()
     if not settings.ODDS_API_KEY:
-        return {"portfolio": [], "summary": {}, "error": "ODDS_API_KEY not configured"}
+        raise HTTPException(400, "ODDS_API_KEY not configured")
 
     from sba.services.edge_finder import EdgeFinder
     from sba.services.portfolio import build_portfolio

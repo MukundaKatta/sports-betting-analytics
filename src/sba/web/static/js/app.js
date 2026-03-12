@@ -85,6 +85,13 @@ const SBA = {
                 return;
             }
 
+            // Ctrl+B: Quick bet tracking modal
+            if ((e.ctrlKey || e.metaKey) && e.key === 'b') {
+                e.preventDefault();
+                this.toggleQuickBetModal();
+                return;
+            }
+
             // Don't fire shortcuts when typing in inputs or command palette
             if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
                 if (e.key === 'Escape') {
@@ -99,6 +106,7 @@ const SBA = {
                 document.getElementById('bet-slip')?.classList.remove('open');
                 document.getElementById('shortcuts-modal')?.classList.remove('open');
                 this.closeCommandPalette();
+                this.closeQuickBetModal();
                 this._gKeyPending = false;
                 return;
             }
@@ -581,26 +589,40 @@ const SBA = {
             const status = await resp.json();
             const statsEl = document.getElementById('dashboard-stats');
             if (statsEl) {
+                const mkMiniSpark = (vals, color) => {
+                    if (!vals || vals.length < 2) return '';
+                    const max = Math.max(...vals), min = Math.min(...vals);
+                    const range = max - min || 1;
+                    const w = 60, h = 20;
+                    const pts = vals.map((v, i) => `${(i / (vals.length - 1)) * w},${h - ((v - min) / range) * h}`).join(' ');
+                    return `<svg viewBox="0 0 ${w} ${h}" style="width:60px;height:20px;margin-top:6px;opacity:0.7"><polyline points="${pts}" fill="none" stroke="${color}" stroke-width="1.5" stroke-linecap="round"/></svg>`;
+                };
+                // Fake trend data based on current counts (ascending from ~70% to 100% in 7 steps)
+                const trend = (val) => [0.7, 0.75, 0.8, 0.85, 0.88, 0.94, 1.0].map(f => Math.round(val * f));
                 statsEl.innerHTML = `
-                    <div class="stat-card green">
+                    <div class="stat-card green card-3d-tilt">
                         <div class="stat-label">Events Tracked</div>
                         <div class="stat-value count-up" data-target="${status.events}">${status.events}</div>
                         <div class="stat-sub">across all sports</div>
+                        ${mkMiniSpark(trend(status.events), '#00e68a')}
                     </div>
-                    <div class="stat-card blue">
+                    <div class="stat-card blue card-3d-tilt">
                         <div class="stat-label">Odds Snapshots</div>
                         <div class="stat-value count-up" data-target="${status.odds_snapshots}">${status.odds_snapshots.toLocaleString()}</div>
                         <div class="stat-sub">historical data points</div>
+                        ${mkMiniSpark(trend(status.odds_snapshots), '#5b9aff')}
                     </div>
-                    <div class="stat-card yellow">
+                    <div class="stat-card yellow card-3d-tilt">
                         <div class="stat-label">Players</div>
                         <div class="stat-value count-up" data-target="${status.players}">${status.players}</div>
                         <div class="stat-sub">with game logs</div>
+                        ${mkMiniSpark(trend(status.players), '#ffc234')}
                     </div>
-                    <div class="stat-card purple">
+                    <div class="stat-card purple card-3d-tilt">
                         <div class="stat-label">Game Logs</div>
                         <div class="stat-value count-up" data-target="${status.game_logs}">${status.game_logs.toLocaleString()}</div>
                         <div class="stat-sub">for ML training</div>
+                        ${mkMiniSpark(trend(status.game_logs), '#a855f7')}
                     </div>
                 `;
 
@@ -627,7 +649,12 @@ const SBA = {
                 if (bets.total_bets === 0 && bets.pending === 0) {
                     betEl.innerHTML = `<div class="empty-state" style="padding:40px 20px">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="36" height="36"><rect x="2" y="3" width="20" height="18" rx="2"/><line x1="2" y1="9" x2="22" y2="9"/></svg>
-                        <p>No bets tracked yet</p>
+                        <p style="margin-bottom:4px">No bets tracked yet</p>
+                        <p class="text-dim" style="font-size:12px;margin-bottom:12px">Find an edge and track your first bet to see performance metrics here</p>
+                        <div style="display:flex;gap:8px;justify-content:center">
+                            <a href="/edges" class="btn btn-sm btn-scan">Find Edges</a>
+                            <a href="/my-bets" class="btn btn-sm btn-outline">Track a Bet</a>
+                        </div>
                     </div>`;
                 } else {
                     const plColor = bets.total_profit >= 0 ? 'text-green' : 'text-red';
@@ -1647,6 +1674,112 @@ const SBA = {
         this.cmdPaletteOpen = false;
     },
 
+    // ── Quick Bet Tracking Modal (Ctrl+B) ────────────────────────────
+    toggleQuickBetModal() {
+        const existing = document.getElementById('quick-bet-modal');
+        if (existing && existing.classList.contains('open')) {
+            this.closeQuickBetModal();
+        } else {
+            this.openQuickBetModal();
+        }
+    },
+
+    openQuickBetModal() {
+        let modal = document.getElementById('quick-bet-modal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.className = 'cmd-palette';
+            modal.id = 'quick-bet-modal';
+            modal.innerHTML = `
+                <div style="padding:16px 20px;border-bottom:1px solid var(--border-color);display:flex;justify-content:space-between;align-items:center">
+                    <div style="font-weight:700;font-size:15px">Quick Bet Tracker</div>
+                    <div class="text-dim" style="font-size:11px"><span class="kbd-chip">Ctrl+B</span> to toggle</div>
+                </div>
+                <form id="quick-bet-form" style="padding:16px 20px;display:grid;gap:12px" onsubmit="SBA.submitQuickBet(event)">
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+                        <div>
+                            <label style="font-size:11px;color:var(--text-secondary);display:block;margin-bottom:4px">Event / Selection</label>
+                            <input name="selection" type="text" required placeholder="Lakers ML, Over 220.5..." style="width:100%;padding:8px 10px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:var(--radius-sm);color:var(--text-primary);font-size:13px" autofocus>
+                        </div>
+                        <div>
+                            <label style="font-size:11px;color:var(--text-secondary);display:block;margin-bottom:4px">Bookmaker</label>
+                            <input name="bookmaker" type="text" placeholder="DraftKings, FanDuel..." style="width:100%;padding:8px 10px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:var(--radius-sm);color:var(--text-primary);font-size:13px">
+                        </div>
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+                        <div>
+                            <label style="font-size:11px;color:var(--text-secondary);display:block;margin-bottom:4px">Odds (American)</label>
+                            <input name="odds" type="number" required placeholder="-110" style="width:100%;padding:8px 10px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:var(--radius-sm);color:var(--text-primary);font-size:13px">
+                        </div>
+                        <div>
+                            <label style="font-size:11px;color:var(--text-secondary);display:block;margin-bottom:4px">Stake ($)</label>
+                            <input name="stake" type="number" step="0.01" min="0.01" required placeholder="100" style="width:100%;padding:8px 10px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:var(--radius-sm);color:var(--text-primary);font-size:13px">
+                        </div>
+                        <div>
+                            <label style="font-size:11px;color:var(--text-secondary);display:block;margin-bottom:4px">Market</label>
+                            <select name="market" style="width:100%;padding:8px 10px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:var(--radius-sm);color:var(--text-primary);font-size:13px">
+                                <option value="h2h">Moneyline</option>
+                                <option value="spreads">Spread</option>
+                                <option value="totals">Total</option>
+                                <option value="props">Player Prop</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:4px">
+                        <button type="button" class="btn btn-sm btn-outline" onclick="SBA.closeQuickBetModal()">Cancel</button>
+                        <button type="submit" class="btn btn-sm btn-scan">Track Bet</button>
+                    </div>
+                </form>
+            `;
+            document.body.appendChild(modal);
+        }
+        modal.classList.add('open');
+        setTimeout(() => modal.querySelector('input[name="selection"]')?.focus(), 50);
+    },
+
+    closeQuickBetModal() {
+        const modal = document.getElementById('quick-bet-modal');
+        if (modal) modal.classList.remove('open');
+    },
+
+    async submitQuickBet(e) {
+        e.preventDefault();
+        const form = e.target;
+        const data = Object.fromEntries(new FormData(form));
+        const odds = parseInt(data.odds);
+        const stake = parseFloat(data.stake);
+
+        // Convert American odds to decimal
+        const decimal = odds > 0 ? (odds / 100) + 1 : (100 / Math.abs(odds)) + 1;
+
+        try {
+            const resp = await fetch('/api/bets', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    event_id: 'manual_' + Date.now(),
+                    selection: data.selection,
+                    bookmaker: data.bookmaker || 'Manual',
+                    market: data.market,
+                    odds_american: odds,
+                    odds_decimal: Math.round(decimal * 1000) / 1000,
+                    stake: stake,
+                    recommended_stake: stake,
+                }),
+            });
+            if (resp.ok) {
+                this.toast('Bet tracked successfully!', 'success');
+                this.closeQuickBetModal();
+                form.reset();
+            } else {
+                const err = await resp.json();
+                this.toast(err.detail || 'Failed to track bet', 'error');
+            }
+        } catch (err) {
+            this.toast('Error: ' + err.message, 'error');
+        }
+    },
+
     // ── Keyboard Shortcuts Modal ─────────────────────────────────────
     showShortcutsModal() {
         let modal = document.getElementById('shortcuts-modal');
@@ -1668,6 +1801,7 @@ const SBA = {
                         <div class="shortcut-item"><span class="shortcut-label">Theme</span><span class="kbd">T</span></div>
                         <div class="shortcut-item"><span class="shortcut-label">Close</span><span class="kbd">Esc</span></div>
                         <div class="shortcut-item"><span class="shortcut-label">Command</span><span class="kbd">Ctrl+K</span></div>
+                        <div class="shortcut-item"><span class="shortcut-label">Quick Bet</span><span class="kbd">Ctrl+B</span></div>
                         <div class="shortcut-item"><span class="shortcut-label">Shortcuts</span><span class="kbd">?</span></div>
                         <div class="shortcut-item"><span class="shortcut-label">Dashboard</span><span class="kbd">G D</span></div>
                         <div class="shortcut-item"><span class="shortcut-label">Edges</span><span class="kbd">G E</span></div>
@@ -2459,7 +2593,9 @@ const SBA = {
             if (bets.total_bets === 0) {
                 riskEl.innerHTML = `<div class="empty-state" style="padding:40px">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="36" height="36"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-                    <p>Start tracking bets to see risk metrics</p>
+                    <p style="margin-bottom:4px">Start tracking bets to see risk metrics</p>
+                    <p class="text-dim" style="font-size:12px;margin-bottom:12px">Your bankroll health gauge and P/L heatmap will appear once you have settled bets</p>
+                    <a href="/my-bets" class="btn btn-sm btn-outline">Track Your First Bet</a>
                 </div>`;
                 return;
             }

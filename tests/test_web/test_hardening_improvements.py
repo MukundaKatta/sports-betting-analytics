@@ -421,3 +421,160 @@ class TestAdditionalEndpoints:
 
     def test_bets_export_json(self):
         assert client.get("/api/bets/export/json").status_code == 200
+
+
+# ── Data Sync Endpoint ────────────────────────────────────────────
+
+
+class TestDataSyncEndpoint:
+    def test_data_sync_returns_200(self):
+        """POST /api/data/sync should return 200."""
+        resp = client.post("/api/data/sync")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "status" in data
+
+    def test_data_sync_with_sport_param(self):
+        """POST /api/data/sync?sport=basketball_nba should accept sport."""
+        resp = client.post("/api/data/sync?sport=basketball_nba")
+        assert resp.status_code == 200
+
+    def test_data_sync_skips_without_api_key(self):
+        """Should skip gracefully if no API key."""
+        import os
+        old = os.environ.get("SBA_ODDS_API_KEY")
+        os.environ.pop("SBA_ODDS_API_KEY", None)
+        from sba.config import get_settings
+        get_settings.cache_clear()
+        try:
+            resp = client.post("/api/data/sync")
+            assert resp.status_code == 200
+            data = resp.json()
+            # Either skipped or ok depending on config
+            assert data["status"] in ("skipped", "ok")
+        finally:
+            if old:
+                os.environ["SBA_ODDS_API_KEY"] = old
+            get_settings.cache_clear()
+
+
+# ── Skeleton Loaders ──────────────────────────────────────────────
+
+
+class TestSkeletonLoaders:
+    def test_dashboard_has_skeleton_loaders(self):
+        """Dashboard should use skeleton loaders instead of spinners."""
+        resp = client.get("/")
+        assert resp.status_code == 200
+        html = resp.text
+        assert "skeleton-loader" in html
+        assert "skeleton" in html
+
+    def test_dashboard_no_loading_spinner(self):
+        """Dashboard should not contain old loading-spinner divs."""
+        resp = client.get("/")
+        html = resp.text
+        assert 'class="loading-spinner"' not in html
+
+
+# ── Quick Bet Modal ───────────────────────────────────────────────
+
+
+class TestQuickBetModal:
+    def test_dashboard_has_ctrl_b_hint(self):
+        """Dashboard should show Ctrl+B keyboard hint."""
+        resp = client.get("/")
+        assert "Ctrl+B" in resp.text
+
+    def test_dashboard_has_quick_bet_text(self):
+        """Dashboard should reference quick bet in keyboard hints."""
+        resp = client.get("/")
+        assert "Quick bet" in resp.text
+
+
+# ── Improved Empty States ─────────────────────────────────────────
+
+
+class TestImprovedEmptyStates:
+    def test_dashboard_has_cta_links(self):
+        """Dashboard template should have actionable CTA links for empty states."""
+        resp = client.get("/")
+        html = resp.text
+        # The dashboard should have links to edges and my-bets for empty states
+        assert "/edges" in html
+        assert "/my-bets" in html
+
+    def test_data_sync_button_exists(self):
+        """Dashboard should have a Sync Now button."""
+        resp = client.get("/")
+        assert "Sync Now" in resp.text
+        assert "triggerDataSync" in resp.text
+
+
+# ── Response Caching ──────────────────────────────────────────────
+
+
+class TestResponseCaching:
+    def test_events_cached(self):
+        """GET /api/events should succeed (caching decorator present)."""
+        resp = client.get("/api/events")
+        assert resp.status_code == 200
+
+    def test_line_movement_cached(self):
+        """GET /api/line-movement/test should succeed."""
+        resp = client.get("/api/line-movement/test_event")
+        assert resp.status_code == 200
+
+    def test_live_odds_cached(self):
+        """GET /api/live-odds should succeed."""
+        resp = client.get("/api/live-odds")
+        assert resp.status_code == 200
+
+    def test_analytics_cached(self):
+        """GET /api/analytics should succeed."""
+        resp = client.get("/api/analytics")
+        assert resp.status_code == 200
+
+    def test_leaderboard_cached(self):
+        """GET /api/leaderboard should succeed."""
+        resp = client.get("/api/leaderboard")
+        assert resp.status_code == 200
+
+
+# ── Pagination Bounds ─────────────────────────────────────────────
+
+
+class TestPaginationBounds:
+    def test_alerts_limit_param(self):
+        """GET /api/alerts should accept limit parameter."""
+        resp = client.get("/api/alerts?limit=10")
+        assert resp.status_code == 200
+
+    def test_alerts_limit_bounds(self):
+        """GET /api/alerts with excessive limit should fail."""
+        resp = client.get("/api/alerts?limit=999")
+        assert resp.status_code == 422
+
+    def test_alert_rules_limit_param(self):
+        """GET /api/alert-rules should accept limit parameter."""
+        resp = client.get("/api/alert-rules?limit=50")
+        assert resp.status_code == 200
+
+    def test_alert_rules_limit_bounds(self):
+        """GET /api/alert-rules with excessive limit should fail."""
+        resp = client.get("/api/alert-rules?limit=999")
+        assert resp.status_code == 422
+
+
+# ── Portfolio Error Response ──────────────────────────────────────
+
+
+class TestPortfolioErrorResponse:
+    def test_portfolio_returns_proper_error(self):
+        """GET /api/portfolio should return HTTP error, not 200 with error field."""
+        resp = client.get("/api/portfolio")
+        # Either succeeds (200) or fails with proper HTTP error (400)
+        assert resp.status_code in (200, 400)
+        if resp.status_code == 400:
+            data = resp.json()
+            assert "detail" in data

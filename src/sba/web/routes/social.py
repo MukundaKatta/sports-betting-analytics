@@ -8,6 +8,7 @@ from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
 from sba.data.db import get_connection
+from sba.utils.cache import cached_response
 from sba.web.errors import safe_endpoint
 
 logger = logging.getLogger(__name__)
@@ -52,11 +53,12 @@ class CreateAlertRuleRequest(BaseModel):
 
 @router.get("/alerts")
 @safe_endpoint
-def get_alerts():
+def get_alerts(limit: int = Query(50, ge=1, le=200)):
     """Get pending edge alerts from database."""
     with get_connection() as conn:
         rows = conn.execute(
-            "SELECT * FROM alerts WHERE read = 0 ORDER BY created_at DESC LIMIT 50"
+            "SELECT * FROM alerts WHERE read = 0 ORDER BY created_at DESC LIMIT ?",
+            (limit,),
         ).fetchall()
     alerts = [
         {
@@ -102,11 +104,12 @@ def dismiss_alert(alert_id: int):
 
 @router.get("/alert-rules")
 @safe_endpoint
-def get_alert_rules():
+def get_alert_rules(limit: int = Query(100, ge=1, le=500)):
     """Get all configured alert rules."""
     with get_connection() as conn:
         rows = conn.execute(
-            "SELECT * FROM alert_rules ORDER BY created_at DESC"
+            "SELECT * FROM alert_rules ORDER BY created_at DESC LIMIT ?",
+            (limit,),
         ).fetchall()
     return [
         {
@@ -210,6 +213,7 @@ def remove_from_watchlist(event_id: str):
 # ── Leaderboard ──────────────────────────────────────────────────────
 
 @router.get("/leaderboard")
+@cached_response(ttl=300, prefix="leaderboard")
 @safe_endpoint
 def get_leaderboard(limit: int = Query(25, ge=1, le=100)):
     """Get the community leaderboard ranked by score."""

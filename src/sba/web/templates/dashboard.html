@@ -90,7 +90,12 @@
             <a href="/my-bets" class="btn btn-outline btn-sm">View All</a>
         </div>
         <div class="card-body" id="dashboard-bets">
-            <div class="loading-spinner"><div class="spinner"></div> Loading...</div>
+            <div class="skeleton-loader" style="padding:24px;display:grid;grid-template-columns:repeat(4,1fr);gap:16px;text-align:center">
+                <div><div class="skeleton" style="height:28px;width:70%;margin:0 auto 8px"></div><div class="skeleton skeleton-text" style="width:50%;margin:0 auto"></div></div>
+                <div><div class="skeleton" style="height:48px;width:48px;border-radius:50%;margin:0 auto 8px"></div><div class="skeleton skeleton-text" style="width:50%;margin:0 auto"></div></div>
+                <div><div class="skeleton" style="height:28px;width:40%;margin:0 auto 8px"></div><div class="skeleton skeleton-text" style="width:50%;margin:0 auto"></div></div>
+                <div><div class="skeleton" style="height:28px;width:60%;margin:0 auto 8px"></div><div class="skeleton skeleton-text" style="width:50%;margin:0 auto"></div></div>
+            </div>
         </div>
     </div>
 
@@ -104,7 +109,10 @@
             <a href="/analytics" class="btn btn-outline btn-sm">Full Analytics</a>
         </div>
         <div class="card-body padded" id="dashboard-risk">
-            <div class="loading-spinner"><div class="spinner"></div> Loading risk metrics...</div>
+            <div class="skeleton-loader" style="display:grid;grid-template-columns:200px 1fr;gap:24px">
+                <div style="text-align:center"><div class="skeleton" style="height:120px;width:120px;border-radius:50%;margin:0 auto 12px"></div><div class="skeleton skeleton-text" style="width:80%;margin:4px auto"></div><div class="skeleton skeleton-text" style="width:60%;margin:4px auto"></div><div class="skeleton skeleton-text" style="width:70%;margin:4px auto"></div></div>
+                <div><div class="skeleton skeleton-text" style="width:30%;margin-bottom:12px"></div><div class="skeleton" style="height:80px;width:100%"></div></div>
+            </div>
         </div>
     </div>
 
@@ -164,7 +172,16 @@
             </h3>
         </div>
         <div class="card-body padded" id="today-pnl">
-            <div class="loading-spinner"><div class="spinner"></div> Loading...</div>
+            <div class="skeleton-loader" style="text-align:center;padding:8px 0">
+                <div class="skeleton" style="height:40px;width:35%;margin:0 auto 8px"></div>
+                <div class="skeleton skeleton-text" style="width:20%;margin:0 auto 16px"></div>
+                <div style="display:flex;justify-content:center;gap:20px">
+                    <div><div class="skeleton" style="height:14px;width:40px;margin-bottom:4px"></div><div class="skeleton" style="height:20px;width:30px"></div></div>
+                    <div><div class="skeleton" style="height:14px;width:40px;margin-bottom:4px"></div><div class="skeleton" style="height:20px;width:30px"></div></div>
+                    <div><div class="skeleton" style="height:14px;width:40px;margin-bottom:4px"></div><div class="skeleton" style="height:20px;width:30px"></div></div>
+                    <div><div class="skeleton" style="height:14px;width:50px;margin-bottom:4px"></div><div class="skeleton" style="height:20px;width:40px"></div></div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -178,7 +195,13 @@
             <a href="/analytics" class="btn btn-outline btn-sm">Details</a>
         </div>
         <div class="card-body padded" id="equity-curve">
-            <div class="loading-spinner"><div class="spinner"></div> Loading...</div>
+            <div class="skeleton-loader">
+                <div style="display:flex;justify-content:space-between;margin-bottom:12px">
+                    <div><div class="skeleton" style="height:12px;width:80px;margin-bottom:4px"></div><div class="skeleton" style="height:24px;width:100px"></div></div>
+                    <div style="text-align:right"><div class="skeleton" style="height:12px;width:60px;margin-bottom:4px"></div><div class="skeleton" style="height:20px;width:120px"></div></div>
+                </div>
+                <div class="skeleton" style="height:100px;width:100%;border-radius:var(--radius-sm)"></div>
+            </div>
         </div>
     </div>
 
@@ -193,7 +216,13 @@
             <a href="/risk-metrics" class="btn btn-outline btn-sm">Details</a>
         </div>
         <div class="card-body padded" id="dash-health-score">
-            <div class="loading-spinner"><div class="spinner"></div> Loading...</div>
+            <div class="skeleton-loader" style="text-align:center">
+                <div class="skeleton" style="height:48px;width:60px;margin:0 auto 4px"></div>
+                <div class="skeleton" style="height:16px;width:50px;margin:0 auto 16px"></div>
+                <div style="margin-bottom:8px"><div class="skeleton" style="height:4px;width:100%;border-radius:2px"></div></div>
+                <div style="margin-bottom:8px"><div class="skeleton" style="height:4px;width:100%;border-radius:2px"></div></div>
+                <div><div class="skeleton" style="height:4px;width:100%;border-radius:2px"></div></div>
+            </div>
         </div>
     </div>
 
@@ -207,7 +236,13 @@
             <a href="/performance-digest" class="btn btn-outline btn-sm">Full Report</a>
         </div>
         <div class="card-body padded" id="dash-digest">
-            <div class="loading-spinner"><div class="spinner"></div> Loading...</div>
+            <div class="skeleton-loader" style="display:flex;align-items:center;gap:16px">
+                <div class="skeleton" style="height:40px;width:40px;border-radius:var(--radius-sm);flex-shrink:0"></div>
+                <div style="flex:1">
+                    <div class="skeleton" style="height:22px;width:100px;margin-bottom:6px"></div>
+                    <div class="skeleton skeleton-text" style="width:75%"></div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -221,7 +256,14 @@
             <a href="/achievements" class="btn btn-outline btn-sm">View All</a>
         </div>
         <div class="card-body padded" id="dash-achievements">
-            <div class="loading-spinner"><div class="spinner"></div> Loading...</div>
+            <div class="skeleton-loader" style="text-align:center">
+                <div class="skeleton" style="height:26px;width:80px;margin:0 auto 6px"></div>
+                <div class="skeleton skeleton-text" style="width:55%;margin:0 auto 12px"></div>
+                <div style="display:flex;gap:8px;justify-content:center">
+                    <div class="skeleton" style="height:22px;width:70px;border-radius:12px"></div>
+                    <div class="skeleton" style="height:22px;width:80px;border-radius:12px"></div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -236,7 +278,11 @@
             <a href="/insights" class="btn btn-outline btn-sm">View All</a>
         </div>
         <div class="card-body padded" id="dash-insights">
-            <div class="loading-spinner"><div class="spinner"></div> Loading...</div>
+            <div class="skeleton-loader">
+                <div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.04)"><div style="display:flex;align-items:center;gap:6px;margin-bottom:4px"><div class="skeleton" style="width:8px;height:8px;border-radius:50%"></div><div class="skeleton" style="height:14px;width:55%"></div></div><div class="skeleton skeleton-text" style="width:70%;margin-left:14px"></div></div>
+                <div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.04)"><div style="display:flex;align-items:center;gap:6px;margin-bottom:4px"><div class="skeleton" style="width:8px;height:8px;border-radius:50%"></div><div class="skeleton" style="height:14px;width:45%"></div></div><div class="skeleton skeleton-text" style="width:60%;margin-left:14px"></div></div>
+                <div style="padding:8px 0"><div style="display:flex;align-items:center;gap:6px;margin-bottom:4px"><div class="skeleton" style="width:8px;height:8px;border-radius:50%"></div><div class="skeleton" style="height:14px;width:50%"></div></div><div class="skeleton skeleton-text" style="width:65%;margin-left:14px"></div></div>
+            </div>
         </div>
     </div>
 
@@ -253,7 +299,10 @@
                 <div class="step-card card-3d-tilt">
                     <div class="step-number" style="background:var(--accent-green-dim);color:var(--accent-green)">1</div>
                     <div class="step-title" style="color:var(--accent-green)">Sync Data</div>
-                    <code class="step-code">sba data sync</code>
+                    <button class="btn btn-scan btn-sm" id="btn-data-sync" onclick="triggerDataSync(this)" style="margin:8px 0">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14" style="vertical-align:-2px"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                        Sync Now
+                    </button>
                     <p class="step-desc">Fetch live odds from 20+ sportsbooks via The Odds API</p>
                 </div>
                 <div class="step-card card-3d-tilt">
@@ -282,6 +331,7 @@
 <!-- Keyboard shortcuts hint -->
 <div class="frosted-panel reveal-up" style="margin-top:24px;display:flex;gap:16px;justify-content:center;flex-wrap:wrap;padding:16px;animation-delay:0.5s">
     <span class="text-dim" style="font-size:11px"><span class="kbd-chip">Ctrl+K</span> Command palette</span>
+    <span class="text-dim" style="font-size:11px"><span class="kbd-chip">Ctrl+B</span> Quick bet</span>
     <span class="text-dim" style="font-size:11px"><span class="kbd-chip">/</span> Search</span>
     <span class="text-dim" style="font-size:11px"><span class="kbd-chip">G</span> then <span class="kbd-chip">D</span> Navigate</span>
     <span class="text-dim" style="font-size:11px"><span class="kbd-chip">?</span> All shortcuts</span>
@@ -314,7 +364,7 @@ async function loadTodayPnl() {
     } catch (err) {
         console.error('Today P/L error:', err);
         const el = document.getElementById('today-pnl');
-        if (el) el.innerHTML = '<div class="text-dim" style="text-align:center;padding:20px">No bets placed today yet.</div>';
+        if (el) el.innerHTML = '<div class="text-dim" style="text-align:center;padding:20px">No bets placed today yet. <a href="/edges" style="color:var(--accent-green)">Find edges</a> to get started.</div>';
     }
 }
 
@@ -324,7 +374,7 @@ async function loadEquityCurve() {
         const d = await resp.json();
         const el = document.getElementById('equity-curve');
         if (d.curve.length === 0) {
-            el.innerHTML = '<div class="text-dim" style="text-align:center;padding:20px">No settled bets yet — start tracking to see your equity curve.</div>';
+            el.innerHTML = '<div class="text-dim" style="text-align:center;padding:20px">No settled bets yet. <a href="/my-bets" style="color:var(--accent-blue)">Track bets</a> to see your equity curve over time.</div>';
             return;
         }
         const color = d.total_pnl >= 0 ? '#00e68a' : '#ff4d6a';
@@ -357,7 +407,7 @@ async function loadEquityCurve() {
     } catch (err) {
         console.error('Equity curve error:', err);
         const el = document.getElementById('equity-curve');
-        if (el) el.innerHTML = '<div class="text-dim" style="text-align:center;padding:20px">No settled bets yet — start tracking to see your equity curve.</div>';
+        if (el) el.innerHTML = '<div class="text-dim" style="text-align:center;padding:20px">No settled bets yet. <a href="/my-bets" style="color:var(--accent-blue)">Track bets</a> to see your equity curve over time.</div>';
     }
 }
 
@@ -391,7 +441,7 @@ async function loadDashAchievements() {
     } catch (err) {
         console.error('Achievements error:', err);
         const el = document.getElementById('dash-achievements');
-        if (el) el.innerHTML = '<div class="text-dim" style="text-align:center;padding:20px">Place bets to unlock achievements!</div>';
+        if (el) el.innerHTML = '<div class="text-dim" style="text-align:center;padding:20px">Place bets to unlock achievements! <a href="/achievements" style="color:var(--accent-yellow)">See all tiers</a></div>';
     }
 }
 
@@ -401,7 +451,7 @@ async function loadDashInsights() {
         const data = await resp.json();
         const el = document.getElementById('dash-insights');
         if (data.insights.length === 0) {
-            el.innerHTML = '<div class="text-dim" style="text-align:center;padding:12px">Track more bets to unlock insights.</div>';
+            el.innerHTML = '<div class="text-dim" style="text-align:center;padding:12px">Track 5+ bets to unlock AI-powered insights. <a href="/edges" style="color:var(--accent-green)">Start scanning</a></div>';
             return;
         }
         const sevColors = {critical:'#ff4d6a',warning:'#ffc234',success:'#00e68a',info:'#5b9aff'};
@@ -418,7 +468,7 @@ async function loadDashInsights() {
     } catch (err) {
         console.error('Insights error:', err);
         const el = document.getElementById('dash-insights');
-        if (el) el.innerHTML = '<div class="text-dim" style="text-align:center;padding:20px">Track more bets to unlock insights.</div>';
+        if (el) el.innerHTML = '<div class="text-dim" style="text-align:center;padding:20px">Track 5+ bets to unlock AI-powered insights. <a href="/edges" style="color:var(--accent-green)">Start scanning</a></div>';
     }
 }
 
@@ -450,7 +500,7 @@ async function loadHealthScore() {
         `;
     } catch (err) {
         const el = document.getElementById('dash-health-score');
-        if (el) el.innerHTML = '<div class="text-dim" style="text-align:center;padding:16px">Track 10+ bets to unlock health score.</div>';
+        if (el) el.innerHTML = '<div class="text-dim" style="text-align:center;padding:16px">Track 10+ bets to unlock your health score. <a href="/risk-metrics" style="color:var(--accent-purple)">Learn more</a></div>';
     }
 }
 
@@ -479,7 +529,28 @@ async function loadDashDigest() {
         `;
     } catch (err) {
         const el = document.getElementById('dash-digest');
-        if (el) el.innerHTML = '<div class="text-dim" style="text-align:center;padding:16px">Place bets to generate your weekly digest.</div>';
+        if (el) el.innerHTML = '<div class="text-dim" style="text-align:center;padding:16px">No bets this week yet. <a href="/edges" style="color:var(--accent-green)">Find edges</a> to generate your weekly digest.</div>';
+    }
+}
+
+async function triggerDataSync(btn) {
+    const orig = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<div class="spinner" style="width:14px;height:14px;display:inline-block;vertical-align:-2px"></div> Syncing...';
+    try {
+        const resp = await fetch('/api/data/sync', { method: 'POST' });
+        const d = await resp.json();
+        if (d.status === 'ok') {
+            SBA.toast(`Synced ${d.events_synced} events, ${d.scores_updated} scores updated`, 'success');
+            SBA.loadDashboard();
+        } else {
+            SBA.toast(d.reason || 'Sync skipped', 'info');
+        }
+    } catch (err) {
+        SBA.toast('Sync failed: ' + err.message, 'error');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = orig;
     }
 }
 

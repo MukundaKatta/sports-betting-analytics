@@ -811,6 +811,15 @@ input:focus-visible, select:focus-visible, button:focus-visible {
     box-shadow: inset 0 0 0 1px rgba(255, 77, 106, 0.15);
 }
 
+/* Edge "why" explanation row */
+.edge-why-hidden {
+    display: none;
+}
+
+.edge-row-toggle:hover {
+    background: var(--bg-card-hover, rgba(255,255,255,0.03));
+}
+
 .confidence-badge {
     display: inline-flex;
     align-items: center;

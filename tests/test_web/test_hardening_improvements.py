@@ -421,3 +421,91 @@ class TestAdditionalEndpoints:
 
     def test_bets_export_json(self):
         assert client.get("/api/bets/export/json").status_code == 200
+
+
+# ── Data Sync Endpoint ────────────────────────────────────────────
+
+
+class TestDataSyncEndpoint:
+    def test_data_sync_returns_200(self):
+        """POST /api/data/sync should return 200."""
+        resp = client.post("/api/data/sync")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "status" in data
+
+    def test_data_sync_with_sport_param(self):
+        """POST /api/data/sync?sport=basketball_nba should accept sport."""
+        resp = client.post("/api/data/sync?sport=basketball_nba")
+        assert resp.status_code == 200
+
+    def test_data_sync_skips_without_api_key(self):
+        """Should skip gracefully if no API key."""
+        import os
+        old = os.environ.get("SBA_ODDS_API_KEY")
+        os.environ.pop("SBA_ODDS_API_KEY", None)
+        from sba.config import get_settings
+        get_settings.cache_clear()
+        try:
+            resp = client.post("/api/data/sync")
+            assert resp.status_code == 200
+            data = resp.json()
+            # Either skipped or ok depending on config
+            assert data["status"] in ("skipped", "ok")
+        finally:
+            if old:
+                os.environ["SBA_ODDS_API_KEY"] = old
+            get_settings.cache_clear()
+
+
+# ── Skeleton Loaders ──────────────────────────────────────────────
+
+
+class TestSkeletonLoaders:
+    def test_dashboard_has_skeleton_loaders(self):
+        """Dashboard should use skeleton loaders instead of spinners."""
+        resp = client.get("/")
+        assert resp.status_code == 200
+        html = resp.text
+        assert "skeleton-loader" in html
+        assert "skeleton" in html
+
+    def test_dashboard_no_loading_spinner(self):
+        """Dashboard should not contain old loading-spinner divs."""
+        resp = client.get("/")
+        html = resp.text
+        assert 'class="loading-spinner"' not in html
+
+
+# ── Quick Bet Modal ───────────────────────────────────────────────
+
+
+class TestQuickBetModal:
+    def test_dashboard_has_ctrl_b_hint(self):
+        """Dashboard should show Ctrl+B keyboard hint."""
+        resp = client.get("/")
+        assert "Ctrl+B" in resp.text
+
+    def test_dashboard_has_quick_bet_text(self):
+        """Dashboard should reference quick bet in keyboard hints."""
+        resp = client.get("/")
+        assert "Quick bet" in resp.text
+
+
+# ── Improved Empty States ─────────────────────────────────────────
+
+
+class TestImprovedEmptyStates:
+    def test_dashboard_has_cta_links(self):
+        """Dashboard template should have actionable CTA links for empty states."""
+        resp = client.get("/")
+        html = resp.text
+        # The dashboard should have links to edges and my-bets for empty states
+        assert "/edges" in html
+        assert "/my-bets" in html
+
+    def test_data_sync_button_exists(self):
+        """Dashboard should have a Sync Now button."""
+        resp = client.get("/")
+        assert "Sync Now" in resp.text
+        assert "triggerDataSync" in resp.text

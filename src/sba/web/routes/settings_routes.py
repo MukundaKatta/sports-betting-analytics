@@ -209,3 +209,30 @@ def update_settings_endpoint(req: UpdateSettingsRequest):
     # Clear settings cache so next get_settings() picks up changes
     get_settings.cache_clear()
     return {"updated": updates}
+
+
+@router.post("/data/sync")
+@safe_endpoint
+def trigger_data_sync(
+    sport: str = Query(None),
+    markets: str = Query("h2h,spreads,totals"),
+):
+    """Trigger a data sync from the UI (odds + scores for the given sport)."""
+    settings = get_settings()
+    if not settings.ODDS_API_KEY:
+        return {"status": "skipped", "reason": "ODDS_API_KEY not configured"}
+
+    sport = sport or settings.DEFAULT_SPORT
+
+    from sba.data.sync import DataSyncer
+
+    syncer = DataSyncer()
+    events_synced = syncer.sync_odds(sport, markets)
+    scores_updated = syncer.sync_scores(sport)
+
+    return {
+        "status": "ok",
+        "sport": sport,
+        "events_synced": events_synced,
+        "scores_updated": scores_updated,
+    }

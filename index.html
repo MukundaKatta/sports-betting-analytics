@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sports Betting Analytics</title>
+<meta name="description" content="Betting edge finder & prop bet analyzer — pulls odds from multiple books, runs statistical/ML models, surfaces +EV opportunities in real time">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  :root{--bg:#0a1a0a;--r:80;--g:220;--b:120;--primary:rgb(var(--r),var(--g),var(--b));--glow:rgba(var(--r),var(--g),var(--b),0.15)}
+  html{scroll-behavior:smooth}
+  body{background:var(--bg);color:#e0e0e0;font-family:'Inter',system-ui,sans-serif;overflow-x:hidden;min-height:100vh}
+
+  /* NOISE OVERLAY */
+  body::before{content:'';position:fixed;inset:0;z-index:9999;pointer-events:none;opacity:0.025;
+    background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+
+  /* ANIMATED GRADIENT BG */
+  .bg-gradient{position:fixed;inset:0;z-index:0;overflow:hidden}
+  .bg-gradient .orb{position:absolute;border-radius:50%;filter:blur(120px);opacity:0.12;animation:float 20s ease-in-out infinite}
+  .bg-gradient .orb:nth-child(1){width:600px;height:600px;background:rgb(var(--r),var(--g),var(--b));top:-10%;left:-10%;animation-delay:0s}
+  .bg-gradient .orb:nth-child(2){width:500px;height:500px;background:#2ECC71;bottom:-10%;right:-10%;animation-delay:-7s}
+  .bg-gradient .orb:nth-child(3){width:400px;height:400px;background:#1A8F4E;top:50%;left:50%;transform:translate(-50%,-50%);animation-delay:-14s}
+  @keyframes float{0%,100%{transform:translate(0,0) scale(1)}25%{transform:translate(30px,-40px) scale(1.05)}50%{transform:translate(-20px,30px) scale(0.95)}75%{transform:translate(40px,20px) scale(1.03)}}
+
+  /* GRID PATTERN */
+  .grid-pattern{position:fixed;inset:0;z-index:1;
+    background-image:linear-gradient(rgba(var(--r),var(--g),var(--b),0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(var(--r),var(--g),var(--b),0.03) 1px,transparent 1px);
+    background-size:60px 60px;mask-image:radial-gradient(ellipse 60% 50% at 50% 40%,black 30%,transparent 70%)}
+
+  /* NAV */
+  nav{position:fixed;top:0;left:0;right:0;z-index:100;padding:20px 40px;display:flex;justify-content:space-between;align-items:center;
+    background:linear-gradient(180deg,var(--bg) 0%,transparent 100%);backdrop-filter:blur(10px)}
+  .nav-brand{font-weight:800;font-size:18px;letter-spacing:-0.5px;color:#fff}
+  .nav-brand span{color:var(--primary)}
+  .nav-links{display:flex;gap:24px;align-items:center}
+  .nav-links a{color:rgba(255,255,255,0.5);text-decoration:none;font-size:13px;font-weight:500;letter-spacing:0.5px;transition:color 0.3s}
+  .nav-links a:hover{color:#fff}
+  .nav-cta{padding:8px 20px;background:rgba(var(--r),var(--g),var(--b),0.15);border:1px solid rgba(var(--r),var(--g),var(--b),0.3);border-radius:8px;color:var(--primary);font-weight:600;font-size:13px;text-decoration:none;transition:all 0.3s}
+  .nav-cta:hover{background:rgba(var(--r),var(--g),var(--b),0.25);border-color:rgba(var(--r),var(--g),var(--b),0.5);color:#fff;box-shadow:0 0 30px rgba(var(--r),var(--g),var(--b),0.2)}
+
+  /* HERO */
+  .hero{position:relative;z-index:10;min-height:100vh;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:120px 24px 80px}
+  .hero-badge{display:inline-flex;align-items:center;gap:8px;padding:8px 18px;border-radius:100px;
+    background:rgba(var(--r),var(--g),var(--b),0.08);border:1px solid rgba(var(--r),var(--g),var(--b),0.2);
+    font-size:12px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--primary);margin-bottom:32px}
+  .hero-badge .dot{width:6px;height:6px;border-radius:50%;background:var(--primary);animation:pulse 2s ease-in-out infinite}
+  @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.5;transform:scale(0.8)}}
+  .hero-icon{font-size:64px;margin-bottom:24px;filter:drop-shadow(0 0 40px rgba(var(--r),var(--g),var(--b),0.4))}
+  h1{font-size:clamp(48px,8vw,96px);font-weight:900;letter-spacing:-2px;line-height:0.95;
+    background:linear-gradient(180deg,#fff 0%,rgba(var(--r),var(--g),var(--b),0.8) 100%);
+    -webkit-background-clip:text;background-clip:text;color:transparent;margin-bottom:24px}
+  .hero-desc{font-size:clamp(16px,2vw,20px);line-height:1.7;max-width:640px;color:rgba(255,255,255,0.55);font-weight:400;margin-bottom:48px}
+  .hero-actions{display:flex;gap:16px;flex-wrap:wrap;justify-content:center}
+  .btn-primary{padding:14px 36px;background:linear-gradient(135deg,rgba(var(--r),var(--g),var(--b),0.9),rgba(var(--r),var(--g),var(--b),0.6));
+    color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:700;text-decoration:none;cursor:pointer;
+    transition:all 0.4s;box-shadow:0 4px 20px rgba(var(--r),var(--g),var(--b),0.3)}
+  .btn-primary:hover{transform:translateY(-2px);box-shadow:0 8px 40px rgba(var(--r),var(--g),var(--b),0.5)}
+  .btn-secondary{padding:14px 36px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);
+    color:#fff;border-radius:12px;font-size:15px;font-weight:600;text-decoration:none;cursor:pointer;transition:all 0.4s}
+  .btn-secondary:hover{background:rgba(255,255,255,0.1);border-color:rgba(255,255,255,0.2)}
+
+  /* STATS */
+  .stats{display:flex;gap:48px;margin-top:64px;padding-top:48px;border-top:1px solid rgba(255,255,255,0.06)}
+  .stat{text-align:center}
+  .stat-value{font-size:28px;font-weight:800;color:#fff;font-family:'JetBrains Mono',monospace}
+  .stat-label{font-size:11px;color:rgba(255,255,255,0.35);letter-spacing:1.5px;text-transform:uppercase;margin-top:4px}
+
+  /* FEATURES */
+  .features{position:relative;z-index:10;padding:80px 24px;max-width:1100px;margin:0 auto}
+  .section-label{font-size:12px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--primary);margin-bottom:12px}
+  .section-title{font-size:clamp(28px,4vw,42px);font-weight:800;color:#fff;letter-spacing:-1px;margin-bottom:48px}
+  .feature-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px}
+  .feature-card{padding:32px;border-radius:16px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.05);
+    transition:all 0.4s;position:relative;overflow:hidden}
+  .feature-card:hover{border-color:rgba(var(--r),var(--g),var(--b),0.2);background:rgba(var(--r),var(--g),var(--b),0.03);transform:translateY(-4px)}
+  .feature-card::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;
+    background:linear-gradient(90deg,transparent,rgba(var(--r),var(--g),var(--b),0.3),transparent);opacity:0;transition:opacity 0.4s}
+  .feature-card:hover::before{opacity:1}
+  .feature-icon{font-size:24px;margin-bottom:16px}
+  .feature-card h3{font-size:17px;font-weight:700;color:#fff;margin-bottom:8px}
+  .feature-card p{font-size:14px;line-height:1.6;color:rgba(255,255,255,0.45)}
+
+  /* CODE BLOCK */
+  .code-section{position:relative;z-index:10;padding:60px 24px;max-width:700px;margin:0 auto}
+  .code-block{background:rgba(0,0,0,0.4);border:1px solid rgba(255,255,255,0.06);border-radius:16px;overflow:hidden}
+  .code-header{padding:14px 20px;display:flex;align-items:center;gap:8px;border-bottom:1px solid rgba(255,255,255,0.05)}
+  .code-dot{width:10px;height:10px;border-radius:50%}
+  .code-dot:nth-child(1){background:#ff5f57}
+  .code-dot:nth-child(2){background:#febc2e}
+  .code-dot:nth-child(3){background:#28c840}
+  .code-title{margin-left:12px;font-size:12px;color:rgba(255,255,255,0.3);font-family:'JetBrains Mono',monospace}
+  .code-body{padding:24px;font-family:'JetBrains Mono',monospace;font-size:13px;line-height:1.8;color:rgba(255,255,255,0.6)}
+  .code-body .kw{color:var(--primary)}
+  .code-body .str{color:#2ECC71}
+  .code-body .cmt{color:rgba(255,255,255,0.25)}
+
+  /* FOOTER */
+  footer{position:relative;z-index:10;text-align:center;padding:80px 24px 40px;border-top:1px solid rgba(255,255,255,0.04)}
+  footer p{font-size:13px;color:rgba(255,255,255,0.25)}
+  footer a{color:var(--primary);text-decoration:none}
+
+  /* RESPONSIVE */
+  @media(max-width:768px){
+    nav{padding:16px 20px}
+    .nav-links{display:none}
+    .stats{flex-direction:column;gap:24px}
+    .feature-grid{grid-template-columns:1fr}
+  }
+
+  /* ENTRANCE ANIMATIONS */
+  .fade-up{opacity:0;transform:translateY(30px);animation:fadeUp 0.8s ease forwards}
+  @keyframes fadeUp{to{opacity:1;transform:translateY(0)}}
+  .fade-up:nth-child(2){animation-delay:0.15s}
+  .fade-up:nth-child(3){animation-delay:0.3s}
+  .fade-up:nth-child(4){animation-delay:0.45s}
+  .fade-up:nth-child(5){animation-delay:0.6s}
+</style>
+</head>
+<body>
+
+<div class="bg-gradient">
+  <div class="orb"></div>
+  <div class="orb"></div>
+  <div class="orb"></div>
+</div>
+<div class="grid-pattern"></div>
+
+<nav>
+  <div class="nav-brand"><span>📊</span> Sports Betting Analytics</div>
+  <div class="nav-links">
+    <a href="#features">Features</a>
+    <a href="#quickstart">Quick Start</a>
+    <a href="https://github.com/MukundaKatta/sports-betting-analytics" class="nav-cta" target="_blank" rel="noopener">GitHub →</a>
+  </div>
+</nav>
+
+<section class="hero">
+  <div class="hero-badge fade-up"><span class="dot"></span>Data & Analytics</div>
+  <div class="hero-icon fade-up">📊</div>
+  <h1 class="fade-up">Sports Betting Analytics</h1>
+  <p class="hero-desc fade-up">Betting edge finder & prop bet analyzer — pulls odds from multiple books, runs statistical/ML models, surfaces +EV opportunities in real time</p>
+  <div class="hero-actions fade-up">
+    <a href="https://github.com/MukundaKatta/sports-betting-analytics" class="btn-primary" target="_blank" rel="noopener">View on GitHub</a>
+    <a href="https://github.com/MukundaKatta/sports-betting-analytics#readme" class="btn-secondary" target="_blank" rel="noopener">Documentation</a>
+  </div>
+  <div class="stats fade-up">
+    <div class="stat"><div class="stat-value">MIT</div><div class="stat-label">License</div></div>
+    <div class="stat"><div class="stat-value">Data</div><div class="stat-label">Domain</div></div>
+    <div class="stat"><div class="stat-value">v1.0</div><div class="stat-label">Version</div></div>
+  </div>
+</section>
+
+<section class="features" id="features">
+  <div class="section-label">Capabilities</div>
+  <div class="section-title">What it does</div>
+  <div class="feature-grid">
+    <div class="feature-card">
+      <div class="feature-icon">⚡</div>
+      <h3>High Performance</h3>
+      <p>Built for speed and reliability with modern architecture patterns and optimized workflows.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🔧</div>
+      <h3>Easy Integration</h3>
+      <p>Simple APIs and clear documentation make it effortless to integrate into your existing stack.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🚀</div>
+      <h3>Production Ready</h3>
+      <p>Battle-tested components designed for real-world deployment at any scale.</p>
+    </div>
+  </div>
+</section>
+
+<section class="code-section" id="quickstart">
+  <div class="code-block">
+    <div class="code-header">
+      <div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div>
+      <span class="code-title">terminal</span>
+    </div>
+    <div class="code-body">
+      <span class="cmt"># Clone the repository</span><br>
+      <span class="kw">git clone</span> <span class="str">https://github.com/MukundaKatta/sports-betting-analytics.git</span><br>
+      <span class="kw">cd</span> sports-betting-analytics<br><br>
+      <span class="cmt"># Get started</span><br>
+      <span class="kw">cat</span> README.md
+    </div>
+  </div>
+</section>
+
+<footer>
+  <p>Built by <a href="https://github.com/MukundaKatta" target="_blank" rel="noopener">MukundaKatta</a> · <a href="https://github.com/MukundaKatta/sports-betting-analytics" target="_blank" rel="noopener">Sports Betting Analytics</a></p>
+</footer>
+
+</body>
+</html>

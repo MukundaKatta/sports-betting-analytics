@@ -2,7 +2,7 @@
 
 **Live:** <https://mukundakatta.github.io/sports-betting-analytics/>
 
-Betting edge finder & prop bet analyzer — pulls odds from multiple books, runs statistical/ML models, surfaces +EV opportunities in real time. sports-betting-analytics gives you a focused, inspectable implementation of that idea.
+Betting edge finder & prop bet analyzer — pulls odds from multiple books, runs statistical/ML models, surfaces +EV opportunities in real time.
 
 ## Why sports-betting-analytics
 

@@ -6,6 +6,7 @@ from sba.services.backtester import (
     Backtester,
     StrategyBacktestResult,
     run_backtest,
+    run_signal_backtest,
     WARMUP_GAMES,
     SIMULATED_ODDS_DECIMAL,
 )
@@ -90,3 +91,58 @@ class TestRunBacktest:
     def test_max_drawdown_non_negative(self):
         result = run_backtest(_bets(5, 5))
         assert result.max_drawdown >= 0
+
+
+class TestRunSignalBacktest:
+    def test_filters_by_edge_and_line_movement(self):
+        result = run_signal_backtest([
+            {
+                "event": "A",
+                "selection": "home",
+                "odds_american": -110,
+                "odds_decimal": 1.91,
+                "closing_odds_american": -120,
+                "edge_pct": 4.5,
+                "line_movement_pct": 3.1,
+                "result": "win",
+            },
+            {
+                "event": "B",
+                "selection": "away",
+                "odds_american": -110,
+                "odds_decimal": 1.91,
+                "closing_odds_american": -105,
+                "edge_pct": 0.5,
+                "line_movement_pct": 0.2,
+                "result": "loss",
+            },
+        ], min_edge=2.0, min_line_movement=1.0)
+        assert result.total_bets == 1
+        assert result.strategy_breakdown["sample_size"] == 1
+
+    def test_calculates_clv_breakdown(self):
+        result = run_signal_backtest([
+            {
+                "event": "A",
+                "selection": "home",
+                "odds_american": -110,
+                "odds_decimal": 1.91,
+                "closing_odds_american": -120,
+                "edge_pct": 5.0,
+                "line_movement_pct": 4.0,
+                "result": "win",
+            },
+            {
+                "event": "B",
+                "selection": "away",
+                "odds_american": 140,
+                "odds_decimal": 2.4,
+                "closing_odds_american": 120,
+                "edge_pct": 6.0,
+                "line_movement_pct": 2.5,
+                "result": "loss",
+            },
+        ], min_edge=2.0, min_line_movement=1.0)
+        assert result.strategy_breakdown["avg_edge_pct"] == 5.5
+        assert result.strategy_breakdown["avg_line_movement_pct"] == 3.25
+        assert result.strategy_breakdown["beat_closing_pct"] == 100.0

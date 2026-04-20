@@ -19,6 +19,7 @@ from sba.models.ml.features import (
 )
 from sba.models.ml.xgboost_props import PropPredictionModel
 from sba.models.statistical.kelly import fractional_kelly
+from sba.services.sharp_money import calculate_clv
 
 logger = logging.getLogger(__name__)
 
@@ -346,6 +347,7 @@ class StrategyBacktestResult:
     ending_bankroll: float = 10000.0
     peak_bankroll: float = 10000.0
     equity_curve: list = field(default_factory=list)
+    strategy_breakdown: dict = field(default_factory=dict)
 
 
 def run_backtest(
@@ -516,3 +518,65 @@ def run_backtest(
         peak_bankroll=round(peak, 2),
         equity_curve=equity_curve,
     )
+
+
+def run_signal_backtest(
+    signals: list[dict],
+    strategy_name: str = "Line Movement + EV",
+    min_edge: float = 0.0,
+    min_line_movement: float = 0.0,
+    **kwargs,
+) -> StrategyBacktestResult:
+    """Backtest historical line-movement and +EV signals on a fixed sample.
+
+    Signals should contain normal bet fields plus optional:
+    - ``edge_pct``: expected edge percentage
+    - ``line_movement_pct``: size of line move in percent
+    - ``closing_odds_american``: used to calculate CLV
+    """
+    filtered = [
+        signal
+        for signal in signals
+        if signal.get("edge_pct", 0.0) >= min_edge
+        and abs(signal.get("line_movement_pct", 0.0)) >= min_line_movement
+    ]
+
+    result = run_backtest(filtered, strategy_name=strategy_name, min_edge=min_edge, **kwargs)
+
+    if not filtered:
+        result.strategy_breakdown = {
+            "sample_size": 0,
+            "avg_edge_pct": 0.0,
+            "avg_line_movement_pct": 0.0,
+            "avg_clv_pct": 0.0,
+            "beat_closing_pct": 0.0,
+        }
+        return result
+
+    avg_edge = sum(signal.get("edge_pct", 0.0) for signal in filtered) / len(filtered)
+    avg_line_movement = (
+        sum(abs(signal.get("line_movement_pct", 0.0)) for signal in filtered) / len(filtered)
+    )
+
+    clv_values: list[float] = []
+    beat_closing = 0
+    for signal in filtered:
+        closing_odds = signal.get("closing_odds_american")
+        if closing_odds is None:
+            continue
+        clv = calculate_clv(
+            placed_odds_american=signal.get("odds_american", -110),
+            closing_odds_american=closing_odds,
+        )
+        clv_values.append(clv["clv_percentage"])
+        if clv["beat_closing"]:
+            beat_closing += 1
+
+    result.strategy_breakdown = {
+        "sample_size": len(filtered),
+        "avg_edge_pct": round(avg_edge, 2),
+        "avg_line_movement_pct": round(avg_line_movement, 2),
+        "avg_clv_pct": round(sum(clv_values) / len(clv_values), 2) if clv_values else 0.0,
+        "beat_closing_pct": round((beat_closing / len(clv_values)) * 100, 1) if clv_values else 0.0,
+    }
+    return result

@@ -4,14 +4,15 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime
+from typing import ClassVar
 
 import httpx
 
 from sba.data.clients.base import BaseAPIClient
-
-logger = logging.getLogger(__name__)
 from sba.models.domain import BookmakerOdds, Event, EventOdds, Outcome, Sport
 from sba.utils.odds_math import american_to_decimal, decimal_to_american
+
+logger = logging.getLogger(__name__)
 
 
 class OddsAPIClient(BaseAPIClient):
@@ -160,7 +161,7 @@ class OddsAPIClient(BaseAPIClient):
         return results
 
     # Player prop market keys
-    PROP_MARKETS = [
+    PROP_MARKETS: ClassVar[list[str]] = [
         "player_points", "player_rebounds", "player_assists",
         "player_threes", "player_blocks", "player_steals",
         "player_points_rebounds_assists", "player_points_rebounds",

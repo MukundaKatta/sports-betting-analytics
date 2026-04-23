@@ -44,12 +44,10 @@ def get_connection():
     Falls back to creating a new connection if the pooled one is stale.
     """
     conn = getattr(_thread_local, "conn", None)
-    reused = False
 
     if conn is not None:
         try:
             conn.execute("SELECT 1")
-            reused = True
         except (sqlite3.ProgrammingError, sqlite3.OperationalError):
             conn = None
 

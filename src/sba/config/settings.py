@@ -1,6 +1,5 @@
 from functools import lru_cache
 from pathlib import Path
-from typing import List
 
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -21,7 +20,7 @@ class Settings(BaseSettings):
     BANKROLL: float = 1000.0
 
     # Sharp bookmakers for consensus probability
-    SHARP_BOOKS: List[str] = ["pinnacle", "circa"]
+    SHARP_BOOKS: list[str] = ["pinnacle", "circa"]
 
     # API rate limits
     ODDS_API_CREDIT_RESERVE: int = 50

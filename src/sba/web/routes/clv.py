@@ -92,6 +92,7 @@ def clv_summary():
             FROM closing_lines cl
             JOIN bets b ON cl.bet_id = b.id
             ORDER BY cl.captured_at DESC
+            LIMIT 5000
         """).fetchall()
 
     if not rows:

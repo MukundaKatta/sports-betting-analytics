@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from sba.config import get_settings
@@ -140,6 +140,8 @@ def bankroll_withdraw(req: BankrollActionRequest):
             "SELECT amount FROM bankroll_log ORDER BY created_at DESC LIMIT 1"
         ).fetchone()
         current = last["amount"] if last else get_settings().BANKROLL
+        if req.amount > current:
+            raise HTTPException(400, "Withdrawal exceeds current balance")
         new_balance = current - req.amount
         conn.execute(
             "INSERT INTO bankroll_log (amount, change, reason) VALUES (?, ?, ?)",

@@ -75,6 +75,11 @@ def create_notification_rule(req: NotificationRuleRequest):
 def update_notification_rule(rule_id: int, req: NotificationRuleRequest):
     """Update a notification rule."""
     with get_connection() as conn:
+        existing = conn.execute(
+            "SELECT id FROM notification_rules WHERE id = ?", (rule_id,)
+        ).fetchone()
+        if not existing:
+            raise HTTPException(404, "Notification rule not found")
         conn.execute(
             """UPDATE notification_rules SET
                name=?, rule_type=?, sport=?, min_ev=?, min_odds=?, max_odds=?,

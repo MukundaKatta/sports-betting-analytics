@@ -78,7 +78,7 @@ def _get_user_stats() -> dict:
     """Gather user stats for achievement evaluation."""
     with get_connection() as conn:
         bets = conn.execute(
-            "SELECT * FROM bets WHERE status IN ('won','lost','push')"
+            "SELECT * FROM bets WHERE status IN ('won','lost','push') LIMIT 50000"
         ).fetchall()
         picks = conn.execute("SELECT COUNT(*) as cnt FROM public_picks").fetchone()
 
@@ -798,6 +798,7 @@ def get_correlation_warnings():
 
 @router.get("/roi-forecast")
 @cached_response(ttl=180, prefix="roi_forecast")
+@safe_endpoint
 def get_roi_forecast():
     """Project future ROI using bootstrap resampling of historical results.
 
@@ -845,6 +846,7 @@ def get_roi_forecast():
 
 @router.get("/bet-timing")
 @cached_response(ttl=120, prefix="bet_timing")
+@safe_endpoint
 def get_bet_timing():
     """Analyze when you place your most profitable bets.
 
@@ -884,6 +886,7 @@ def get_bet_timing():
 
 @router.get("/risk-metrics")
 @cached_response(ttl=120, prefix="risk_metrics")
+@safe_endpoint
 def get_risk_metrics():
     """Get institutional-grade risk-adjusted performance metrics.
 
@@ -940,6 +943,8 @@ def get_risk_metrics():
 # ── Dashboard Summary ──────────────────────────────────────────
 
 @router.get("/dashboard/summary")
+@cached_response(ttl=120, prefix="dashboard_summary")
+@safe_endpoint
 def get_dashboard_summary():
     """Aggregated dashboard data in a single API call.
 
@@ -1052,6 +1057,7 @@ def get_dashboard_summary():
 # ── Performance Digest ──────────────────────────────────────────
 
 @router.get("/performance/digest")
+@safe_endpoint
 def get_performance_digest(period: str = "weekly"):
     """Get structured performance digest (weekly or monthly).
 
@@ -1113,6 +1119,7 @@ def get_performance_digest(period: str = "weekly"):
 
 
 @router.get("/analytics/export")
+@safe_endpoint
 def api_analytics_export(
     format: str = Query("csv", pattern="^(csv|json)$"),
     status: str = Query("settled", pattern="^(settled|all|pending)$"),
@@ -1127,15 +1134,15 @@ def api_analytics_export(
     with get_connection() as conn:
         if status == "settled":
             rows = conn.execute(
-                "SELECT * FROM bets WHERE status IN ('won','lost','push') ORDER BY placed_at DESC"
+                "SELECT * FROM bets WHERE status IN ('won','lost','push') ORDER BY placed_at DESC LIMIT 50000"
             ).fetchall()
         elif status == "pending":
             rows = conn.execute(
-                "SELECT * FROM bets WHERE status = 'pending' ORDER BY placed_at DESC"
+                "SELECT * FROM bets WHERE status = 'pending' ORDER BY placed_at DESC LIMIT 50000"
             ).fetchall()
         else:
             rows = conn.execute(
-                "SELECT * FROM bets ORDER BY placed_at DESC"
+                "SELECT * FROM bets ORDER BY placed_at DESC LIMIT 50000"
             ).fetchall()
 
     if not rows:

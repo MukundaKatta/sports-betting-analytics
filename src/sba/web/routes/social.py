@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 
 from fastapi import APIRouter, HTTPException, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from sba.data.db import get_connection
 from sba.utils.cache import cached_response
@@ -35,8 +35,8 @@ class SubmitPickRequest(BaseModel):
     selection: str
     odds_american: int
     line: float | None = None
-    confidence: str = "medium"
-    analysis: str = ""
+    confidence: str = Field("medium", max_length=20)
+    analysis: str = Field("", max_length=1000)
 
 
 class SettlePickRequest(BaseModel):

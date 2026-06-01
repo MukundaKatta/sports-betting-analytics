@@ -8,7 +8,7 @@ import logging
 
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from sba.data.db import get_connection
 from sba.web.api import repo
@@ -67,11 +67,11 @@ class SettleBetRequest(BaseModel):
 
 
 class AddTagRequest(BaseModel):
-    tag: str
+    tag: str = Field(..., max_length=50)
 
 
 class AddNoteRequest(BaseModel):
-    note: str
+    note: str = Field(..., max_length=500)
 
 
 # ── Endpoints ────────────────────────────────────────────────────────
@@ -180,6 +180,9 @@ def settle_bet(bet_id: int, req: SettleBetRequest):
         raise HTTPException(400, "Status must be 'won', 'lost', or 'push'")
 
     with get_connection() as conn:
+        existing = conn.execute("SELECT id FROM bets WHERE id = ?", (bet_id,)).fetchone()
+        if not existing:
+            raise HTTPException(404, "Bet not found")
         repo.update_bet_result(conn, bet_id, req.status, req.profit_loss)
     return {"id": bet_id, "status": req.status, "profit_loss": req.profit_loss}
 
@@ -198,7 +201,7 @@ def delete_bet(bet_id: int):
 def export_bets_csv():
     """Export bet history as CSV file."""
     with get_connection() as conn:
-        bets = repo.get_bet_history(conn)
+        bets = repo.get_bet_history(conn, limit=50000)
 
     output = io.StringIO()
     writer = csv.writer(output)
@@ -233,7 +236,7 @@ def export_bets_csv():
 def export_bets_json():
     """Export bet history as JSON."""
     with get_connection() as conn:
-        bets = repo.get_bet_history(conn)
+        bets = repo.get_bet_history(conn, limit=50000)
 
     return [
         {

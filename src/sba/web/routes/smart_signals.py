@@ -47,6 +47,7 @@ def api_pattern_detail(pattern_key: str):
 
 
 @router.post("/signals/rate")
+@safe_endpoint
 def api_rate_opportunity(
     ev_pct: float = Query(0.0),
     edge_pct: float = Query(None),

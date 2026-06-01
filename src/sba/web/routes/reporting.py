@@ -7,8 +7,9 @@ from __future__ import annotations
 
 import csv
 import io
+from datetime import datetime
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import StreamingResponse
 
 from sba.services.reporting import (
@@ -70,6 +71,13 @@ def api_export_bets(
     end_date: str = Query(None, description="End date YYYY-MM-DD"),
 ):
     """Export bet data with optional filters. Supports JSON and CSV formats."""
+    for _label, _val in [("start_date", start_date), ("end_date", end_date)]:
+        if _val is not None:
+            try:
+                datetime.strptime(_val, "%Y-%m-%d")
+            except ValueError:
+                raise HTTPException(422, "Invalid date format")
+
     data = export_bets(
         format=fmt,
         status=status,

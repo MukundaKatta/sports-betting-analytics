@@ -501,7 +501,7 @@ const SBA = {
                 </tr>`;
             }).join('');
         } catch (err) {
-            tableBody.innerHTML = `<tr><td colspan="9" class="empty-state text-red">Error loading bets</td></tr>`;
+            tableBody.innerHTML = `<tr><td colspan="9" class="empty-state text-red">Error loading bets: ${escapeHtml(err.message)}</td></tr>`;
         }
     },
 
@@ -570,8 +570,8 @@ const SBA = {
                             <tbody>
                                 ${p.recent_games.map((g, i) => `
                                 <tr class="new-row" style="animation-delay:${i * 0.03}s">
-                                    <td class="text-dim">${g.date}</td>
-                                    <td>${g.opponent}</td>
+                                    <td class="text-dim">${escapeHtml(g.date)}</td>
+                                    <td>${escapeHtml(g.opponent)}</td>
                                     <td class="right font-mono">${Math.round(g.minutes)}</td>
                                     <td class="right font-mono font-bold">${g.points}</td>
                                     <td class="right font-mono">${g.rebounds}</td>
@@ -1193,15 +1193,15 @@ const SBA = {
                     <div style="display:grid;gap:12px">
                         <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border-light)">
                             <span class="text-secondary">Version</span>
-                            <span class="font-mono">${health.version}</span>
+                            <span class="font-mono">${escapeHtml(health.version)}</span>
                         </div>
                         <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border-light)">
                             <span class="text-secondary">Uptime</span>
-                            <span class="font-mono">${health.uptime}</span>
+                            <span class="font-mono">${escapeHtml(health.uptime)}</span>
                         </div>
                         <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border-light)">
                             <span class="text-secondary">Database</span>
-                            <span class="confidence-badge ${health.database === 'healthy' ? 'high' : ''}" style="${health.database !== 'healthy' ? 'background:var(--accent-red-dim);color:var(--accent-red)' : ''}">${health.database.toUpperCase()}</span>
+                            <span class="confidence-badge ${health.database === 'healthy' ? 'high' : ''}" style="${health.database !== 'healthy' ? 'background:var(--accent-red-dim);color:var(--accent-red)' : ''}">${escapeHtml(health.database.toUpperCase())}</span>
                         </div>
                         <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0">
                             <span class="text-secondary">API Docs</span>
@@ -2134,7 +2134,7 @@ const SBA = {
 
             grid.innerHTML = wl.items.map((item, i) => {
                 const evt = evtMap[item.event_id];
-                const teams = evt ? `${evt.away_team} @ ${evt.home_team}` : item.label || item.event_id;
+                const teams = evt ? `${escapeHtml(evt.away_team)} @ ${escapeHtml(evt.home_team)}` : escapeHtml(item.label || item.event_id);
                 const time = item.added_at ? new Date(item.added_at).toLocaleDateString() : '';
                 return `
                 <div class="watchlist-card" style="animation-delay:${i * 0.05}s;animation:stagger-in 0.5s cubic-bezier(0.2,0,0,1) forwards;opacity:0">
@@ -2858,8 +2858,8 @@ const SBA = {
                                             const isCold = g.points <= (p.last_20.points || 0) * 0.5;
                                             return `
                                             <tr class="new-row ${isHot ? 'hot-row' : isCold ? 'cold-row' : ''}" style="animation-delay:${i * 0.03}s">
-                                                <td class="text-dim">${g.date}</td>
-                                                <td>${g.opponent}</td>
+                                                <td class="text-dim">${escapeHtml(g.date)}</td>
+                                                <td>${escapeHtml(g.opponent)}</td>
                                                 <td class="right font-mono">${Math.round(g.minutes)}</td>
                                                 <td class="right font-mono font-bold">${g.points}</td>
                                                 <td class="right font-mono">${g.rebounds}</td>

@@ -348,6 +348,7 @@ def line_movement_timeline(event_id: str, market: str = Query("h2h")):
             FROM odds_snapshots
             WHERE event_id = ? AND market = ?
             ORDER BY snapshot_time
+            LIMIT 1000
         """, (event_id, market)).fetchall()
 
         event = conn.execute(
